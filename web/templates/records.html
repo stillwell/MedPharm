@@ -1,0 +1,65 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Medical Records - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <h2 class="mb-4"><i class="fas fa-file-medical me-2"></i>Medical Records</h2>
+
+    <div class="mb-4">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('portal.records') }}" class="btn btn-{{ 'primary' if selected_type == 'all' else 'outline-primary' }}">All</a>
+            <a href="{{ url_for('portal.records', type='visit_note') }}" class="btn btn-{{ 'primary' if selected_type == 'visit_note' else 'outline-primary' }}"><i class="fas fa-stethoscope me-1"></i>Visit Notes</a>
+            <a href="{{ url_for('portal.records', type='lab_result') }}" class="btn btn-{{ 'primary' if selected_type == 'lab_result' else 'outline-primary' }}"><i class="fas fa-flask me-1"></i>Lab Results</a>
+            <a href="{{ url_for('portal.records', type='imaging') }}" class="btn btn-{{ 'primary' if selected_type == 'imaging' else 'outline-primary' }}"><i class="fas fa-x-ray me-1"></i>Imaging</a>
+            <a href="{{ url_for('portal.records', type='procedure') }}" class="btn btn-{{ 'primary' if selected_type == 'procedure' else 'outline-primary' }}"><i class="fas fa-procedures me-1"></i>Procedures</a>
+            <a href="{{ url_for('portal.records', type='referral') }}" class="btn btn-{{ 'primary' if selected_type == 'referral' else 'outline-primary' }}"><i class="fas fa-share me-1"></i>Referrals</a>
+        </div>
+    </div>
+
+    {% if records %}
+        {% for record in records %}
+        <div class="portal-card mb-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    {% set type_icons = {'visit_note':'stethoscope','lab_result':'flask','imaging':'x-ray','procedure':'procedures','referral':'share','other':'file'} %}
+                    {% set type_colors = {'visit_note':'info','lab_result':'success','imaging':'primary','procedure':'warning','referral':'danger','other':'secondary'} %}
+                    <span class="badge bg-{{ type_colors.get(record.record_type, 'secondary') }} me-2">
+                        <i class="fas fa-{{ type_icons.get(record.record_type, 'file') }} me-1"></i>
+                        {{ record.record_type | replace('_', ' ') | title }}
+                    </span>
+                    <h5 class="d-inline">{{ record.title }}</h5>
+                </div>
+                <small class="text-muted">{{ record.record_date }}</small>
+            </div>
+            <small class="text-muted d-block mb-2">Provider: {{ record.provider }}</small>
+            <div class="record-content mt-2">
+                <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">{{ record.content }}</pre>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-file-medical fa-3x mb-3"></i>
+            <p>No medical records found</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

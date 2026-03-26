@@ -1,0 +1,113 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}My Medications - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <h2 class="mb-4"><i class="fas fa-pills me-2"></i>My Current Medications</h2>
+
+    {% if medications %}
+        <div class="row g-4">
+            {% for med in medications %}
+            <div class="col-md-6">
+                <div class="portal-card medication-detail-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h4 class="text-primary mb-0">{{ med.brand_name }}</h4>
+                            <small class="text-muted">{{ med.generic_name }}</small>
+                        </div>
+                        {% if med.is_controlled %}
+                        <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>Controlled</span>
+                        {% endif %}
+                    </div>
+                    <hr>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Dosage</small>
+                            <strong>{{ med.dosage }}</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Frequency</small>
+                            <strong>{{ med.frequency }}</strong>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Form</small>
+                            {{ (med.form or '') | title }}
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Drug Class</small>
+                            {{ med.drug_class }}
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Prescribed By</small>
+                            {{ med.prescriber_name }}
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Refills Remaining</small>
+                            <span class="{{ 'text-danger' if med.refills_remaining == 0 else 'text-success' }}">
+                                {{ med.refills_remaining }}/{{ med.refills_allowed }}
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if med.instructions %}
+                    <div class="alert alert-info py-2 mt-2">
+                        <i class="fas fa-info-circle me-2"></i><strong>Instructions:</strong> {{ med.instructions }}
+                    </div>
+                    {% endif %}
+
+                    <div class="accordion mt-3" id="medInfo{{ loop.index }}">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sideEffects{{ loop.index }}">
+                                    <i class="fas fa-exclamation-circle me-2 text-warning"></i>Side Effects
+                                </button>
+                            </h2>
+                            <div id="sideEffects{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"><small>{{ med.side_effects or 'No information available' }}</small></div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#indications{{ loop.index }}">
+                                    <i class="fas fa-book-medical me-2 text-primary"></i>Uses & Indications
+                                </button>
+                            </h2>
+                            <div id="indications{{ loop.index }}" class="accordion-collapse collapse">
+                                <div class="accordion-body"><small>{{ med.indications or 'No information available' }}</small></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-pills fa-3x mb-3"></i>
+            <p>No active medications</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

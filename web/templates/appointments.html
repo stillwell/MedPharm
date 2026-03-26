@@ -1,0 +1,86 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Appointments - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <h2 class="mb-4"><i class="fas fa-calendar-check me-2"></i>My Appointments</h2>
+
+    <h5 class="text-primary mb-3"><i class="fas fa-clock me-2"></i>Upcoming Appointments</h5>
+    {% if upcoming %}
+        <div class="row g-3 mb-4">
+            {% for appt in upcoming %}
+            <div class="col-md-6">
+                <div class="portal-card appt-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="text-primary mb-1">
+                                <i class="fas fa-calendar me-2"></i>{{ appt.scheduled_datetime }}
+                            </h5>
+                            <p class="mb-1">
+                                <strong>{{ appt.appointment_type | replace('_', ' ') | title }}</strong>
+                                with {{ appt.provider_name }}
+                            </p>
+                            <p class="text-muted mb-1">Duration: {{ appt.duration_minutes }} minutes</p>
+                            {% if appt.reason %}
+                            <small class="text-muted"><i class="fas fa-comment me-1"></i>{{ appt.reason }}</small>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-{{ 'info' if appt.status == 'scheduled' else 'success' }} fs-6">
+                            {{ appt.status | title }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-4 text-muted mb-4">
+            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+            <p>No upcoming appointments</p>
+        </div>
+    {% endif %}
+
+    <h5 class="text-muted mb-3"><i class="fas fa-history me-2"></i>Past Appointments</h5>
+    {% if past %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr><th>Date/Time</th><th>Provider</th><th>Type</th><th>Duration</th><th>Status</th><th>Reason</th></tr>
+                </thead>
+                <tbody>
+                    {% for appt in past %}
+                    <tr class="opacity-75">
+                        <td>{{ appt.scheduled_datetime }}</td>
+                        <td>{{ appt.provider_name }}</td>
+                        <td>{{ appt.appointment_type | replace('_', ' ') | title }}</td>
+                        <td>{{ appt.duration_minutes }} min</td>
+                        <td><span class="badge bg-{{ {'completed':'success','cancelled':'danger','no_show':'warning'}[appt.status] }}">{{ appt.status | replace('_', ' ') | title }}</span></td>
+                        <td>{{ appt.reason or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">No past appointments</p>
+    {% endif %}
+</div>
+{% endblock %}

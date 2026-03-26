@@ -1,0 +1,328 @@
+/*
+ * MedPharm ERP - Medical & Pharmaceutical Management System
+ * Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+ * Author: Robert Andrew Stillwell
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/* ── MedPharm ERP - Patient Portal Stylesheet ──────────────────── */
+
+:root {
+    --mp-primary: #00897B;
+    --mp-primary-dark: #00695C;
+    --mp-secondary: #263238;
+    --mp-success: #43A047;
+    --mp-warning: #FB8C00;
+    --mp-danger: #E53935;
+    --mp-info: #039BE5;
+    --mp-bg: #0f1318;
+    --mp-surface: #1a1f28;
+    --mp-surface-2: #222831;
+    --mp-border: #2a3040;
+    --mp-text: #e0e0e0;
+    --mp-text-muted: #808a98;
+}
+
+body {
+    background-color: var(--mp-bg);
+    color: var(--mp-text);
+    font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ── Navbar ─────────────────────────────────────────── */
+.navbar {
+    background-color: var(--mp-secondary) !important;
+    border-bottom: 1px solid var(--mp-border);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    padding: 8px 20px;
+}
+.navbar-brand {
+    color: var(--mp-primary) !important;
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+.navbar-brand:hover { color: #26A69A !important; }
+.nav-link { color: #b0bec5 !important; transition: color 0.2s; }
+.nav-link:hover { color: var(--mp-primary) !important; }
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: -5px;
+    font-size: 0.65rem;
+    padding: 2px 5px;
+}
+
+/* ── Main Content ───────────────────────────────────── */
+.main-content {
+    margin-top: 65px;
+    min-height: calc(100vh - 120px);
+    padding-bottom: 20px;
+}
+
+/* ── Footer ─────────────────────────────────────────── */
+.footer {
+    background-color: var(--mp-secondary);
+    border-top: 1px solid var(--mp-border);
+}
+
+/* ── Auth Pages ─────────────────────────────────────── */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+.auth-card {
+    background-color: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: 16px;
+    padding: 40px;
+    width: 100%;
+    max-width: 450px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.auth-logo {
+    font-size: 48px;
+    color: var(--mp-primary);
+    margin-bottom: 12px;
+}
+.auth-header h2 {
+    color: var(--mp-primary);
+    font-weight: 700;
+}
+
+/* ── Portal Cards ───────────────────────────────────── */
+.portal-card {
+    background-color: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 0;
+    transition: border-color 0.2s;
+}
+.portal-card:hover {
+    border-color: #3a4050;
+}
+.card-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--mp-border);
+}
+.card-header-custom h5 {
+    margin: 0;
+    color: var(--mp-primary);
+}
+
+/* ── KPI Cards ──────────────────────────────────────── */
+.kpi-card {
+    background-color: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.kpi-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    opacity: 0.8;
+}
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+.kpi-label {
+    font-size: 0.85rem;
+    color: var(--mp-text-muted);
+    margin-top: 4px;
+}
+.kpi-primary .kpi-icon { color: var(--mp-primary); }
+.kpi-primary { border-top: 3px solid var(--mp-primary); }
+.kpi-success .kpi-icon { color: var(--mp-success); }
+.kpi-success { border-top: 3px solid var(--mp-success); }
+.kpi-danger .kpi-icon { color: var(--mp-danger); }
+.kpi-danger { border-top: 3px solid var(--mp-danger); }
+.kpi-info .kpi-icon { color: var(--mp-info); }
+.kpi-info { border-top: 3px solid var(--mp-info); }
+.kpi-warning .kpi-icon { color: var(--mp-warning); }
+.kpi-warning { border-top: 3px solid var(--mp-warning); }
+
+/* ── Welcome Banner ─────────────────────────────────── */
+.welcome-banner {
+    background: linear-gradient(135deg, var(--mp-primary-dark), var(--mp-primary));
+    border-radius: 12px;
+    padding: 24px 32px;
+    color: white;
+}
+.welcome-banner h2 { color: white; margin-bottom: 4px; }
+
+/* ── Prescription Cards ─────────────────────────────── */
+.rx-summary-card, .appt-card, .medication-card {
+    background-color: var(--mp-surface-2);
+    border: 1px solid var(--mp-border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.medication-detail-card {
+    height: 100%;
+}
+
+/* ── Tables ─────────────────────────────────────────── */
+.table {
+    color: var(--mp-text);
+}
+.table thead th {
+    border-bottom: 2px solid var(--mp-primary);
+    color: var(--mp-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 137, 123, 0.1);
+}
+.table-danger {
+    background-color: rgba(229, 57, 53, 0.1) !important;
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+.btn-primary {
+    background-color: var(--mp-primary);
+    border-color: var(--mp-primary);
+}
+.btn-primary:hover {
+    background-color: var(--mp-primary-dark);
+    border-color: var(--mp-primary-dark);
+}
+.btn-outline-primary {
+    color: var(--mp-primary);
+    border-color: var(--mp-primary);
+}
+.btn-outline-primary:hover {
+    background-color: var(--mp-primary);
+    border-color: var(--mp-primary);
+    color: white;
+}
+.btn-success {
+    background-color: var(--mp-success);
+    border-color: var(--mp-success);
+}
+
+/* ── Forms ──────────────────────────────────────────── */
+.form-control, .form-select {
+    background-color: var(--mp-surface-2);
+    border-color: var(--mp-border);
+    color: var(--mp-text);
+}
+.form-control:focus, .form-select:focus {
+    background-color: var(--mp-surface-2);
+    border-color: var(--mp-primary);
+    color: var(--mp-text);
+    box-shadow: 0 0 0 0.2rem rgba(0,137,123,0.25);
+}
+.form-label { color: var(--mp-text-muted); font-weight: 500; font-size: 0.9rem; }
+
+/* ── Badges ─────────────────────────────────────────── */
+.badge { font-weight: 500; padding: 5px 10px; }
+
+/* ── Alerts ─────────────────────────────────────────── */
+.alert { border-radius: 8px; }
+
+/* ── Accordion ──────────────────────────────────────── */
+.accordion-item {
+    background-color: var(--mp-surface-2);
+    border-color: var(--mp-border);
+}
+.accordion-button {
+    background-color: var(--mp-surface-2);
+    color: var(--mp-text);
+}
+.accordion-button:not(.collapsed) {
+    background-color: rgba(0,137,123,0.1);
+    color: var(--mp-primary);
+}
+.accordion-body {
+    background-color: var(--mp-surface);
+}
+
+/* ── Tabs ───────────────────────────────────────────── */
+.nav-tabs {
+    border-bottom-color: var(--mp-border);
+}
+.nav-tabs .nav-link {
+    color: var(--mp-text-muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 20px;
+}
+.nav-tabs .nav-link:hover {
+    color: var(--mp-text);
+    border-bottom-color: rgba(0,137,123,0.5);
+}
+.nav-tabs .nav-link.active {
+    color: var(--mp-primary);
+    background-color: transparent;
+    border-bottom-color: var(--mp-primary);
+}
+
+/* ── Dropdown ───────────────────────────────────────── */
+.dropdown-menu {
+    background-color: var(--mp-surface);
+    border-color: var(--mp-border);
+}
+.dropdown-item {
+    color: var(--mp-text);
+}
+.dropdown-item:hover {
+    background-color: var(--mp-surface-2);
+    color: var(--mp-primary);
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .kpi-value { font-size: 1.5rem; }
+    .portal-card { padding: 16px; }
+    .auth-card { padding: 24px; }
+    .welcome-banner { padding: 16px 20px; }
+}
+
+/* ── Print ──────────────────────────────────────────── */
+@media print {
+    .navbar, .footer, .btn, .nav-tabs { display: none !important; }
+    .main-content { margin-top: 0; }
+    body { background: white; color: black; }
+    .portal-card { border: 1px solid #ddd; }
+}
+
+/* ── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--mp-bg); }
+::-webkit-scrollbar-thumb { background: #3a4050; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #4a5060; }

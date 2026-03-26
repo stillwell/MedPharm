@@ -1,0 +1,12 @@
+installation information:
+
+# Install dependencies
+  pip install Flask SQLAlchemy Werkzeug matplotlib numpy PyQt6
+
+  # Launch the web portal (patients)
+  python3 medical_erp/run_web.py
+  # → http://localhost:5000  (login: jsmith_portal / patient123)
+
+  # Launch the Qt desktop app (doctors)
+  python3 medical_erp/run_qt.py
+  # → Login: dr.carter / doctor123  (or dr.brooks for psychiatrist)

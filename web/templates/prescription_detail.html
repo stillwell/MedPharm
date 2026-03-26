@@ -1,0 +1,97 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Prescription {{ rx.rx_number }} - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('portal.prescriptions') }}">Prescriptions</a></li>
+            <li class="breadcrumb-item active">{{ rx.rx_number }}</li>
+        </ol>
+    </nav>
+
+    <div class="portal-card mb-4">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h3 class="text-primary">{{ rx.rx_number }}</h3>
+                <p class="text-muted mb-0">Prescribed by {{ rx.prescriber_name }}</p>
+            </div>
+            <span class="badge bg-{{ {'active':'success','pending':'warning','filled':'info','expired':'danger','cancelled':'secondary'}[rx.status] }} fs-6">{{ rx.status | title }}</span>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="portal-card">
+                <h6 class="text-primary mb-3"><i class="fas fa-info-circle me-2"></i>Details</h6>
+                <table class="table table-sm table-borderless">
+                    <tr><td class="text-muted">Prescribed:</td><td>{{ rx.prescribed_date }}</td></tr>
+                    <tr><td class="text-muted">Expires:</td><td>{{ rx.expiry_date }}</td></tr>
+                    <tr><td class="text-muted">Status:</td><td>{{ rx.status | title }}</td></tr>
+                    {% if rx.diagnosis %}<tr><td class="text-muted">Diagnosis:</td><td>{{ rx.diagnosis }}</td></tr>{% endif %}
+                    {% if rx.notes %}<tr><td class="text-muted">Notes:</td><td>{{ rx.notes }}</td></tr>{% endif %}
+                </table>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="portal-card">
+                <h6 class="text-primary mb-3"><i class="fas fa-pills me-2"></i>Medications</h6>
+                {% for item in rx["items"] %}
+                <div class="medication-card mb-3">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="mb-1">{{ item.medication_name }}</h5>
+                        <span class="text-primary fw-bold">${{ "%.2f"|format(item.total_price) }}</span>
+                    </div>
+                    <small class="text-muted d-block mb-2">{{ item.generic_name }}</small>
+                    <div class="row">
+                        <div class="col-sm-4"><strong>Dosage:</strong> {{ item.dosage }}</div>
+                        <div class="col-sm-4"><strong>Frequency:</strong> {{ item.frequency }}</div>
+                        <div class="col-sm-4"><strong>Duration:</strong> {{ item.duration or 'As directed' }}</div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Quantity:</strong> {{ item.quantity }}</div>
+                        <div class="col-sm-4"><strong>Refills:</strong> {{ item.refills_remaining }}/{{ item.refills_allowed }}</div>
+                        <div class="col-sm-4"><strong>Unit Price:</strong> ${{ "%.2f"|format(item.unit_price) }}</div>
+                    </div>
+                    {% if item.instructions %}
+                    <div class="alert alert-info mt-2 py-2 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>{{ item.instructions }}
+                    </div>
+                    {% endif %}
+                    {% if item.refills_remaining > 0 and rx.status == 'active' %}
+                    <form method="POST" action="{{ url_for('portal.request_refill', rx_id=rx.id) }}" class="mt-2">
+                        <button class="btn btn-primary btn-sm" onclick="return confirm('Request a refill for {{ item.medication_name }}?')">
+                            <i class="fas fa-redo me-1"></i>Request Refill
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <hr>
+                <div class="text-end">
+                    <h5>Total Cost: <span class="text-primary">${{ "%.2f"|format(rx.total) }}</span></h5>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

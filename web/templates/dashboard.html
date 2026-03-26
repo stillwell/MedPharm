@@ -1,0 +1,159 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Dashboard - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <div class="welcome-banner mb-4">
+        <h2><i class="fas fa-hand-holding-medical me-2"></i>Welcome, {{ patient_name }}</h2>
+        <p class="text-muted mb-0">Your health dashboard at a glance</p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card kpi-primary">
+                <div class="kpi-icon"><i class="fas fa-prescription"></i></div>
+                <div class="kpi-value">{{ prescription_count }}</div>
+                <div class="kpi-label">Active Prescriptions</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card kpi-info">
+                <div class="kpi-icon"><i class="fas fa-calendar-check"></i></div>
+                <div class="kpi-value">{{ appointment_count }}</div>
+                <div class="kpi-label">Upcoming Appointments</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card kpi-danger">
+                <div class="kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="kpi-value">${{ "%.2f"|format(outstanding_balance) }}</div>
+                <div class="kpi-label">Outstanding Balance</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card kpi-success">
+                <div class="kpi-icon"><i class="fas fa-heartbeat"></i></div>
+                <div class="kpi-value">Good</div>
+                <div class="kpi-label">Portal Status</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Active Prescriptions -->
+        <div class="col-lg-6">
+            <div class="portal-card">
+                <div class="card-header-custom">
+                    <h5><i class="fas fa-pills me-2"></i>Active Prescriptions</h5>
+                    <a href="{{ url_for('portal.prescriptions') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                {% if active_prescriptions %}
+                    {% for rx in active_prescriptions[:3] %}
+                    <div class="rx-summary-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                {% for item in rx["items"] %}
+                                <h6 class="mb-1">{{ item.medication_name }}</h6>
+                                <small class="text-muted">{{ item.dosage }} - {{ item.frequency }}</small><br>
+                                <small class="text-muted">Refills: {{ item.refills_remaining }} remaining</small>
+                                {% if not loop.last %}<hr class="my-2">{% endif %}
+                                {% endfor %}
+                            </div>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Prescribed by {{ rx.prescriber_name }} on {{ rx.prescribed_date }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-3">No active prescriptions</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Upcoming Appointments -->
+        <div class="col-lg-6">
+            <div class="portal-card">
+                <div class="card-header-custom">
+                    <h5><i class="fas fa-calendar me-2"></i>Upcoming Appointments</h5>
+                    <a href="{{ url_for('portal.appointments') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                {% if upcoming_appointments %}
+                    {% for appt in upcoming_appointments %}
+                    <div class="appt-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="mb-1"><i class="fas fa-clock me-2 text-primary"></i>{{ appt.scheduled_datetime }}</h6>
+                                <small class="text-muted">{{ appt.appointment_type | replace('_', ' ') | title }} with {{ appt.provider_name }}</small>
+                            </div>
+                            <span class="badge bg-{{ 'info' if appt.status == 'scheduled' else 'success' }}">{{ appt.status | title }}</span>
+                        </div>
+                        {% if appt.reason %}<small class="text-muted">{{ appt.reason }}</small>{% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-3">No upcoming appointments</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Bills -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="portal-card">
+                <div class="card-header-custom">
+                    <h5><i class="fas fa-file-invoice me-2"></i>Recent Invoices</h5>
+                    <a href="{{ url_for('portal.billing') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                {% if recent_invoices %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr><th>Invoice #</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Action</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in recent_invoices %}
+                            <tr>
+                                <td>{{ inv.invoice_number }}</td>
+                                <td>{{ inv.invoice_date }}</td>
+                                <td>${{ "%.2f"|format(inv.total_amount) }}</td>
+                                <td>${{ "%.2f"|format(inv.amount_paid) }}</td>
+                                <td class="{{ 'text-danger fw-bold' if inv.balance_due > 0 else 'text-success' }}">${{ "%.2f"|format(inv.balance_due) }}</td>
+                                <td><span class="badge bg-{{ {'paid':'success','sent':'info','partial':'warning','overdue':'danger','draft':'secondary','cancelled':'secondary'}[inv.status] }}">{{ inv.status | title }}</span></td>
+                                <td>
+                                    {% if inv.balance_due > 0 %}
+                                    <a href="{{ url_for('portal.pay_bill', invoice_id=inv.id) }}" class="btn btn-sm btn-success">Pay Now</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">No recent invoices</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

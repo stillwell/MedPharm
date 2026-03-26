@@ -1,0 +1,124 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Pay Invoice {{ invoice.invoice_number }} - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('portal.billing') }}">Billing</a></li>
+            <li class="breadcrumb-item active">Pay {{ invoice.invoice_number }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <!-- Invoice Summary -->
+        <div class="col-md-5">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-file-invoice me-2"></i>Invoice Summary</h5>
+                <table class="table table-sm table-borderless">
+                    <tr><td class="text-muted">Invoice:</td><td><strong>{{ invoice.invoice_number }}</strong></td></tr>
+                    <tr><td class="text-muted">Date:</td><td>{{ invoice.invoice_date }}</td></tr>
+                    <tr><td class="text-muted">Due:</td><td>{{ invoice.due_date }}</td></tr>
+                </table>
+                <hr>
+                <h6 class="mb-2">Line Items</h6>
+                {% for item in invoice["items"] %}
+                <div class="d-flex justify-content-between mb-1">
+                    <span>{{ item.description }}</span>
+                    <span>${{ "%.2f"|format(item.total_price) }}</span>
+                </div>
+                {% endfor %}
+                <hr>
+                <div class="d-flex justify-content-between"><span>Subtotal:</span><span>${{ "%.2f"|format(invoice.subtotal) }}</span></div>
+                <div class="d-flex justify-content-between"><span>Tax:</span><span>${{ "%.2f"|format(invoice.tax) }}</span></div>
+                <div class="d-flex justify-content-between"><strong>Total:</strong><strong>${{ "%.2f"|format(invoice.total_amount) }}</strong></div>
+                <div class="d-flex justify-content-between"><span>Paid:</span><span class="text-success">${{ "%.2f"|format(invoice.amount_paid) }}</span></div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <strong class="text-danger fs-5">Balance Due:</strong>
+                    <strong class="text-danger fs-5">${{ "%.2f"|format(invoice.balance_due) }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Form -->
+        <div class="col-md-7">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-credit-card me-2"></i>Payment Information</h5>
+                <form method="POST" action="{{ url_for('portal.pay_bill', invoice_id=invoice.id) }}" id="paymentForm">
+                    <div class="mb-3">
+                        <label class="form-label">Payment Amount</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" name="amount" id="payAmount"
+                                   value="{{ "%.2f"|format(invoice.balance_due) }}"
+                                   min="0.01" max="{{ invoice.balance_due }}" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Payment Method</label>
+                        <select class="form-select form-select-lg" name="payment_method" id="payMethod">
+                            <option value="credit_card">Credit Card</option>
+                            <option value="debit_card">Debit Card</option>
+                            <option value="online">Bank Account (ACH)</option>
+                        </select>
+                    </div>
+
+                    <div id="cardFields">
+                        <div class="mb-3">
+                            <label class="form-label">Card Number</label>
+                            <input type="text" class="form-control" placeholder="4242 4242 4242 4242" maxlength="19" id="cardNumber">
+                            <small class="text-muted">Demo mode - enter any number</small>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Expiry Date</label>
+                                <input type="text" class="form-control" placeholder="MM/YY" maxlength="5" id="cardExpiry">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">CVV</label>
+                                <input type="text" class="form-control" placeholder="123" maxlength="4" id="cardCvv">
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <i class="fas fa-lock text-success me-2"></i>
+                            <small class="text-muted">Secure SSL Encrypted Payment</small>
+                        </div>
+                        <div>
+                            <i class="fas fa-shield-alt text-primary me-1"></i>
+                            <small class="text-muted">HIPAA Compliant</small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100" onclick="return confirm('Process payment of $' + document.getElementById('payAmount').value + '?')">
+                        <i class="fas fa-lock me-2"></i>Submit Payment
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

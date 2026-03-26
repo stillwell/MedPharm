@@ -1,0 +1,81 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Register - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card" style="max-width: 550px;">
+        <div class="auth-header">
+            <i class="fas fa-user-plus auth-logo"></i>
+            <h2>Create Account</h2>
+            <p class="text-muted">Verify your identity to create a portal account</p>
+        </div>
+        <form method="POST" action="{{ url_for('portal.register') }}">
+            <h6 class="text-primary mb-3"><i class="fas fa-id-card me-2"></i>Step 1: Verify Identity</h6>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">First Name</label>
+                    <input type="text" class="form-control" name="first_name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Last Name</label>
+                    <input type="text" class="form-control" name="last_name" required>
+                </div>
+            </div>
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" class="form-control" name="dob" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Last 4 of SSN</label>
+                    <input type="text" class="form-control" name="ssn_last4" maxlength="4" pattern="\d{4}" required>
+                </div>
+            </div>
+            <hr>
+            <h6 class="text-primary mb-3"><i class="fas fa-key me-2"></i>Step 2: Create Account</h6>
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-control" name="username" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" name="email" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" minlength="6" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" name="confirm_password" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                <i class="fas fa-user-check me-2"></i>Create Account
+            </button>
+        </form>
+        <div class="text-center">
+            <a href="{{ url_for('portal.login') }}" class="text-decoration-none">Already have an account? Sign in</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

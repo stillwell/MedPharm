@@ -1,0 +1,132 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#}
+
+{% extends "base.html" %}
+{% block title %}Profile - MedPharm Portal{% endblock %}
+{% block content %}
+<div class="py-4">
+    <h2 class="mb-4"><i class="fas fa-user-circle me-2"></i>My Profile</h2>
+
+    <div class="row g-4">
+        <!-- Personal Info -->
+        <div class="col-md-6">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-id-card me-2"></i>Personal Information</h5>
+                <table class="table table-sm table-borderless">
+                    <tr><td class="text-muted" style="width:40%">Name:</td><td><strong>{{ patient.full_name }}</strong></td></tr>
+                    <tr><td class="text-muted">Date of Birth:</td><td>{{ patient.dob }} (Age: {{ patient.age }})</td></tr>
+                    <tr><td class="text-muted">Gender:</td><td>{{ (patient.gender or '-') | title }}</td></tr>
+                    <tr><td class="text-muted">Blood Type:</td><td>{{ patient.blood_type or '-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Contact Info (Editable) -->
+        <div class="col-md-6">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-address-book me-2"></i>Contact Information</h5>
+                <form method="POST" action="{{ url_for('portal.profile') }}">
+                    <input type="hidden" name="action" value="update_contact">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" value="{{ patient.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" class="form-control" name="phone" value="{{ patient.phone or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" name="address" value="{{ patient.address or '' }}">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-control" name="city" value="{{ patient.city or '' }}">
+                        </div>
+                        <div class="col-3">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-control" name="state" value="{{ patient.state or '' }}" maxlength="2">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Zip</label>
+                            <input type="text" class="form-control" name="zip_code" value="{{ patient.zip_code or '' }}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Update Contact Info</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        <div class="col-md-6">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-phone-alt me-2"></i>Emergency Contact</h5>
+                <table class="table table-sm table-borderless">
+                    <tr><td class="text-muted">Name:</td><td>{{ patient.emergency_contact_name or '-' }}</td></tr>
+                    <tr><td class="text-muted">Phone:</td><td>{{ patient.emergency_contact_phone or '-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Insurance -->
+        <div class="col-md-6">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-shield-alt me-2"></i>Insurance</h5>
+                {% if insurance %}
+                    {% for ins in insurance %}
+                    <div class="mb-3 pb-3 {{ 'border-bottom' if not loop.last }}">
+                        <strong>{{ ins.provider_name }}</strong>
+                        <small class="d-block text-muted">Policy: {{ ins.policy_number }}</small>
+                        {% if ins.group_number %}<small class="d-block text-muted">Group: {{ ins.group_number }}</small>{% endif %}
+                        <small class="d-block text-muted">Copay: ${{ "%.2f"|format(ins.copay_amount) }}</small>
+                        <small class="d-block text-muted">Type: {{ ins.coverage_type or '-' }}</small>
+                        <span class="badge bg-{{ 'success' if ins.is_active else 'secondary' }} mt-1">{{ 'Active' if ins.is_active else 'Inactive' }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No insurance on file</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Allergies -->
+        <div class="col-12">
+            <div class="portal-card">
+                <h5 class="text-primary mb-3"><i class="fas fa-allergies me-2"></i>Known Allergies</h5>
+                {% if allergies %}
+                <div class="row g-3">
+                    {% for allergy in allergies %}
+                    <div class="col-md-4">
+                        <div class="alert alert-{{ {'mild':'info','moderate':'warning','severe':'danger','life_threatening':'danger'}[allergy.severity] }} py-2 mb-0">
+                            <strong>{{ allergy.allergen }}</strong>
+                            <small class="d-block">Reaction: {{ allergy.reaction or 'Not specified' }}</small>
+                            <small class="d-block">Severity: {{ (allergy.severity or '') | replace('_', ' ') | title }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    <p class="text-muted">No known allergies</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
