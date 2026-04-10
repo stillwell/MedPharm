@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MedPharm ERP - Android Application
+  Medical-themed color palette with teal primary accents.
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<resources>
+    <!-- Primary Colors - Medical Teal -->
+    <color name="primary">#00BCD4</color>
+    <color name="primary_dark">#00838F</color>
+    <color name="primary_light">#4DD0E1</color>
+    <color name="primary_variant">#0097A7</color>
+
+    <!-- Secondary / Accent -->
+    <color name="secondary">#26A69A</color>
+    <color name="secondary_variant">#00897B</color>
+
+    <!-- Background -->
+    <color name="background">#FAFAFA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="card_background">#FFFFFF</color>
+
+    <!-- Text -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_on_primary">#FFFFFF</color>
+    <color name="text_on_secondary">#FFFFFF</color>
+
+    <!-- Status Colors -->
+    <color name="status_active">#4CAF50</color>
+    <color name="status_pending">#FF9800</color>
+    <color name="status_expired">#9E9E9E</color>
+    <color name="status_overdue">#F44336</color>
+    <color name="status_cancelled">#9E9E9E</color>
+    <color name="status_completed">#2196F3</color>
+
+    <!-- Severity -->
+    <color name="severity_mild">#8BC34A</color>
+    <color name="severity_moderate">#FFC107</color>
+    <color name="severity_severe">#FF5722</color>
+    <color name="severity_critical">#D32F2F</color>
+
+    <!-- Misc -->
+    <color name="divider">#E0E0E0</color>
+    <color name="error">#B00020</color>
+</resources>

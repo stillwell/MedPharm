@@ -35,8 +35,10 @@ from medical_erp.database.models import (
     Base, User, Patient, PatientPortalAccount, Insurance, Medication,
     MedicationInteraction, Allergy, Vital, Diagnosis, MedicalRecord,
     Prescription, PrescriptionItem, Appointment, Invoice, InvoiceItem,
-    Payment, AuditLog, UserRole, PrescriptionStatus, AppointmentStatus,
-    InvoiceStatus, PaymentStatus, PaymentMethod, InteractionSeverity
+    Payment, AuditLog, InsuranceClaim, Symptom, Condition,
+    UserRole, PrescriptionStatus, AppointmentStatus,
+    InvoiceStatus, PaymentStatus, PaymentMethod, InteractionSeverity,
+    InsuranceClaimStatus
 )
 
 
@@ -937,6 +939,161 @@ class DatabaseManager:
                     gender=g, is_active=True).scalar() or 0
                 results[g.value] = count
             return results
+
+    # ── Insurance Claims ────────────────────────────────────────────────
+
+    def submit_insurance_claim(self, invoice_id: int, insurance_id: int,
+                               patient_id: int, claimed_amount: float,
+                               copay_amount: float = 0, notes: str = "") -> int:
+        with self.get_session() as session:
+            claim_number = f"CLM-{uuid.uuid4().hex[:10].upper()}"
+            claim = InsuranceClaim(
+                invoice_id=invoice_id, insurance_id=insurance_id,
+                patient_id=patient_id, claim_number=claim_number,
+                claimed_amount=claimed_amount, copay_amount=copay_amount,
+                notes=notes
+            )
+            session.add(claim)
+            session.flush()
+            return claim.id
+
+    def get_insurance_claims(self, patient_id: int = None,
+                             invoice_id: int = None) -> list[dict]:
+        with self.get_session() as session:
+            q = session.query(InsuranceClaim)
+            if patient_id:
+                q = q.filter_by(patient_id=patient_id)
+            if invoice_id:
+                q = q.filter_by(invoice_id=invoice_id)
+            claims = q.order_by(desc(InsuranceClaim.created_at)).all()
+            return [{
+                "id": c.id, "claim_number": c.claim_number,
+                "invoice_id": c.invoice_id,
+                "insurance_id": c.insurance_id,
+                "insurance_provider": c.insurance.provider_name if c.insurance else "",
+                "policy_number": c.insurance.policy_number if c.insurance else "",
+                "patient_id": c.patient_id,
+                "status": c.status.value,
+                "submitted_date": c.submitted_date.isoformat() if c.submitted_date else None,
+                "response_date": c.response_date.isoformat() if c.response_date else None,
+                "claimed_amount": float(c.claimed_amount),
+                "approved_amount": float(c.approved_amount or 0),
+                "copay_amount": float(c.copay_amount or 0),
+                "deductible_applied": float(c.deductible_applied or 0),
+                "denial_reason": c.denial_reason,
+                "notes": c.notes
+            } for c in claims]
+
+    def update_insurance_claim(self, claim_id: int, **kwargs) -> bool:
+        with self.get_session() as session:
+            claim = session.get(InsuranceClaim, claim_id)
+            if not claim:
+                return False
+            for k, v in kwargs.items():
+                if k == "status":
+                    v = InsuranceClaimStatus(v)
+                if hasattr(claim, k):
+                    setattr(claim, k, v)
+            return True
+
+    def process_insurance_payment(self, claim_id: int, approved_amount: float,
+                                  copay_amount: float = 0,
+                                  deductible: float = 0) -> dict:
+        """Process an approved insurance claim into actual payments."""
+        with self.get_session() as session:
+            claim = session.get(InsuranceClaim, claim_id)
+            if not claim:
+                return {"error": "Claim not found"}
+
+            claim.approved_amount = approved_amount
+            claim.copay_amount = copay_amount
+            claim.deductible_applied = deductible
+            claim.status = InsuranceClaimStatus.APPROVED
+            claim.response_date = date.today()
+
+            # Record insurance payment on the invoice
+            insurance_pays = approved_amount - deductible
+            if insurance_pays > 0:
+                inv = session.get(Invoice, claim.invoice_id)
+                if inv:
+                    payment = Payment(
+                        invoice_id=inv.id, amount=insurance_pays,
+                        payment_method=PaymentMethod.INSURANCE,
+                        transaction_reference=f"INS-{claim.claim_number}",
+                        status=PaymentStatus.COMPLETED,
+                        notes=f"Insurance payment via {claim.insurance.provider_name}"
+                    )
+                    session.add(payment)
+                    inv.amount_paid = float(inv.amount_paid or 0) + insurance_pays
+                    inv.balance_due = float(inv.total_amount or 0) - float(inv.amount_paid)
+                    if inv.balance_due <= 0:
+                        inv.balance_due = 0
+                        inv.status = InvoiceStatus.PAID
+                    else:
+                        inv.status = InvoiceStatus.PARTIAL
+
+            session.flush()
+            return {
+                "claim_id": claim.id,
+                "insurance_paid": insurance_pays,
+                "patient_copay": copay_amount,
+                "remaining_balance": float(claim.invoice.balance_due) if claim.invoice else 0
+            }
+
+    # ── Symptoms & Conditions ─────────────────────────────────────────
+
+    def search_symptoms(self, query: str = "", body_system: str = "") -> list[dict]:
+        with self.get_session() as session:
+            q = session.query(Symptom)
+            if query:
+                like = f"%{query}%"
+                q = q.filter(or_(
+                    Symptom.name.ilike(like),
+                    Symptom.description.ilike(like)
+                ))
+            if body_system:
+                q = q.filter(Symptom.body_system.ilike(f"%{body_system}%"))
+            symptoms = q.order_by(Symptom.name).limit(100).all()
+            return [{
+                "id": s.id, "name": s.name, "description": s.description,
+                "body_system": s.body_system,
+                "icd10_codes": s.icd10_codes,
+                "common_conditions": s.common_conditions,
+                "is_emergency": s.is_emergency
+            } for s in symptoms]
+
+    def search_conditions(self, query: str = "", category: str = "") -> list[dict]:
+        with self.get_session() as session:
+            q = session.query(Condition)
+            if query:
+                like = f"%{query}%"
+                q = q.filter(or_(
+                    Condition.name.ilike(like),
+                    Condition.icd10_code.ilike(like),
+                    Condition.description.ilike(like)
+                ))
+            if category:
+                q = q.filter(Condition.category.ilike(f"%{category}%"))
+            conditions = q.order_by(Condition.name).limit(100).all()
+            return [{
+                "id": c.id, "name": c.name, "icd10_code": c.icd10_code,
+                "category": c.category, "description": c.description,
+                "common_symptoms": c.common_symptoms,
+                "typical_medications": c.typical_medications,
+                "prevalence": c.prevalence, "is_chronic": c.is_chronic
+            } for c in conditions]
+
+    def get_all_body_systems(self) -> list[str]:
+        with self.get_session() as session:
+            systems = session.query(Symptom.body_system).distinct().order_by(
+                Symptom.body_system).all()
+            return [s[0] for s in systems if s[0]]
+
+    def get_all_condition_categories(self) -> list[str]:
+        with self.get_session() as session:
+            cats = session.query(Condition.category).distinct().order_by(
+                Condition.category).all()
+            return [c[0] for c in cats if c[0]]
 
     def is_database_empty(self) -> bool:
         with self.get_session() as session:

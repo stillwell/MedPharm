@@ -1,0 +1,60 @@
+<!--
+  MedPharm ERP - Windows Register Patient
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<Window x:Class="MedPharm.Views.RegisterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MedPharm ERP - Patient Registration"
+        Height="620" Width="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Patient Registration"
+                   FontSize="24" FontWeight="Bold"
+                   Foreground="{StaticResource TealBrush}"
+                   Margin="0,0,0,20" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Identity Verification" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,8" />
+                <TextBlock Text="First Name" Margin="0,0,0,4" />
+                <TextBox x:Name="FirstNameBox" Padding="6" Margin="0,0,0,10" />
+                <TextBlock Text="Last Name" Margin="0,0,0,4" />
+                <TextBox x:Name="LastNameBox" Padding="6" Margin="0,0,0,10" />
+                <TextBlock Text="Date of Birth (YYYY-MM-DD)" Margin="0,0,0,4" />
+                <TextBox x:Name="DobBox" Padding="6" Margin="0,0,0,10" />
+                <TextBlock Text="Last 4 of SSN" Margin="0,0,0,4" />
+                <TextBox x:Name="SsnBox" Padding="6" Margin="0,0,0,16" MaxLength="4" />
+
+                <TextBlock Text="Account Credentials" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,8" />
+                <TextBlock Text="Username" Margin="0,0,0,4" />
+                <TextBox x:Name="UsernameBox" Padding="6" Margin="0,0,0,10" />
+                <TextBlock Text="Email" Margin="0,0,0,4" />
+                <TextBox x:Name="EmailBox" Padding="6" Margin="0,0,0,10" />
+                <TextBlock Text="Password" Margin="0,0,0,4" />
+                <PasswordBox x:Name="PasswordBox" Padding="6" Margin="0,0,0,16" />
+
+                <TextBlock x:Name="StatusText" Foreground="{StaticResource ErrorBrush}"
+                           TextWrapping="Wrap" Margin="0,0,0,8" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Padding="20,8" Margin="0,0,8,0" Click="Cancel_Click" />
+            <Button x:Name="RegisterBtn" Content="Register"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="Register_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

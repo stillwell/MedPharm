@@ -109,6 +109,17 @@ class BillingWidget(QWidget):
         record_pay_btn.clicked.connect(self.record_payment_dialog)
         action_row.addWidget(record_pay_btn)
 
+        claim_btn = QPushButton("Submit Insurance Claim")
+        claim_btn.setObjectName("primary_button")
+        claim_btn.setMinimumHeight(40)
+        claim_btn.clicked.connect(self.submit_claim_dialog)
+        action_row.addWidget(claim_btn)
+
+        view_claims_btn = QPushButton("View Claims")
+        view_claims_btn.setMinimumHeight(40)
+        view_claims_btn.clicked.connect(self.show_claims_dialog)
+        action_row.addWidget(view_claims_btn)
+
         view_btn = QPushButton("View Detail")
         view_btn.setObjectName("primary_button")
         view_btn.setMinimumHeight(40)
@@ -379,3 +390,289 @@ class BillingWidget(QWidget):
             QMessageBox.information(self, "Success", f"Payment of ${amount:.2f} recorded.")
         except Exception as e:
             QMessageBox.warning(dialog, "Error", str(e))
+
+    def submit_claim_dialog(self):
+        """Submit an insurance claim for the selected invoice."""
+        row = self.invoice_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Error", "Please select an invoice.")
+            return
+        inv_num_item = self.invoice_table.item(row, 0)
+        if not inv_num_item:
+            return
+        inv = next((i for i in self.all_invoices if i["invoice_number"] == inv_num_item.text()), None)
+        if not inv:
+            return
+        if inv["status"] in ("paid", "cancelled"):
+            QMessageBox.warning(self, "Error", "Cannot submit claim for paid/cancelled invoice.")
+            return
+
+        insurances = self.db_manager.get_patient_insurance(inv["patient_id"])
+        active = [i for i in insurances if i.get("is_active", True)]
+        if not active:
+            QMessageBox.warning(self, "No Insurance",
+                "This patient has no active insurance on file.")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Insurance Claim - {inv['invoice_number']}")
+        dialog.setMinimumSize(460, 400)
+        layout = QVBoxLayout(dialog)
+
+        info = QLabel(
+            f"Invoice: {inv['invoice_number']}\n"
+            f"Patient: {inv['patient_name']}\n"
+            f"Balance Due: ${inv['balance_due']:.2f}"
+        )
+        info.setStyleSheet("font-size: 14px; padding: 10px;")
+        layout.addWidget(info)
+
+        form = QFormLayout()
+        form.setSpacing(12)
+
+        ins_combo = QComboBox()
+        for ins in active:
+            label = f"{ins['provider_name']} ({ins['policy_number']})"
+            ins_combo.addItem(label, ins["id"])
+        ins_combo.setMinimumHeight(36)
+        form.addRow("Insurance:", ins_combo)
+
+        claim_amount = QDoubleSpinBox()
+        claim_amount.setRange(0.01, inv["balance_due"])
+        claim_amount.setValue(inv["balance_due"])
+        claim_amount.setPrefix("$ ")
+        claim_amount.setDecimals(2)
+        claim_amount.setMinimumHeight(36)
+        form.addRow("Claimed Amount:", claim_amount)
+
+        copay_amount = QDoubleSpinBox()
+        copay_amount.setRange(0, inv["balance_due"])
+        default_copay = next((i.get("copay_amount") or 0 for i in active), 0)
+        copay_amount.setValue(float(default_copay or 0))
+        copay_amount.setPrefix("$ ")
+        copay_amount.setDecimals(2)
+        copay_amount.setMinimumHeight(36)
+        form.addRow("Copay:", copay_amount)
+
+        notes_edit = QTextEdit()
+        notes_edit.setPlaceholderText("Claim notes (diagnosis codes, procedure codes, etc.)")
+        notes_edit.setMaximumHeight(80)
+        form.addRow("Notes:", notes_edit)
+
+        layout.addLayout(form)
+        layout.addStretch()
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_row.addWidget(cancel_btn)
+
+        submit_btn = QPushButton("Submit Claim")
+        submit_btn.setObjectName("primary_button")
+        submit_btn.clicked.connect(lambda: self._process_claim_submit(
+            dialog, inv, ins_combo.currentData(),
+            claim_amount.value(), copay_amount.value(),
+            notes_edit.toPlainText()
+        ))
+        btn_row.addWidget(submit_btn)
+        layout.addLayout(btn_row)
+
+        dialog.exec()
+
+    def _process_claim_submit(self, dialog, inv, insurance_id, claimed, copay, notes):
+        try:
+            claim_id = self.db_manager.submit_insurance_claim(
+                invoice_id=inv["id"],
+                insurance_id=insurance_id,
+                patient_id=inv["patient_id"],
+                claimed_amount=claimed,
+                copay_amount=copay,
+                notes=notes
+            )
+            dialog.accept()
+            self.refresh_data()
+            QMessageBox.information(self, "Success",
+                f"Insurance claim submitted successfully.\nClaim ID: {claim_id}")
+        except Exception as e:
+            QMessageBox.warning(dialog, "Error", str(e))
+
+    def show_claims_dialog(self):
+        """Display all insurance claims with option to process approvals."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Insurance Claims Management")
+        dialog.setMinimumSize(900, 550)
+        layout = QVBoxLayout(dialog)
+
+        title = QLabel("Insurance Claims")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; padding: 8px;")
+        layout.addWidget(title)
+
+        claims_table = QTableWidget()
+        claims_table.setColumnCount(8)
+        claims_table.setHorizontalHeaderLabels([
+            "Claim #", "Invoice", "Provider", "Claimed",
+            "Approved", "Copay", "Status", "Submitted"
+        ])
+        claims_table.horizontalHeader().setStretchLastSection(True)
+        claims_table.setAlternatingRowColors(True)
+        claims_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        claims_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+
+        def load_claims():
+            claims = self.db_manager.get_insurance_claims()
+            claims_table.setRowCount(len(claims))
+            for row, c in enumerate(claims):
+                claims_table.setItem(row, 0, QTableWidgetItem(c["claim_number"]))
+                claims_table.setItem(row, 1, QTableWidgetItem(str(c["invoice_id"])))
+                claims_table.setItem(row, 2, QTableWidgetItem(c["insurance_provider"]))
+                claims_table.setItem(row, 3, QTableWidgetItem(f"${c['claimed_amount']:.2f}"))
+                claims_table.setItem(row, 4, QTableWidgetItem(f"${c['approved_amount']:.2f}"))
+                claims_table.setItem(row, 5, QTableWidgetItem(f"${c['copay_amount']:.2f}"))
+                status_item = QTableWidgetItem(c["status"].replace("_", " ").title())
+                status_colors = {
+                    "submitted": QColor("#FFA726"),
+                    "in_review": QColor("#42A5F5"),
+                    "approved": QColor("#66BB6A"),
+                    "partially_approved": QColor("#9CCC65"),
+                    "denied": QColor("#EF5350"),
+                    "paid": QColor("#26A69A"),
+                }
+                color = status_colors.get(c["status"], QColor("#BDBDBD"))
+                status_item.setForeground(color)
+                claims_table.setItem(row, 6, status_item)
+                claims_table.setItem(row, 7, QTableWidgetItem(c.get("submitted_date", "") or ""))
+                claims_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, c)
+
+        load_claims()
+        layout.addWidget(claims_table)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+
+        process_btn = QPushButton("Process Payment")
+        process_btn.setObjectName("success_button")
+        process_btn.setMinimumHeight(40)
+
+        def do_process():
+            row = claims_table.currentRow()
+            if row < 0:
+                QMessageBox.warning(dialog, "Error", "Select a claim to process.")
+                return
+            claim_data = claims_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            if claim_data["status"] not in ("submitted", "in_review"):
+                QMessageBox.warning(dialog, "Error",
+                    "Only submitted/in-review claims can be processed.")
+                return
+            self._process_claim_payment_dialog(dialog, claim_data, load_claims)
+
+        process_btn.clicked.connect(do_process)
+        btn_row.addWidget(process_btn)
+
+        deny_btn = QPushButton("Deny Claim")
+        deny_btn.setObjectName("danger_button")
+        deny_btn.setMinimumHeight(40)
+
+        def do_deny():
+            row = claims_table.currentRow()
+            if row < 0:
+                return
+            claim_data = claims_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            reason, ok = self._prompt_text(dialog, "Denial Reason",
+                "Enter reason for denial:")
+            if ok and reason:
+                self.db_manager.update_insurance_claim(
+                    claim_data["id"], status="denied", denial_reason=reason)
+                load_claims()
+
+        deny_btn.clicked.connect(do_deny)
+        btn_row.addWidget(deny_btn)
+
+        close_btn = QPushButton("Close")
+        close_btn.setMinimumHeight(40)
+        close_btn.clicked.connect(dialog.accept)
+        btn_row.addWidget(close_btn)
+
+        layout.addLayout(btn_row)
+        dialog.exec()
+
+    def _process_claim_payment_dialog(self, parent_dialog, claim, reload_callback):
+        dialog = QDialog(parent_dialog)
+        dialog.setWindowTitle(f"Process Claim - {claim['claim_number']}")
+        dialog.setMinimumSize(420, 340)
+        layout = QVBoxLayout(dialog)
+
+        info = QLabel(
+            f"Claim: {claim['claim_number']}\n"
+            f"Provider: {claim['insurance_provider']}\n"
+            f"Claimed: ${claim['claimed_amount']:.2f}"
+        )
+        info.setStyleSheet("font-size: 13px; padding: 8px;")
+        layout.addWidget(info)
+
+        form = QFormLayout()
+        approved_spin = QDoubleSpinBox()
+        approved_spin.setRange(0, claim["claimed_amount"])
+        approved_spin.setValue(claim["claimed_amount"])
+        approved_spin.setPrefix("$ ")
+        approved_spin.setDecimals(2)
+        approved_spin.setMinimumHeight(36)
+        form.addRow("Approved Amount:", approved_spin)
+
+        copay_spin = QDoubleSpinBox()
+        copay_spin.setRange(0, claim["claimed_amount"])
+        copay_spin.setValue(float(claim.get("copay_amount") or 0))
+        copay_spin.setPrefix("$ ")
+        copay_spin.setDecimals(2)
+        copay_spin.setMinimumHeight(36)
+        form.addRow("Patient Copay:", copay_spin)
+
+        deductible_spin = QDoubleSpinBox()
+        deductible_spin.setRange(0, claim["claimed_amount"])
+        deductible_spin.setPrefix("$ ")
+        deductible_spin.setDecimals(2)
+        deductible_spin.setMinimumHeight(36)
+        form.addRow("Deductible:", deductible_spin)
+
+        layout.addLayout(form)
+        layout.addStretch()
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_row.addWidget(cancel_btn)
+
+        approve_btn = QPushButton("Approve & Record Payment")
+        approve_btn.setObjectName("success_button")
+
+        def do_approve():
+            try:
+                result = self.db_manager.process_insurance_payment(
+                    claim_id=claim["id"],
+                    approved_amount=approved_spin.value(),
+                    copay_amount=copay_spin.value(),
+                    deductible=deductible_spin.value()
+                )
+                if result.get("error"):
+                    QMessageBox.warning(dialog, "Error", result["error"])
+                    return
+                dialog.accept()
+                reload_callback()
+                self.refresh_data()
+                QMessageBox.information(parent_dialog, "Success",
+                    f"Claim approved.\nInsurance paid: ${result['insurance_paid']:.2f}\n"
+                    f"Remaining balance: ${result['remaining_balance']:.2f}")
+            except Exception as e:
+                QMessageBox.warning(dialog, "Error", str(e))
+
+        approve_btn.clicked.connect(do_approve)
+        btn_row.addWidget(approve_btn)
+        layout.addLayout(btn_row)
+
+        dialog.exec()
+
+    def _prompt_text(self, parent, title, label):
+        from PyQt6.QtWidgets import QInputDialog
+        text, ok = QInputDialog.getText(parent, title, label)
+        return text, ok

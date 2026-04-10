@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MedPharm ERP - Navigation Graph
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_dashboard">
+
+    <fragment
+        android:id="@+id/nav_dashboard"
+        android:name="com.enlightec.medpharm.ui.dashboard.DashboardFragment"
+        android:label="@string/nav_dashboard" />
+
+    <fragment
+        android:id="@+id/nav_prescriptions"
+        android:name="com.enlightec.medpharm.ui.prescriptions.PrescriptionsFragment"
+        android:label="@string/nav_prescriptions" />
+
+    <fragment
+        android:id="@+id/nav_billing"
+        android:name="com.enlightec.medpharm.ui.billing.BillingFragment"
+        android:label="@string/nav_billing" />
+
+    <fragment
+        android:id="@+id/nav_appointments"
+        android:name="com.enlightec.medpharm.ui.appointments.AppointmentsFragment"
+        android:label="@string/nav_appointments" />
+
+    <fragment
+        android:id="@+id/nav_records"
+        android:name="com.enlightec.medpharm.ui.records.RecordsFragment"
+        android:label="@string/nav_records" />
+
+    <fragment
+        android:id="@+id/nav_medications"
+        android:name="com.enlightec.medpharm.ui.medications.MedicationsFragment"
+        android:label="@string/nav_medications" />
+
+    <fragment
+        android:id="@+id/nav_profile"
+        android:name="com.enlightec.medpharm.ui.profile.ProfileFragment"
+        android:label="@string/nav_profile" />
+
+</navigation>
