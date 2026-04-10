@@ -1,0 +1,108 @@
+<!--
+  MedPharm ERP - Dashboard Page
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<UserControl x:Class="MedPharm.Views.Pages.DashboardPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <TextBlock Text="Dashboard" FontSize="28" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,16" />
+
+            <!-- KPI Cards -->
+            <UniformGrid Rows="1" Columns="3">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Active Prescriptions"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="ActiveRxText" Text="—"
+                                   FontSize="32" FontWeight="Bold"
+                                   Foreground="{StaticResource TealBrush}"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Upcoming Appointments"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="AppointmentsText" Text="—"
+                                   FontSize="32" FontWeight="Bold"
+                                   Foreground="{StaticResource TealBrush}"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Outstanding Balance"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" />
+                        <TextBlock x:Name="BalanceText" Text="—"
+                                   FontSize="32" FontWeight="Bold"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Recent Prescriptions -->
+            <Border Style="{StaticResource Card}" Margin="8,16,8,8">
+                <StackPanel>
+                    <TextBlock Text="Recent Prescriptions" FontSize="18" FontWeight="SemiBold"
+                               Margin="0,0,0,12" />
+                    <ListView x:Name="RecentRxList" BorderThickness="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding RxNumber}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding PrescriberName}" FontSize="11"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding Status}"
+                                               Foreground="{StaticResource TealBrush}"
+                                               FontWeight="SemiBold" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+
+            <!-- Upcoming Appointments -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Upcoming Appointments" FontSize="18" FontWeight="SemiBold"
+                               Margin="0,0,0,12" />
+                    <ListView x:Name="UpcomingList" BorderThickness="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding AppointmentType}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ProviderName}" FontSize="11"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding ScheduledDatetime}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextSecondaryBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

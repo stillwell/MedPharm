@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="payment_methods">
+        <item>Credit Card</item>
+        <item>Debit Card</item>
+        <item>Insurance</item>
+        <item>HSA/FSA</item>
+        <item>ACH Bank Transfer</item>
+        <item>Cash</item>
+        <item>Check</item>
+    </string-array>
+</resources>

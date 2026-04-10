@@ -529,6 +529,73 @@ class Payment(Base):
     portal_account = relationship("PatientPortalAccount", back_populates="payments")
 
 
+class InsuranceClaimStatus(enum.Enum):
+    SUBMITTED = "submitted"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    PARTIALLY_APPROVED = "partially_approved"
+    DENIED = "denied"
+    APPEALED = "appealed"
+    PAID = "paid"
+
+
+class SymptomSeverity(enum.Enum):
+    MILD = "mild"
+    MODERATE = "moderate"
+    SEVERE = "severe"
+    CRITICAL = "critical"
+
+
+class InsuranceClaim(Base):
+    __tablename__ = "insurance_claims"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    insurance_id = Column(Integer, ForeignKey("insurance.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    claim_number = Column(String(30), unique=True, nullable=False, index=True)
+    status = Column(Enum(InsuranceClaimStatus), default=InsuranceClaimStatus.SUBMITTED)
+    submitted_date = Column(Date, default=date.today)
+    response_date = Column(Date, nullable=True)
+    claimed_amount = Column(Numeric(10, 2), nullable=False)
+    approved_amount = Column(Numeric(10, 2), default=0)
+    copay_amount = Column(Numeric(10, 2), default=0)
+    deductible_applied = Column(Numeric(10, 2), default=0)
+    denial_reason = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    invoice = relationship("Invoice", backref="insurance_claims")
+    insurance = relationship("Insurance", backref="claims")
+    patient = relationship("Patient", backref="insurance_claims")
+
+
+class Symptom(Base):
+    __tablename__ = "symptoms"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False, unique=True, index=True)
+    description = Column(Text)
+    body_system = Column(String(100), index=True)
+    icd10_codes = Column(Text)
+    common_conditions = Column(Text)
+    is_emergency = Column(Boolean, default=False)
+
+
+class Condition(Base):
+    __tablename__ = "conditions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(300), nullable=False, index=True)
+    icd10_code = Column(String(10), index=True)
+    category = Column(String(100), index=True)
+    description = Column(Text)
+    common_symptoms = Column(Text)
+    typical_medications = Column(Text)
+    prevalence = Column(String(50))
+    is_chronic = Column(Boolean, default=False)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

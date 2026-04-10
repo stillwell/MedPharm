@@ -36,6 +36,7 @@ from medical_erp.qt_app.widgets.medication_widget import MedicationWidget
 from medical_erp.qt_app.widgets.appointment_widget import AppointmentWidget
 from medical_erp.qt_app.widgets.records_widget import RecordsWidget
 from medical_erp.qt_app.widgets.billing_widget import BillingWidget
+from medical_erp.qt_app.widgets.symptoms_widget import SymptomsWidget
 from medical_erp.qt_app.widgets.analytics_widget import AnalyticsWidget
 
 
@@ -48,6 +49,7 @@ class MainWindow(QMainWindow):
         ("Appointments", "appointments"),
         ("Records", "records"),
         ("Billing", "billing"),
+        ("Symptoms", "symptoms"),
         ("Analytics", "analytics"),
     ]
 
@@ -156,6 +158,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(AppointmentWidget(self.db_manager, user_dict))
         self.stack.addWidget(RecordsWidget(self.db_manager, user_dict))
         self.stack.addWidget(BillingWidget(self.db_manager, user_dict))
+        self.stack.addWidget(SymptomsWidget(self.db_manager, user_dict))
         self.stack.addWidget(AnalyticsWidget(self.db_manager, user_dict))
 
         main_layout.addWidget(self.stack)

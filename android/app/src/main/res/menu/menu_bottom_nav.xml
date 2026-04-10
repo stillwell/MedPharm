@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MedPharm ERP - Bottom Navigation Menu
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_dashboard"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="@string/nav_dashboard" />
+
+    <item
+        android:id="@+id/nav_prescriptions"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="@string/nav_prescriptions" />
+
+    <item
+        android:id="@+id/nav_billing"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:title="@string/nav_billing" />
+
+    <item
+        android:id="@+id/nav_appointments"
+        android:icon="@android:drawable/ic_menu_my_calendar"
+        android:title="@string/nav_appointments" />
+
+    <item
+        android:id="@+id/nav_records"
+        android:icon="@android:drawable/ic_menu_recent_history"
+        android:title="@string/nav_records" />
+
+</menu>

@@ -1,0 +1,41 @@
+# MedPharm ERP - Docker Compose Configuration
+# Runs the Cloud API server with persistent database storage.
+#
+# Usage:
+#   docker-compose up -d          # Start in background
+#   docker-compose logs -f api    # View logs
+#   docker-compose down           # Stop
+#
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# License: GNU General Public License v3.0
+
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medpharm-api
+    ports:
+      - "${MEDPHARM_PORT:-8080}:8080"
+    environment:
+      - MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-change-this-in-production}
+      - MEDPHARM_SECRET_KEY=${MEDPHARM_SECRET_KEY:-change-this-in-production}
+      - MEDPHARM_DB_PATH=/data/medpharm_erp.db
+      - MEDPHARM_CORS_ORIGINS=${MEDPHARM_CORS_ORIGINS:-*}
+      - MEDPHARM_TOKEN_EXPIRY=${MEDPHARM_TOKEN_EXPIRY:-86400}
+      - MEDPHARM_REFRESH_EXPIRY=${MEDPHARM_REFRESH_EXPIRY:-604800}
+    volumes:
+      - medpharm-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  medpharm-data:
+    driver: local

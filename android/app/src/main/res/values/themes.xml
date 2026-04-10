@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MedPharm ERP - Android Application Theme
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<resources>
+    <style name="Theme.MedPharm" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/secondary</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnPrimary">@color/text_on_primary</item>
+        <item name="colorOnSecondary">@color/text_on_secondary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+    </style>
+
+    <!-- Login screen uses full-screen theme -->
+    <style name="Theme.MedPharm.Login" parent="Theme.MedPharm">
+        <item name="android:windowFullscreen">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>

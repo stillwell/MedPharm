@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MedPharm ERP - Android Application
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+-->
+<resources>
+    <string name="app_name">MedPharm</string>
+
+    <!-- Login -->
+    <string name="login_title">MedPharm ERP</string>
+    <string name="login_subtitle">Medical &amp; Pharmaceutical Management</string>
+    <string name="hint_username">Username</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_login">Sign In</string>
+    <string name="login_type_patient">Patient</string>
+    <string name="login_type_staff">Staff</string>
+    <string name="register_link">Don\'t have an account? Register here</string>
+
+    <!-- Register -->
+    <string name="register_title">Create Account</string>
+    <string name="register_subtitle">Verify your identity to register</string>
+    <string name="hint_first_name">First Name</string>
+    <string name="hint_last_name">Last Name</string>
+    <string name="hint_dob">Date of Birth (YYYY-MM-DD)</string>
+    <string name="hint_ssn_last4">Last 4 of SSN</string>
+    <string name="hint_email">Email Address</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+    <string name="btn_register">Create Account</string>
+    <string name="login_link">Already have an account? Sign in</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_prescriptions">Prescriptions</string>
+    <string name="nav_billing">Billing</string>
+    <string name="nav_appointments">Appointments</string>
+    <string name="nav_records">Records</string>
+    <string name="nav_medications">Medications</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_active_rx">Active Prescriptions</string>
+    <string name="dashboard_upcoming_appts">Upcoming Appointments</string>
+    <string name="dashboard_outstanding">Outstanding Balance</string>
+
+    <!-- Common -->
+    <string name="empty_list">No items to display</string>
+    <string name="btn_refill">Request Refill</string>
+    <string name="btn_pay">Pay Now</string>
+    <string name="btn_insurance_claim">File Claim</string>
+    <string name="btn_save">Save Changes</string>
+    <string name="insurance_provider">Insurance Provider</string>
+    <string name="claim_notes">Notes (optional)</string>
+    <string name="no_insurance_on_file">No insurance records on file. Add insurance in Profile.</string>
+    <string name="file_insurance_claim">File Insurance Claim</string>
+    <string name="claim_submitted">Claim submitted successfully</string>
+    <string name="filter_all">All</string>
+    <string name="filter_active">Active</string>
+    <string name="filter_expired">Expired</string>
+    <string name="filter_visit_notes">Visit Notes</string>
+    <string name="filter_lab_results">Lab Results</string>
+    <string name="filter_imaging">Imaging</string>
+
+    <!-- Menu -->
+    <string name="action_profile">Profile</string>
+    <string name="action_medications">Medications</string>
+    <string name="action_logout">Logout</string>
+
+    <!-- Payment -->
+    <string name="payment_amount">Payment Amount</string>
+    <string name="payment_method">Payment Method</string>
+</resources>
