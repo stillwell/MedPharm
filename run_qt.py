@@ -26,15 +26,15 @@ Initializes the SQLite database and seeds it with sample data on first run.
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
-from medical_erp.qt_app.main_window import MainWindow
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
+from qt_app.main_window import MainWindow
 
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db")

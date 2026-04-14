@@ -22,11 +22,11 @@ class AuthManager: ObservableObject {
     }
 
     func patientLogin(username: String, password: String) async {
-        await login(endpoint: "auth/patient/login", username: username, password: password)
+        await login(endpoint: "auth/login/patient", username: username, password: password)
     }
 
     func staffLogin(username: String, password: String) async {
-        await login(endpoint: "auth/staff/login", username: username, password: password)
+        await login(endpoint: "auth/login/staff", username: username, password: password)
     }
 
     private func login(endpoint: String, username: String, password: String) async {

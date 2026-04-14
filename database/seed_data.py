@@ -24,8 +24,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 import random
 
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.models import (
+from database.db_manager import DatabaseManager
+from database.models import (
     User, Patient, PatientPortalAccount, Insurance, Medication,
     MedicationInteraction, Allergy, Vital, Diagnosis, MedicalRecord,
     Prescription, PrescriptionItem, Appointment, Invoice, InvoiceItem,

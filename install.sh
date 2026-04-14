@@ -226,6 +226,7 @@ install_python_deps() {
         "Flask>=3.0"
         "SQLAlchemy>=2.0"
         "Werkzeug>=3.0"
+        "flask-cors>=4.0"
     )
 
     # Analytics dependencies
@@ -246,7 +247,7 @@ install_python_deps() {
 
     info "Installing core dependencies..."
     pip install -q "${core_deps[@]}" 2>&1 | tee -a "$LOG_FILE" | grep -v "already satisfied" || true
-    log "Core dependencies installed (Flask, SQLAlchemy, Werkzeug)"
+    log "Core dependencies installed (Flask, SQLAlchemy, Werkzeug, flask-cors)"
 
     info "Installing analytics dependencies..."
     pip install -q "${analytics_deps[@]}" 2>&1 | tee -a "$LOG_FILE" | grep -v "already satisfied" || true
@@ -290,9 +291,9 @@ init_database() {
     info "Creating database schema and seeding data..."
     "$PYTHON" -c "
 import sys
-sys.path.insert(0, '${SCRIPT_DIR}/..')
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
+sys.path.insert(0, '${SCRIPT_DIR}')
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
 
 dm = DatabaseManager('${DB_PATH}')
 dm.init_db()
@@ -320,7 +321,7 @@ create_launchers() {
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
-export PYTHONPATH="${SCRIPT_DIR}/.."
+export PYTHONPATH="${SCRIPT_DIR}"
 PORT="${1:-5000}"
 echo ""
 echo "  ╔═══════════════════════════════════════════════════════╗"
@@ -342,7 +343,7 @@ LAUNCHER
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
-export PYTHONPATH="${SCRIPT_DIR}/.."
+export PYTHONPATH="${SCRIPT_DIR}"
 echo ""
 echo "  ╔═══════════════════════════════════════════════════════╗"
 echo "  ║  MedPharm ERP - Desktop Application                  ║"
@@ -359,12 +360,37 @@ LAUNCHER
     chmod +x "${SCRIPT_DIR}/start_desktop.sh"
     log "Created start_desktop.sh"
 
+    # Cloud API server launcher
+    cat > "${SCRIPT_DIR}/start_cloud.sh" << 'LAUNCHER'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
+export PYTHONPATH="${SCRIPT_DIR}"
+export MEDPHARM_DEBUG=${MEDPHARM_DEBUG:-true}
+export MEDPHARM_PORT=${MEDPHARM_PORT:-8080}
+echo ""
+echo "  ╔═══════════════════════════════════════════════════════╗"
+echo "  ║  MedPharm ERP - Cloud API Server                     ║"
+echo "  ║  Running at: http://localhost:${MEDPHARM_PORT}                 ║"
+echo "  ║  API Base: http://localhost:${MEDPHARM_PORT}/api/v1            ║"
+echo "  ║                                                       ║"
+echo "  ║  Patient Login: jsmith_portal / patient123            ║"
+echo "  ║  Staff Login:   dr.carter / doctor123                 ║"
+echo "  ║  Press Ctrl+C to stop                                 ║"
+echo "  ╚═══════════════════════════════════════════════════════╝"
+echo ""
+cd "${SCRIPT_DIR}"
+python3 run_cloud.py
+LAUNCHER
+    chmod +x "${SCRIPT_DIR}/start_cloud.sh"
+    log "Created start_cloud.sh"
+
     # PDF documentation generator
     cat > "${SCRIPT_DIR}/generate_docs.sh" << 'LAUNCHER'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
-export PYTHONPATH="${SCRIPT_DIR}/.."
+export PYTHONPATH="${SCRIPT_DIR}"
 cd "${SCRIPT_DIR}"
 python3 docs/generate_pdf.py
 LAUNCHER
@@ -381,12 +407,12 @@ validate_install() {
 
     # Check core imports
     info "Checking database module..."
-    "$PYTHON" -c "from medical_erp.database.db_manager import DatabaseManager; print('  OK')" 2>/dev/null \
+    "$PYTHON" -c "from database.db_manager import DatabaseManager; print('  OK')" 2>/dev/null \
         && log "Database module: OK" \
         || { warn "Database module: FAILED"; ((errors++)); }
 
     info "Checking web module..."
-    "$PYTHON" -c "from medical_erp.web.app import create_app; print('  OK')" 2>/dev/null \
+    "$PYTHON" -c "from web.app import create_app; print('  OK')" 2>/dev/null \
         && log "Web module: OK" \
         || { warn "Web module: FAILED"; ((errors++)); }
 
@@ -407,10 +433,10 @@ validate_install() {
 
     # Run integration test
     info "Running integration test..."
-    PYTHONPATH="${SCRIPT_DIR}/.." "$PYTHON" -c "
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
-from medical_erp.web.app import create_app
+    PYTHONPATH="${SCRIPT_DIR}" "$PYTHON" -c "
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
+from web.app import create_app
 import tempfile, os
 
 db = os.path.join(tempfile.gettempdir(), 'medpharm_test_install.db')
@@ -465,7 +491,10 @@ DONE
     echo -e "  ${CYAN}3. Start the Desktop Application:${NC}"
     echo -e "     ./start_desktop.sh"
     echo -e "     ${DIM}→ Login: dr.carter / doctor123${NC}\n"
-    echo -e "  ${CYAN}4. Generate PDF Documentation:${NC}"
+    echo -e "  ${CYAN}4. Start the Cloud API Server:${NC}"
+    echo -e "     ./start_cloud.sh"
+    echo -e "     ${DIM}→ http://localhost:8080/api/v1  (for Android/iOS/Windows/macOS clients)${NC}\n"
+    echo -e "  ${CYAN}5. Generate PDF Documentation:${NC}"
     echo -e "     ./generate_docs.sh"
     echo -e "     ${DIM}→ Output: docs/MedPharm_ERP_Documentation.pdf${NC}\n"
 
@@ -497,7 +526,7 @@ main() {
     detect_os
     check_python
 
-    export PYTHONPATH="${SCRIPT_DIR}/.."
+    export PYTHONPATH="${SCRIPT_DIR}"
 
     install_system_deps
     setup_venv

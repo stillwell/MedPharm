@@ -21,8 +21,8 @@ Comprehensive symptoms, conditions, and additional medications database.
 Called after the base seed_database() to enrich the reference data.
 """
 
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.models import (
+from database.db_manager import DatabaseManager
+from database.models import (
     Symptom, Condition, Medication, InsuranceClaim, InsuranceClaimStatus,
     DrugSchedule, DrugRoute, DrugForm
 )
