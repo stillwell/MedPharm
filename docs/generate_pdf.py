@@ -324,7 +324,7 @@ def cover_page(canvas_obj, doc):
     canvas_obj.roundRect(w / 2 - 40, h - 3.2 * inch, 80, 22, 11, fill=1, stroke=0)
     canvas_obj.setFillColor(TEAL_DARK)
     canvas_obj.setFont("Helvetica-Bold", 10)
-    canvas_obj.drawCentredString(w / 2, h - 3.12 * inch, "v1.0.0")
+    canvas_obj.drawCentredString(w / 2, h - 3.12 * inch, "v1.1.0")
 
     # Description box
     canvas_obj.setFillColor(colors.white)

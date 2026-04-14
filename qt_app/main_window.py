@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
     def show_about(self):
         QMessageBox.about(
             self, "About MedPharm ERP",
-            "<h2>MedPharm ERP v1.0</h2>"
+            "<h2>MedPharm ERP v1.1</h2>"
             "<p>Medical & Pharmaceutical Enterprise Resource Planning System</p>"
             "<p>Comprehensive ERP for medical practices with prescription management, "
             "patient records, billing, and pharmaceutical database.</p>"
