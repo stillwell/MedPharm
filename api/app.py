@@ -55,7 +55,7 @@ def create_cloud_app(db_manager):
     def root():
         return jsonify({
             "service": "MedPharm ERP Cloud API",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "api_base": "/api/v1",
             "endpoints": {
                 "health": "/api/v1/health",

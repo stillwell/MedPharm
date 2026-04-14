@@ -34,7 +34,7 @@ api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 @api_bp.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.0.0"})
+    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.1.0"})
 
 
 # ── Authentication ────────────────────────────────────────────────────────────

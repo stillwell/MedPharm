@@ -18,15 +18,14 @@
 """
 MedPharm ERP - Medical & Pharmaceutical Enterprise Resource Planning System
 
-A comprehensive ERP system for medical practices and pharmacies featuring:
-- PyQt6 desktop application for doctors and psychiatrists
+A multi-platform ERP system for medical practices and pharmacies featuring:
+- Cloud REST API with JWT authentication for mobile/desktop clients
+- Native Android (Kotlin), iOS (SwiftUI), macOS (SwiftUI), Windows (.NET/WPF) clients
+- PyQt6 desktop application for clinical staff
 - Flask web portal for patient self-service
-- SQLite database backend
-- Full prescription management with drug interaction checking
-- Billing and payment processing
-- Medical records management
-- Medication database with pricing
+- SQLite database with 75+ medications, 30+ symptoms, 25+ conditions
+- Insurance claims workflow, prescription management, billing
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "MedPharm ERP"
