@@ -15,5 +15,5 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from medical_erp.database.models import Base
-from medical_erp.database.db_manager import DatabaseManager
+from database.models import Base
+from database.db_manager import DatabaseManager

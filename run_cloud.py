@@ -43,10 +43,10 @@ import sys
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
-from medical_erp.database.seed_expanded import seed_expanded_data
-from medical_erp.api.app import create_cloud_app
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
+from database.seed_expanded import seed_expanded_data
+from api.app import create_cloud_app
 
 # Database setup
 db_path = os.environ.get("MEDPHARM_DB_PATH", "medpharm_erp.db")

@@ -31,7 +31,7 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from medical_erp.database.models import (
+from database.models import (
     Base, User, Patient, PatientPortalAccount, Insurance, Medication,
     MedicationInteraction, Allergy, Vital, Diagnosis, MedicalRecord,
     Prescription, PrescriptionItem, Appointment, Invoice, InvoiceItem,
@@ -299,13 +299,13 @@ class DatabaseManager:
             if drug_class:
                 q = q.filter(Medication.drug_class.ilike(f"%{drug_class}%"))
             if schedule:
-                from medical_erp.database.models import DrugSchedule
+                from database.models import DrugSchedule
                 try:
                     q = q.filter(Medication.schedule == DrugSchedule(schedule))
                 except ValueError:
                     pass
             if form:
-                from medical_erp.database.models import DrugForm
+                from database.models import DrugForm
                 try:
                     q = q.filter(Medication.form == DrugForm(form))
                 except ValueError:
@@ -643,7 +643,7 @@ class DatabaseManager:
         with self.get_session() as session:
             q = session.query(MedicalRecord).filter_by(patient_id=patient_id)
             if record_type:
-                from medical_erp.database.models import RecordType
+                from database.models import RecordType
                 try:
                     q = q.filter(MedicalRecord.record_type == RecordType(record_type))
                 except ValueError:
@@ -932,7 +932,7 @@ class DatabaseManager:
 
     def get_patient_demographics(self) -> dict:
         with self.get_session() as session:
-            from medical_erp.database.models import Gender
+            from database.models import Gender
             results = {}
             for g in Gender:
                 count = session.query(func.count(Patient.id)).filter_by(

@@ -373,7 +373,7 @@ class PatientWidget(QWidget):
         dialog.exec()
 
     def _save_patient(self, dialog, fields):
-        from medical_erp.database.models import Gender
+        from database.models import Gender
         first = fields["first_name"].text().strip()
         last = fields["last_name"].text().strip()
         if not first or not last:

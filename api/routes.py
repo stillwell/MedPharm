@@ -22,7 +22,7 @@ JSON API endpoints for Android and mobile clients.
 
 from flask import Blueprint, request, jsonify, g
 
-from medical_erp.api.auth import (
+from api.auth import (
     create_token, decode_token,
     token_required, patient_required, staff_required
 )

@@ -26,7 +26,7 @@ import secrets
 from flask import Flask, jsonify, g
 from flask_cors import CORS
 
-from medical_erp.api.routes import api_bp
+from api.routes import api_bp
 
 
 def create_cloud_app(db_manager):

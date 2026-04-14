@@ -26,11 +26,11 @@ Provides prescription viewing, bill pay, and medical record access.
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
-from medical_erp.web.app import create_app
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
+from web.app import create_app
 
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db")

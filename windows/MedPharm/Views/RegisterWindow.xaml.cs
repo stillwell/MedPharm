@@ -26,7 +26,7 @@ public partial class RegisterWindow : Window
 
         try
         {
-            var response = await App.Api.PostAsync<LoginResponse>("auth/patient/register", new
+            var response = await App.Api.PostAsync<LoginResponse>("auth/register", new
             {
                 first_name = FirstNameBox.Text.Trim(),
                 last_name = LastNameBox.Text.Trim(),

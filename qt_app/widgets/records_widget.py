@@ -238,7 +238,7 @@ class RecordsWidget(QWidget):
             QMessageBox.warning(dialog, "Error", "Title is required.")
             return
         try:
-            from medical_erp.database.models import RecordType
+            from database.models import RecordType
             self.db_manager.add_medical_record(
                 patient_id=self.selected_patient_id,
                 provider_id=self.current_user.get("id", 1),

@@ -36,7 +36,7 @@ public partial class LoginWindow : Window
         try
         {
             var isStaff = LoginTypeCombo.SelectedIndex == 1;
-            var endpoint = isStaff ? "auth/staff/login" : "auth/patient/login";
+            var endpoint = isStaff ? "auth/login/staff" : "auth/login/patient";
 
             var response = await App.Api.PostAsync<LoginResponse>(endpoint, new
             {

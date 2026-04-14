@@ -27,17 +27,17 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QAction, QFont
 
-from medical_erp.qt_app.styles import STYLESHEET
-from medical_erp.qt_app.dialogs.login_dialog import LoginDialog
-from medical_erp.qt_app.widgets.dashboard_widget import DashboardWidget
-from medical_erp.qt_app.widgets.patient_widget import PatientWidget
-from medical_erp.qt_app.widgets.prescription_widget import PrescriptionWidget
-from medical_erp.qt_app.widgets.medication_widget import MedicationWidget
-from medical_erp.qt_app.widgets.appointment_widget import AppointmentWidget
-from medical_erp.qt_app.widgets.records_widget import RecordsWidget
-from medical_erp.qt_app.widgets.billing_widget import BillingWidget
-from medical_erp.qt_app.widgets.symptoms_widget import SymptomsWidget
-from medical_erp.qt_app.widgets.analytics_widget import AnalyticsWidget
+from qt_app.styles import STYLESHEET
+from qt_app.dialogs.login_dialog import LoginDialog
+from qt_app.widgets.dashboard_widget import DashboardWidget
+from qt_app.widgets.patient_widget import PatientWidget
+from qt_app.widgets.prescription_widget import PrescriptionWidget
+from qt_app.widgets.medication_widget import MedicationWidget
+from qt_app.widgets.appointment_widget import AppointmentWidget
+from qt_app.widgets.records_widget import RecordsWidget
+from qt_app.widgets.billing_widget import BillingWidget
+from qt_app.widgets.symptoms_widget import SymptomsWidget
+from qt_app.widgets.analytics_widget import AnalyticsWidget
 
 
 class MainWindow(QMainWindow):

@@ -331,11 +331,11 @@ def cover_page(canvas_obj, doc):
     canvas_obj.setFont("Helvetica", 11)
     y = h - 4.8 * inch
     lines = [
-        "Enterprise resource planning system for medical practices",
-        "with integrated pharmaceutical database management.",
+        "Multi-platform enterprise resource planning system for medical practices",
+        "with integrated pharmaceutical database and insurance claims management.",
         "",
-        "Components: Qt6 Desktop Application | Flask Web Portal | SQLite Database",
-        "Stack: Python 3.10+ | SQLAlchemy 2.0 | PyQt6 | Flask 3.0 | ReportLab",
+        "Platforms: Android | iOS | macOS | Windows | Qt6 Desktop | Flask Web Portal",
+        "Stack: Python 3.10+ | SQLAlchemy 2.0 | Flask REST API | Kotlin | SwiftUI | .NET 8",
         "",
         f"Document Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}",
     ]
@@ -353,9 +353,9 @@ def cover_page(canvas_obj, doc):
     start_x = (w - total_w) / 2
 
     for i, (label, sub, clr) in enumerate([
-        ("Qt6 Desktop", "Staff Interface", TEAL_DARK),
-        ("SQLAlchemy DB", "55 Medications", TEAL),
-        ("Flask Portal", "Patient Access", GREEN),
+        ("Cloud REST API", "JWT + CORS", TEAL_DARK),
+        ("SQLAlchemy DB", "75+ Medications", TEAL),
+        ("Multi-Platform", "6 Client Apps", GREEN),
     ]):
         x = start_x + i * (box_w + gap)
         canvas_obj.setStrokeColor(clr)
@@ -407,20 +407,26 @@ def build_document():
         ("2", "Project Structure & File Organization"),
         ("3", "Database Layer — Models & Schema"),
         ("4", "Database Layer — DatabaseManager Operations"),
-        ("5", "Seed Data — 55 Medications & Drug Interactions"),
-        ("6", "Qt Desktop Application — Architecture"),
-        ("7", "Qt Desktop — Dashboard & Navigation"),
-        ("8", "Qt Desktop — Patient Management"),
-        ("9", "Qt Desktop — Prescription & Drug Interaction Checking"),
-        ("10", "Qt Desktop — Medication Database"),
-        ("11", "Qt Desktop — Appointments, Records, Billing, Analytics"),
-        ("12", "Flask Web Portal — Application Factory & Routing"),
-        ("13", "Flask Web Portal — Templates & Frontend"),
-        ("14", "Flask Web Portal — Patient Self-Service Features"),
-        ("15", "Authentication & Security Model"),
-        ("16", "Deployment & Configuration Guide"),
-        ("17", "API Reference"),
-        ("18", "Appendix — Technology References"),
+        ("5", "Seed Data — Medications, Symptoms & Conditions"),
+        ("6", "Cloud REST API — Authentication & Endpoints"),
+        ("7", "Qt Desktop Application — Architecture"),
+        ("8", "Qt Desktop — Dashboard & Navigation"),
+        ("9", "Qt Desktop — Patient Management"),
+        ("10", "Qt Desktop — Prescription & Drug Interaction Checking"),
+        ("11", "Qt Desktop — Medication Database"),
+        ("12", "Qt Desktop — Billing, Insurance Claims, Symptoms"),
+        ("13", "Qt Desktop — Appointments, Records, Analytics"),
+        ("14", "Flask Web Portal — Application Factory & Routing"),
+        ("15", "Flask Web Portal — Templates & Frontend"),
+        ("16", "Flask Web Portal — Patient Self-Service Features"),
+        ("17", "Mobile & Desktop Clients — Android (Kotlin)"),
+        ("18", "Mobile & Desktop Clients — iOS & macOS (SwiftUI)"),
+        ("19", "Desktop Client — Windows (.NET 8 / WPF)"),
+        ("20", "Insurance Claims Workflow"),
+        ("21", "Authentication & Security Model"),
+        ("22", "Deployment & Configuration Guide"),
+        ("23", "API Reference"),
+        ("24", "Appendix — Technology References"),
     ]
     for num, title in toc_entries:
         indent = 0 if "." not in num else 20
@@ -438,19 +444,23 @@ def build_document():
     story.append(SectionDivider())
 
     story.append(Paragraph(
-        "MedPharm ERP is a three-tier medical enterprise resource planning system that combines a "
-        "rich desktop application for clinical staff with a web-based patient portal, both backed "
-        "by a shared SQLAlchemy/SQLite database layer. The architecture follows a clean separation "
-        "of concerns with the database layer acting as the single source of truth, consumed "
-        "independently by both frontends.", styles["BodyText2"]))
+        "MedPharm ERP is a multi-platform medical enterprise resource planning system featuring "
+        "native clients for Android, iOS, macOS, and Windows, a PyQt6 desktop application for "
+        "clinical staff, a Flask web portal for patients, and a cloud REST API backend. "
+        "The architecture follows a clean separation of concerns with the database layer acting "
+        "as the single source of truth, consumed by a Flask REST API (for mobile/desktop clients) "
+        "and directly by the PyQt6 desktop and Flask web portal.", styles["BodyText2"]))
 
-    story.append(Paragraph("1.1 Three-Tier Architecture", styles["H2"]))
+    story.append(Paragraph("1.1 Multi-Platform Architecture", styles["H2"]))
 
     arch_data = [
         ["Tier", "Technology", "Purpose", "Users"],
-        ["Presentation\n(Desktop)", "PyQt6 + matplotlib", "Full clinical ERP with 8 modules,\nanalytics dashboards, drug interaction checker", "Doctors, Psychiatrists,\nPharmacists, Admins"],
+        ["Presentation\n(Desktop)", "PyQt6 + matplotlib", "Full clinical ERP with 9 modules,\nanalytics dashboards, drug interaction checker", "Doctors, Psychiatrists,\nPharmacists, Admins"],
         ["Presentation\n(Web)", "Flask + Bootstrap 5\n+ Jinja2", "Patient self-service portal with\nprescription viewing, bill pay, records", "Patients"],
-        ["Data", "SQLAlchemy 2.0\n+ SQLite", "20 relational models, ORM layer,\n55 medications, 24 drug interactions", "All (via managers)"],
+        ["Cloud API", "Flask + JWT + CORS", "REST API for mobile/desktop clients\nwith token-based authentication", "Android, iOS, macOS,\nWindows clients"],
+        ["Mobile\nClients", "Kotlin (Android)\nSwiftUI (iOS/macOS)", "Native patient portals with\nbilling, insurance claims, Rx refills", "Patients"],
+        ["Windows\nDesktop", ".NET 8 / WPF", "WPF patient portal with DPAPI\nencrypted token storage", "Patients"],
+        ["Data", "SQLAlchemy 2.0\n+ SQLite", "23 relational models, ORM layer,\n75+ medications, 30+ symptoms, 25+ conditions", "All (via managers)"],
     ]
     t = Table(arch_data, colWidths=[1.1*inch, 1.4*inch, 2.3*inch, 1.7*inch])
     t.setStyle(TableStyle([
@@ -471,12 +481,12 @@ def build_document():
 
     story.append(Paragraph("1.2 Data Flow", styles["H2"]))
     story.append(Paragraph(
-        "Both the Qt desktop app and Flask web portal instantiate a shared "
+        "The Qt desktop app, Flask web portal, and cloud REST API all share a single "
         f'{code("DatabaseManager")} object that wraps all database operations. The manager uses '
         "SQLAlchemy's session-per-request pattern via a context manager, ensuring automatic "
-        "commit on success and rollback on failure. Neither frontend directly accesses the ORM "
-        "models — all data is returned as Python dictionaries, creating a natural serialization "
-        "boundary.", styles["BodyText2"]))
+        "commit on success and rollback on failure. All data is returned as Python dictionaries, "
+        "creating a natural serialization boundary. Mobile and desktop clients (Android, iOS, "
+        "macOS, Windows) consume data via the REST API's JSON endpoints.", styles["BodyText2"]))
 
     story.append(Paragraph(
         f'{bold("Key Design Decision:")} Returning dicts instead of ORM objects from '
@@ -491,13 +501,18 @@ def build_document():
         ["Python", "3.10+", link("https://docs.python.org/3/", "docs.python.org/3")],
         ["SQLAlchemy", "2.0+", link("https://docs.sqlalchemy.org/en/20/", "docs.sqlalchemy.org/en/20")],
         ["Flask", "3.0+", link("https://flask.palletsprojects.com/en/3.0.x/", "flask.palletsprojects.com")],
+        ["flask-cors", "4.0+", link("https://flask-cors.readthedocs.io/", "flask-cors.readthedocs.io")],
         ["PyQt6", "6.6+", link("https://www.riverbankcomputing.com/static/Docs/PyQt6/", "PyQt6 Reference Guide")],
+        ["Kotlin", "1.9+", link("https://kotlinlang.org/docs/", "kotlinlang.org/docs")],
+        ["Retrofit", "2.9+", link("https://square.github.io/retrofit/", "square.github.io/retrofit")],
+        ["SwiftUI", "5.0+", link("https://developer.apple.com/documentation/swiftui/", "Apple SwiftUI Docs")],
+        [".NET / WPF", "8.0", link("https://learn.microsoft.com/en-us/dotnet/desktop/wpf/", "Microsoft WPF Docs")],
         ["Bootstrap", "5.3", link("https://getbootstrap.com/docs/5.3/", "getbootstrap.com/docs/5.3")],
         ["matplotlib", "3.8+", link("https://matplotlib.org/stable/", "matplotlib.org/stable")],
+        ["gunicorn", "21.2+", link("https://docs.gunicorn.org/en/stable/", "docs.gunicorn.org")],
         ["Werkzeug", "3.0+", link("https://werkzeug.palletsprojects.com/", "werkzeug.palletsprojects.com")],
         ["SQLite", "3.x", link("https://www.sqlite.org/docs.html", "sqlite.org/docs.html")],
         ["ReportLab", "4.0+", link("https://docs.reportlab.com/", "docs.reportlab.com")],
-        ["Font Awesome", "6.5", link("https://fontawesome.com/icons", "fontawesome.com/icons")],
     ]
     for i in range(1, len(tech_refs)):
         tech_refs[i] = [
@@ -530,72 +545,67 @@ def build_document():
     story.append(SectionDivider())
 
     tree = textwrap.dedent("""\
-    medical_erp/
+    MedPharm/
     ├── __init__.py                     # Package root
     ├── install.sh                      # Automated installer (Bash)
     ├── run_qt.py                       # Qt desktop launcher
     ├── run_web.py                      # Flask web launcher
-    ├── requirements.txt                # Python dependencies
+    ├── run_cloud.py                    # Cloud API server launcher
+    ├── requirements.txt                # Desktop + web dependencies
+    ├── requirements-cloud.txt          # Cloud API dependencies
+    ├── Dockerfile / docker-compose.yml # Docker deployment
     │
     ├── database/                       # ── Data Layer ──────────────────
-    │   ├── __init__.py                 # Exports Base, DatabaseManager
-    │   ├── models.py                   # 20 SQLAlchemy ORM models + enums
-    │   ├── db_manager.py               # All CRUD operations (~600 lines)
-    │   └── seed_data.py                # 55 medications, sample data
+    │   ├── models.py                   # 23 SQLAlchemy ORM models + enums
+    │   ├── db_manager.py               # All CRUD operations (~1100 lines)
+    │   ├── seed_data.py                # 55 medications, sample data
+    │   └── seed_expanded.py            # 30+ symptoms, 25+ conditions
+    │
+    ├── api/                            # ── Cloud REST API ─────────────
+    │   ├── app.py                      # Flask app factory (CORS, JWT)
+    │   ├── auth.py                     # HMAC-SHA256 JWT authentication
+    │   └── routes.py                   # REST endpoints (/api/v1/*)
     │
     ├── qt_app/                         # ── Desktop Application ────────
-    │   ├── __init__.py                 # Exports MainWindow
     │   ├── main_window.py              # QMainWindow + sidebar navigation
-    │   ├── styles.py                   # 400+ line Qt stylesheet (dark theme)
-    │   ├── dialogs/
-    │   │   └── login_dialog.py         # Authentication dialog
-    │   └── widgets/
-    │       ├── dashboard_widget.py     # KPI cards, appointments, activity
-    │       ├── patient_widget.py       # Patient CRUD + 7-tab detail view
-    │       ├── prescription_widget.py  # Rx creation + interaction checking
-    │       ├── medication_widget.py    # Drug database browser + CSV export
-    │       ├── appointment_widget.py   # Calendar + scheduling
-    │       ├── records_widget.py       # Medical records viewer
-    │       ├── billing_widget.py       # Invoices + payment recording
-    │       └── analytics_widget.py     # matplotlib charts (4 chart types)
+    │   ├── styles.py                   # 400+ line Qt stylesheet
+    │   └── widgets/                    # 9 feature widgets
+    │       ├── billing_widget.py       # Invoices + insurance claims
+    │       ├── symptoms_widget.py      # Symptoms & conditions browser
+    │       └── ...                     # dashboard, patient, rx, etc.
     │
     ├── web/                            # ── Web Portal ─────────────────
-    │   ├── __init__.py
     │   ├── app.py                      # Flask application factory
-    │   ├── routes.py                   # All HTTP routes + API endpoints
-    │   ├── templates/                  # Jinja2 HTML templates
-    │   │   ├── base.html               # Master layout (navbar, footer)
-    │   │   ├── login.html              # Login form
-    │   │   ├── register.html           # Patient registration
-    │   │   ├── dashboard.html          # Patient dashboard
-    │   │   ├── prescriptions.html      # Rx list (tabbed: active/all/past)
-    │   │   ├── prescription_detail.html# Single Rx detail + refill
-    │   │   ├── billing.html            # Invoice list + payment history
-    │   │   ├── pay.html                # Online payment form
-    │   │   ├── records.html            # Medical records by type
-    │   │   ├── appointments.html       # Upcoming + past appointments
-    │   │   ├── medications.html        # Current medications + drug info
-    │   │   ├── profile.html            # Patient profile + contact edit
-    │   │   └── errors/
-    │   │       ├── 404.html
-    │   │       └── 500.html
-    │   └── static/
-    │       ├── css/style.css           # 450+ line custom dark stylesheet
-    │       └── js/app.js               # Notifications, formatting, UX
+    │   ├── routes.py                   # All HTTP routes
+    │   └── templates/                  # 14 Jinja2 HTML templates
+    │
+    ├── android/                        # ── Android (Kotlin MVVM) ──────
+    │   └── app/src/main/java/          # Retrofit, OkHttp, Coroutines
+    │
+    ├── ios/                            # ── iOS (SwiftUI) ──────────────
+    │   └── MedPharm/                   # Async/await, Keychain
+    │
+    ├── macos/                          # ── macOS (SwiftUI) ────────────
+    │   └── MedPharm/                   # NavigationSplitView
+    │
+    ├── windows/                        # ── Windows (.NET 8 / WPF) ─────
+    │   └── MedPharm/                   # DPAPI, CommunityToolkit.Mvvm
     │
     └── docs/
         └── generate_pdf.py             # This documentation generator""")
 
     story.append(code_block(tree, styles))
     story.append(Paragraph(
-        "The project follows a modular package layout. Each of the three main subsystems "
-        f'({code("database")}, {code("qt_app")}, {code("web")}) is fully self-contained '
-        f'and depends only on the {code("database")} package for data access. This means '
-        "the web portal can run without PyQt6 installed, and the desktop app can run without Flask.",
+        "The project follows a modular package layout. The Python subsystems "
+        f'({code("database")}, {code("api")}, {code("qt_app")}, {code("web")}) are self-contained '
+        f'and depend only on the {code("database")} package for data access. Native clients '
+        f'(Android, iOS, macOS, Windows) communicate via the {code("api")} REST layer. '
+        "The web portal can run without PyQt6 installed, and the desktop app can run without Flask.",
         styles["BodyText2"]))
 
     story.append(Paragraph(
-        f'{bold("Total codebase:")} ~7,400 lines across 40 files (Python, HTML, CSS, JavaScript)',
+        f'{bold("Total codebase:")} ~16,000+ lines across 130+ files '
+        "(Python, Kotlin, Swift, C#/XAML, HTML, CSS, JavaScript)",
         styles["Note"]))
     story.append(PageBreak())
 
@@ -858,7 +868,7 @@ def build_document():
     # SECTION 5: SEED DATA
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("5. Seed Data — 55 Medications & Drug Interactions", styles["H1"]))
+    story.append(Paragraph("5. Seed Data — Medications, Symptoms & Conditions", styles["H1"]))
     story.append(SectionDivider())
 
     story.append(Paragraph(
@@ -1166,7 +1176,7 @@ def build_document():
         "and known drug interactions with severity-coded display (red for MAJOR, orange for MODERATE).",
         styles["BodyText2"]))
 
-    story.append(Paragraph("11. Qt Desktop — Appointments, Records, Billing, Analytics", styles["H1"]))
+    story.append(Paragraph("11. Qt Desktop — Billing, Insurance, Symptoms, Records, Analytics", styles["H1"]))
     story.append(SectionDivider())
 
     modules_data = [
@@ -1182,7 +1192,7 @@ def build_document():
     story.append(Paragraph(
         f'{bold("matplotlib Qt Integration:")} {link("https://matplotlib.org/stable/gallery/user_interfaces/embedding_in_qt_sgskip.html", "Embedding matplotlib in Qt")} '
         f'— the {code("FigureCanvasQTAgg")} backend renders matplotlib figures directly in Qt widgets. '
-        f'Chart styling uses dark backgrounds ({code("facecolor=\"#1e2129\"")} ) and teal/orange palette to match the UI theme.',
+        'Chart styling uses dark backgrounds (' + code('facecolor="#1e2129"') + ') and teal/orange palette to match the UI theme.',
         styles["LinkStyle"]))
     story.append(PageBreak())
 
@@ -1410,18 +1420,159 @@ def build_document():
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SECTION 15: SECURITY
+    # SECTION 15: CLOUD REST API
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("15. Authentication & Security Model", styles["H1"]))
+    story.append(Paragraph("15. Cloud REST API — Authentication & Endpoints", styles["H1"]))
+    story.append(SectionDivider())
+
+    story.append(Paragraph(
+        "The Cloud REST API provides JSON endpoints for all mobile and desktop clients. "
+        "It uses HMAC-SHA256 JWT tokens for authentication, with separate login flows for "
+        "patients and staff. The API is CORS-enabled and can be deployed via Gunicorn or Docker.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("15.1 Authentication Endpoints", styles["H2"]))
+
+    auth_endpoints = [
+        ["Method", "Endpoint", "Description"],
+        ["POST", "/api/v1/auth/login/patient", "Patient login, returns JWT tokens"],
+        ["POST", "/api/v1/auth/login/staff", "Staff login, returns JWT tokens"],
+        ["POST", "/api/v1/auth/register", "Patient registration with identity verification"],
+        ["POST", "/api/v1/auth/refresh", "Refresh access token using refresh token"],
+    ]
+    story.append(make_table(auth_endpoints[0], auth_endpoints[1:], [0.7*inch, 2.3*inch, 3.2*inch]))
+    story.append(Paragraph("Table 15.1: Authentication endpoints", styles["Caption"]))
+
+    story.append(Paragraph("15.2 Patient API Endpoints", styles["H2"]))
+
+    patient_endpoints = [
+        ["Method", "Endpoint", "Description"],
+        ["GET", "/api/v1/patient/dashboard", "Dashboard KPIs and summaries"],
+        ["GET", "/api/v1/patient/prescriptions", "List prescriptions (filterable by status)"],
+        ["POST", "/api/v1/patient/prescriptions/:id/refill", "Request prescription refill"],
+        ["GET", "/api/v1/patient/billing", "Invoices, payments, outstanding balance"],
+        ["POST", "/api/v1/patient/billing/:id/pay", "Submit payment for invoice"],
+        ["GET", "/api/v1/patient/appointments", "List appointments"],
+        ["GET", "/api/v1/patient/records", "Medical records (filterable by type)"],
+        ["GET/PUT", "/api/v1/patient/profile", "View/update patient profile"],
+        ["GET", "/api/v1/patient/insurance", "List insurance records"],
+        ["GET/POST", "/api/v1/patient/insurance/claims", "List/submit insurance claims"],
+        ["GET", "/api/v1/patient/notifications", "System notifications"],
+    ]
+    story.append(make_table(patient_endpoints[0], patient_endpoints[1:], [0.7*inch, 2.7*inch, 2.8*inch]))
+    story.append(Paragraph("Table 15.2: Patient API endpoints", styles["Caption"]))
+
+    story.append(Paragraph("15.3 Reference Data Endpoints", styles["H2"]))
+    story.append(Paragraph(
+        "Reference data endpoints require any valid token (patient or staff):", styles["BodyText2"]))
+
+    ref_endpoints = [
+        ["Method", "Endpoint", "Description"],
+        ["GET", "/api/v1/medications/search", "Search medications by name, class, schedule"],
+        ["GET", "/api/v1/reference/symptoms", "Search symptoms by name, body system"],
+        ["GET", "/api/v1/reference/conditions", "Search conditions by name, ICD-10, category"],
+        ["GET", "/api/v1/reference/symptoms/body-systems", "List all body systems"],
+        ["GET", "/api/v1/reference/conditions/categories", "List all condition categories"],
+    ]
+    story.append(make_table(ref_endpoints[0], ref_endpoints[1:], [0.7*inch, 2.7*inch, 2.8*inch]))
+    story.append(Paragraph("Table 15.3: Reference data endpoints", styles["Caption"]))
+    story.append(PageBreak())
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION 16: MOBILE & DESKTOP CLIENTS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    story.append(Paragraph("16. Mobile & Desktop Clients", styles["H1"]))
+    story.append(SectionDivider())
+
+    story.append(Paragraph("16.1 Android (Kotlin)", styles["H2"]))
+    story.append(Paragraph(
+        "The Android client uses MVVM architecture with Retrofit for networking, OkHttp interceptors "
+        "for automatic JWT token injection, and EncryptedSharedPreferences for secure token storage. "
+        "The UI uses Material 3 components with bottom navigation (Dashboard, Prescriptions, Billing, "
+        "Appointments, Records) and a toolbar menu for Profile, Medications, and Logout.",
+        styles["BodyText2"]))
+
+    android_stack = [
+        ["Component", "Technology", "Purpose"],
+        ["Networking", "Retrofit 2 + OkHttp", "Type-safe REST API calls with auth interceptor"],
+        ["Architecture", "ViewModel + LiveData", "MVVM pattern with lifecycle awareness"],
+        ["Data", "Repository pattern", "Single source of truth for API data"],
+        ["Security", "EncryptedSharedPreferences", "AES-256 encrypted token storage"],
+        ["UI", "Material 3 + ViewBinding", "Dark theme, swipe-to-refresh, RecyclerView"],
+    ]
+    story.append(make_table(android_stack[0], android_stack[1:], [1.2*inch, 1.8*inch, 3.2*inch]))
+    story.append(Paragraph("Table 16.1: Android technology stack", styles["Caption"]))
+
+    story.append(Paragraph("16.2 iOS (SwiftUI)", styles["H2"]))
+    story.append(Paragraph(
+        "The iOS client uses native SwiftUI with async/await networking via an actor-based APIClient. "
+        "Authentication tokens are stored in iOS Keychain Services. The app uses NavigationStack with "
+        "tab navigation: Dashboard, Prescriptions, Billing, Appointments, and a More section containing "
+        "Records, Medications, Symptoms, Profile, and Notifications.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("16.3 macOS (SwiftUI)", styles["H2"]))
+    story.append(Paragraph(
+        "The macOS client shares Models and APIClient code with iOS. It uses NavigationSplitView "
+        "for a native sidebar layout with master-detail navigation. SwiftUI Table components "
+        "provide sortable data grids for prescriptions and medications. The app supports all "
+        "features including insurance claims, medical records, and profile management.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("16.4 Windows (.NET 8 / WPF)", styles["H2"]))
+    story.append(Paragraph(
+        "The Windows desktop client uses .NET 8 with WPF and CommunityToolkit.Mvvm. It features "
+        "a sidebar navigation layout with pages for Dashboard, Prescriptions, Billing, Appointments, "
+        "and Insurance Claims. Authentication tokens are encrypted using Windows DPAPI (Data Protection "
+        "API) and stored at %APPDATA%/MedPharm/session.dat.",
+        styles["BodyText2"]))
+    story.append(PageBreak())
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION 17: INSURANCE CLAIMS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    story.append(Paragraph("17. Insurance Claims Workflow", styles["H1"]))
+    story.append(SectionDivider())
+
+    story.append(Paragraph(
+        "Insurance claims follow a state machine workflow from submission through processing:", styles["BodyText2"]))
+
+    claims_flow = [
+        ["State", "Trigger", "Next State", "Actions"],
+        ["SUBMITTED", "Patient files claim", "IN_REVIEW", "Claim record created, claim number generated"],
+        ["IN_REVIEW", "Staff reviews claim", "APPROVED/DENIED", "Staff sets approved amount or denial reason"],
+        ["APPROVED", "Staff processes payment", "PAID", "Payment auto-created on invoice, balance updated"],
+        ["DENIED", "Final state", "—", "Denial reason recorded, patient notified"],
+        ["PAID", "Final state", "—", "Insurance payment recorded, invoice balance reduced"],
+    ]
+    story.append(make_table(claims_flow[0], claims_flow[1:], [0.9*inch, 1.4*inch, 1.1*inch, 2.8*inch]))
+    story.append(Paragraph("Table 17.1: Insurance claim state transitions", styles["Caption"]))
+
+    story.append(Paragraph(
+        "Claims are available across all platforms: Qt desktop (staff submission and processing), "
+        "Android, iOS, macOS, and Windows (patient submission via REST API). Staff can process claims "
+        "through the Qt desktop billing module or via the staff API endpoint.",
+        styles["BodyText2"]))
+    story.append(PageBreak())
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION 18: SECURITY
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    story.append(Paragraph("18. Authentication & Security Model", styles["H1"]))
     story.append(SectionDivider())
 
     security_items = [
         ["Layer", "Mechanism", "Implementation"],
         ["Password Storage", "PBKDF2-SHA256 with random salts", "Werkzeug generate_password_hash()"],
-        ["Session Management", "Server-side encrypted cookies", "Flask session with 256-bit secret key"],
+        ["Session (Web)", "Server-side encrypted cookies", "Flask session with 256-bit secret key"],
+        ["JWT Auth (API)", "HMAC-SHA256 signed tokens", "Access + refresh tokens with configurable expiry"],
         ["Access Control", "Role-based (4 roles)", "UserRole enum: doctor, psychiatrist, pharmacist, admin"],
-        ["Patient Isolation", "Session-scoped patient_id", "All queries filter by session['patient_id']"],
+        ["Patient Isolation", "Session/token-scoped patient_id", "All queries filter by patient_id from session/JWT"],
+        ["Token Storage", "Platform-specific encryption", "Android: EncryptedSharedPrefs, iOS: Keychain, Win: DPAPI"],
         ["Identity Verification", "4-factor registration", "First name + last name + DOB + SSN last 4"],
         ["SQL Injection", "Parameterized queries", "SQLAlchemy ORM handles all query parameterization"],
         ["XSS Prevention", "Auto-escaping templates", "Jinja2 autoescapes all {{ }} expressions"],
@@ -1429,7 +1580,7 @@ def build_document():
         ["Audit Logging", "Action logging with user/timestamp", "AuditLog table tracks all data changes"],
     ]
     story.append(make_table(security_items[0], security_items[1:], [1.2*inch, 1.8*inch, 3.2*inch]))
-    story.append(Paragraph("Table 15.1: Security control matrix", styles["Caption"]))
+    story.append(Paragraph("Table 18.1: Security control matrix", styles["Caption"]))
 
     story.append(Paragraph(
         f'{bold("OWASP Reference:")} {link("https://owasp.org/www-project-top-ten/", "OWASP Top 10 Web Security Risks")} — '
@@ -1445,16 +1596,16 @@ def build_document():
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SECTION 16: DEPLOYMENT
+    # SECTION 19: DEPLOYMENT
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("16. Deployment & Configuration Guide", styles["H1"]))
+    story.append(Paragraph("19. Deployment & Configuration Guide", styles["H1"]))
     story.append(SectionDivider())
 
-    story.append(Paragraph("16.1 Automated Installation", styles["H2"]))
+    story.append(Paragraph("19.1 Automated Installation", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # One-command installation
-    cd medical_erp
+    cd MedPharm
     chmod +x install.sh
     ./install.sh
 
@@ -1467,7 +1618,7 @@ def build_document():
     #   6. Creates launcher scripts (start_web.sh, start_desktop.sh, generate_docs.sh)
     #   7. Runs integration tests to validate installation"""), styles))
 
-    story.append(Paragraph("16.2 Manual Setup", styles["H2"]))
+    story.append(Paragraph("19.2 Manual Setup", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # 1. Create virtual environment
     python3 -m venv venv && source venv/bin/activate
@@ -1484,7 +1635,7 @@ def build_document():
     # 5. Generate PDF documentation
     python3 docs/generate_pdf.py    # → docs/MedPharm_ERP_Documentation.pdf"""), styles))
 
-    story.append(Paragraph("16.3 Configuration", styles["H2"]))
+    story.append(Paragraph("19.3 Configuration", styles["H2"]))
 
     config_data = [
         ["Setting", "Location", "Default", "Description"],
@@ -1496,7 +1647,7 @@ def build_document():
     ]
     story.append(make_table(config_data[0], config_data[1:], [1.1*inch, 1.5*inch, 1.2*inch, 2.6*inch]))
 
-    story.append(Paragraph("16.4 Production Deployment Recommendations", styles["H2"]))
+    story.append(Paragraph("19.4 Production Deployment Recommendations", styles["H2"]))
 
     prod_items = ListFlowable([
         ListItem(Paragraph("Replace SQLite with PostgreSQL for concurrent multi-user access", styles["BodyText2"])),
@@ -1515,7 +1666,7 @@ def build_document():
     # SECTION 17: API REFERENCE
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("17. API Reference", styles["H1"]))
+    story.append(Paragraph("20. API Reference", styles["H1"]))
     story.append(SectionDivider())
 
     story.append(Paragraph(
@@ -1524,7 +1675,7 @@ def build_document():
         "the logged-in patient only.",
         styles["BodyText2"]))
 
-    story.append(Paragraph("17.1 GET /api/notifications", styles["H2"]))
+    story.append(Paragraph("20.1 GET /api/notifications", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: { "count": 3, "notifications": [
     #   { "type": "danger",  "message": "Invoice INV-XXXXX is overdue" },
@@ -1534,7 +1685,7 @@ def build_document():
     #
     # Polled every 30 seconds by app.js for notification badge updates"""), styles))
 
-    story.append(Paragraph("17.2 GET /api/prescriptions", styles["H2"]))
+    story.append(Paragraph("20.2 GET /api/prescriptions", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: [
     #   { "id": 1, "rx_number": "RX-00000001", "status": "active",
@@ -1546,7 +1697,7 @@ def build_document():
     #   ...
     # ]"""), styles))
 
-    story.append(Paragraph("17.3 GET /api/invoices/outstanding", styles["H2"]))
+    story.append(Paragraph("20.3 GET /api/invoices/outstanding", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: [
     #   { "id": 5, "invoice_number": "INV-00000005", "status": "overdue",
@@ -1560,10 +1711,10 @@ def build_document():
     # SECTION 18: APPENDIX
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("18. Appendix — Technology References", styles["H1"]))
+    story.append(Paragraph("21. Appendix — Technology References", styles["H1"]))
     story.append(SectionDivider())
 
-    story.append(Paragraph("18.1 Essential Documentation Links", styles["H2"]))
+    story.append(Paragraph("21.1 Essential Documentation Links", styles["H2"]))
 
     ref_links = [
         ("Python 3 Standard Library", "https://docs.python.org/3/library/index.html"),
@@ -1596,7 +1747,7 @@ def build_document():
         ))
 
     story.append(Spacer(1, 20))
-    story.append(Paragraph("18.2 Default Credentials Reference", styles["H2"]))
+    story.append(Paragraph("21.2 Default Credentials Reference", styles["H2"]))
 
     creds = [
         ["Application", "Username", "Password", "Role"],

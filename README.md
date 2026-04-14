@@ -2,7 +2,7 @@
 
 **Medical & Pharmaceutical Enterprise Resource Planning System**
 
-A full-stack ERP platform for medical practices and pharmacies, featuring a PyQt6 desktop application for clinical staff and a Flask web portal for patients. Built on a unified SQLAlchemy database with 55 real-world medications, drug interaction checking, prescription management, billing, and analytics.
+A multi-platform ERP system for medical practices and pharmacies, featuring native clients for Android, iOS, macOS, and Windows, a PyQt6 desktop application for clinical staff, a Flask web portal for patients, and a cloud REST API backend. Built on a unified SQLAlchemy database with 75+ real-world medications, 30+ symptoms, 25+ conditions, drug interaction checking, insurance claims, prescription management, billing, and analytics.
 
 Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlightec.com)
 
@@ -29,11 +29,49 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - **Dashboard** — Real-time KPIs, today's appointments, recent activity with 60-second auto-refresh
 - **Patient Management** — Master-detail view with demographics, vitals, allergies, diagnoses, and 7-tab detail panel
 - **Prescriptions** — Create prescriptions with automatic drug-drug interaction checking across 24 known interaction pairs
-- **Medication Database** — Searchable catalog of 55 FDA-referenced medications with NDC codes, scheduling, and pricing
+- **Medication Database** — Searchable catalog of 75+ FDA-referenced medications with NDC codes, scheduling, and pricing
 - **Appointments** — Calendar-based scheduling with status management (scheduled, checked-in, in-progress, completed, cancelled)
 - **Medical Records** — Patient-filtered clinical records with type-based filtering
-- **Billing** — Invoice management, payment recording, and revenue summary
+- **Billing** — Invoice management, payment recording, insurance claim submission and processing, and revenue summary
+- **Symptoms & Conditions** — Searchable medical reference database with 30+ symptoms and 25+ conditions, body system filtering, and emergency indicators
 - **Analytics** — Four interactive matplotlib charts: revenue trends, patient demographics, top medications, and provider workload
+
+### Cloud REST API (Mobile & Desktop Clients)
+- **JWT Authentication** — HMAC-SHA256 token-based auth with access/refresh tokens, patient and staff login flows
+- **Patient Self-Service** — Dashboard, prescriptions, billing, records, appointments, medications, profile, notifications
+- **Staff Endpoints** — Dashboard, patient management, prescriptions, appointments, analytics (revenue, demographics, top meds)
+- **Insurance Claims** — Submit claims, view claim status, staff claim processing with approved/denied/paid workflow
+- **Medical Reference** — Searchable symptoms and conditions database with body system and category filtering
+- **Medication Search** — Full medication catalog search by name, drug class, or schedule
+- **CORS-enabled** — Configurable origins for cross-platform client access
+- **Production-ready** — Gunicorn support, environment variable configuration, health check endpoint
+
+### Android Application (Kotlin)
+- **MVVM Architecture** — ViewModel + LiveData + Repository pattern with Retrofit/OkHttp networking
+- **Patient Portal** — Dashboard, prescriptions with refill requests, billing with payments, appointments, medical records
+- **Insurance Claims** — File claims against invoices using on-file insurance records
+- **Medication Browser** — Searchable medication reference database
+- **Security** — EncryptedSharedPreferences for token storage, OkHttp auth interceptor for automatic token injection
+- **Material Design** — Material 3 components, dark theme, swipe-to-refresh, bottom navigation
+
+### iOS Application (SwiftUI)
+- **Native SwiftUI** — Async/await networking, NavigationStack, searchable modifiers
+- **Patient Portal** — Dashboard with KPI cards, prescriptions with refill, billing with payment sheet, appointments, records
+- **Insurance Claims** — File claims with insurance picker and submit via REST API
+- **Keychain Storage** — Secure token persistence via iOS Keychain Services
+- **Tab Navigation** — Dashboard, Prescriptions, Billing, Appointments, and More (records, medications, symptoms, profile)
+
+### macOS Application (SwiftUI)
+- **NavigationSplitView** — Native macOS sidebar navigation with master-detail layout
+- **Full Feature Parity** — Dashboard, prescriptions, billing, appointments, records, medications, insurance claims, profile
+- **SwiftUI Table** — Native macOS table components for prescriptions and medications
+- **Shared Codebase** — Shares Models and APIClient with the iOS application
+
+### Windows Desktop Application (.NET 8 / WPF)
+- **MVVM with CommunityToolkit** — Clean architecture with HttpClient, Newtonsoft.Json, DPAPI token encryption
+- **Sidebar Navigation** — Dashboard, prescriptions, billing, appointments, insurance claims
+- **Payment & Claims** — Pay invoices and file insurance claims with provider selection
+- **DPAPI Security** — Windows Data Protection API for encrypted token storage
 
 ### Flask Web Portal (Patients)
 - **Secure Registration** — 4-factor patient identity verification (name, date of birth, SSN last 4, insurance ID)
@@ -45,9 +83,12 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - **Profile Management** — Update contact info, insurance details, and allergy records
 
 ### Database & Backend
-- **20 SQLAlchemy ORM models** with 16 Python enums and full relationship mapping
-- **55 real medications** seeded with NDC codes, drug classes, schedules, and pricing
+- **23 SQLAlchemy ORM models** with 18 Python enums and full relationship mapping
+- **75+ real medications** seeded with NDC codes, drug classes, schedules, and pricing
 - **24 drug-drug interactions** with severity levels and clinical descriptions
+- **30+ symptoms** with body system classification and emergency indicators
+- **25+ conditions** with ICD-10 codes, categories, and prevalence data
+- **Insurance claims workflow** — SUBMITTED → IN_REVIEW → APPROVED → PAID / DENIED with automatic payment creation
 - **PBKDF2-SHA256 password hashing** via Werkzeug
 - **Role-based access control** — Doctor, Psychiatrist, Pharmacist, Admin, and Patient roles
 - **Audit logging** for compliance tracking
@@ -57,32 +98,41 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 ## Architecture
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐
-│   PyQt6 Desktop     │     │   Flask Web Portal   │
-│   (Clinical Staff)  │     │   (Patients)         │
-│                     │     │                      │
-│  - Dashboard        │     │  - Prescriptions     │
-│  - Patients         │     │  - Bill Pay          │
-│  - Prescriptions    │     │  - Records           │
-│  - Medications      │     │  - Appointments      │
-│  - Appointments     │     │  - Profile           │
-│  - Billing          │     │                      │
-│  - Analytics        │     │                      │
-└────────┬────────────┘     └──────────┬───────────┘
-         │                             │
-         └──────────┐   ┌──────────────┘
-                    ▼   ▼
-          ┌─────────────────────┐
-          │   DatabaseManager   │
-          │   (SQLAlchemy 2.0)  │
-          └──────────┬──────────┘
-                     ▼
-          ┌─────────────────────┐
-          │   SQLite Database   │
-          │   (20 Models)       │
-          │   55 Medications    │
-          │   24 Interactions   │
-          └─────────────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│   Android    │ │     iOS      │ │    macOS     │ │   Windows    │
+│   (Kotlin)   │ │  (SwiftUI)   │ │  (SwiftUI)   │ │  (.NET/WPF)  │
+│   Material 3 │ │  Async/Await │ │  NavSplit    │ │  MVVM/DPAPI  │
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+       │                │                │                │
+       └────────────────┴────────┬───────┴────────────────┘
+                                 ▼
+                    ┌────────────────────────┐
+                    │   Flask REST API       │
+                    │   /api/v1/*            │
+                    │   JWT + CORS           │
+                    │   (run_cloud.py)       │
+                    └───────────┬────────────┘
+                                │
+┌─────────────────────┐         │         ┌─────────────────────┐
+│   PyQt6 Desktop     │         │         │   Flask Web Portal   │
+│   (Clinical Staff)  │         │         │   (Patients)         │
+└────────┬────────────┘         │         └──────────┬───────────┘
+         │                      │                    │
+         └──────────────┬───────┴────────────────────┘
+                        ▼
+              ┌─────────────────────┐
+              │   DatabaseManager   │
+              │   (SQLAlchemy 2.0)  │
+              └──────────┬──────────┘
+                         ▼
+              ┌─────────────────────┐
+              │   SQLite Database   │
+              │   23 Models         │
+              │   75+ Medications   │
+              │   30+ Symptoms      │
+              │   25+ Conditions    │
+              │   24 Interactions   │
+              └─────────────────────┘
 ```
 
 ---
@@ -90,20 +140,32 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 ## Project Structure
 
 ```
-medical_erp/
+MedPharm/
 ├── __init__.py
 ├── run_qt.py                  # Desktop application launcher
 ├── run_web.py                 # Web portal launcher
+├── run_cloud.py               # Cloud API server launcher
 ├── install.sh                 # Automated installer (cross-platform)
 ├── start_desktop.sh           # Desktop quick-launch script
 ├── start_web.sh               # Web portal quick-launch script
+├── start_cloud.sh             # Cloud API quick-launch script
 ├── generate_docs.sh           # PDF documentation generator script
-├── requirements.txt
+├── requirements.txt           # Qt desktop + web portal dependencies
+├── requirements-cloud.txt     # Cloud API server dependencies
+├── Dockerfile                 # Docker container for cloud API
+├── docker-compose.yml         # Docker Compose configuration
+├── Procfile                   # Heroku/cloud deployment
 │
 ├── database/
-│   ├── models.py              # 20 SQLAlchemy ORM models & 16 enums
+│   ├── models.py              # 23 SQLAlchemy ORM models & 18 enums
 │   ├── db_manager.py          # DatabaseManager — all CRUD & business logic
-│   └── seed_data.py           # 55 medications, 24 interactions, sample data
+│   ├── seed_data.py           # 55 medications, 24 interactions, sample data
+│   └── seed_expanded.py       # 30+ symptoms, 25+ conditions, 20+ additional meds
+│
+├── api/
+│   ├── app.py                 # Cloud API Flask application factory
+│   ├── auth.py                # JWT HMAC-SHA256 authentication
+│   └── routes.py              # REST API endpoints (/api/v1/*)
 │
 ├── qt_app/
 │   ├── main_window.py         # QMainWindow with sidebar navigation
@@ -117,7 +179,8 @@ medical_erp/
 │       ├── medication_widget.py
 │       ├── appointment_widget.py
 │       ├── records_widget.py
-│       ├── billing_widget.py
+│       ├── billing_widget.py  # Includes insurance claim submission
+│       ├── symptoms_widget.py # Symptoms & conditions reference browser
 │       └── analytics_widget.py
 │
 ├── web/
@@ -127,46 +190,69 @@ medical_erp/
 │   │   ├── css/style.css      # Dark theme portal stylesheet
 │   │   └── js/app.js          # Client-side interactions
 │   └── templates/             # 14 Jinja2 templates
-│       ├── base.html
-│       ├── login.html
-│       ├── register.html
-│       ├── dashboard.html
-│       ├── prescriptions.html
-│       ├── prescription_detail.html
-│       ├── billing.html
-│       ├── pay.html
-│       ├── records.html
-│       ├── appointments.html
-│       ├── medications.html
-│       ├── profile.html
-│       └── errors/
-│           ├── 404.html
-│           └── 500.html
+│
+├── android/                   # Android app (Kotlin, MVVM, Retrofit)
+│   └── app/src/main/
+│       ├── java/com/enlightec/medpharm/
+│       │   ├── data/          # API service, repository, models
+│       │   ├── ui/            # Fragments, ViewModels, Adapters
+│       │   └── util/          # AuthInterceptor, Resource wrapper
+│       └── res/               # Layouts, drawables, strings, themes
+│
+├── ios/                       # iOS app (SwiftUI, async/await)
+│   └── MedPharm/MedPharm/
+│       ├── Models/            # Codable data models
+│       ├── Services/          # APIClient, AuthManager, KeychainHelper
+│       └── Views/             # SwiftUI views by feature
+│
+├── macos/                     # macOS app (SwiftUI, NavigationSplitView)
+│   └── MedPharm/MedPharm/
+│       ├── Models/            # Shared with iOS
+│       ├── Services/          # APIClient, AuthManager
+│       └── Views/             # macOS-optimized views
+│
+├── windows/                   # Windows app (.NET 8, WPF)
+│   └── MedPharm/
+│       ├── Models/            # API data models
+│       ├── Services/          # ApiClient, TokenStore (DPAPI)
+│       └── Views/             # XAML pages and dialogs
 │
 └── docs/
     ├── generate_pdf.py                    # ReportLab PDF generator
-    └── MedPharm_ERP_Documentation.pdf     # 31-page technical reference
+    └── MedPharm_ERP_Documentation.pdf     # Technical reference
 ```
 
 ---
 
 ## Requirements
 
+### Server / Desktop (Python)
 - **Python 3.10+**
-- **Operating System:** Ubuntu/Debian, Fedora/RHEL, macOS, or Arch Linux
-- **Display server** required for the desktop application (X11 or Wayland)
+- **Operating System:** Ubuntu/Debian, Fedora/RHEL, macOS, Arch Linux, or Windows (WSL)
+- **Display server** required for the Qt desktop application (X11 or Wayland)
 
 ### Python Dependencies
 
 | Package      | Version  | Purpose                        |
 |-------------|----------|--------------------------------|
 | PyQt6       | >= 6.6.0 | Desktop GUI framework          |
-| Flask       | >= 3.0.0 | Web portal framework           |
+| Flask       | >= 3.0.0 | Web portal + Cloud API         |
+| flask-cors  | >= 4.0.0 | CORS support for REST API      |
 | SQLAlchemy  | >= 2.0.0 | ORM and database management    |
 | Werkzeug    | >= 3.0.0 | Password hashing & WSGI        |
 | matplotlib  | >= 3.8.0 | Analytics charts               |
 | numpy       | >= 1.26.0| Numerical support for charts   |
+| gunicorn    | >= 21.2.0| Production WSGI server         |
 | ReportLab   | >= 4.0   | PDF documentation generation   |
+
+### Mobile / Desktop Clients
+
+| Platform | Language | Min Version | Key Dependencies |
+|----------|----------|-------------|------------------|
+| Android  | Kotlin   | API 26+     | Retrofit, OkHttp, Coroutines, EncryptedSharedPreferences |
+| iOS      | Swift    | iOS 16+     | SwiftUI, async/await, Keychain Services |
+| macOS    | Swift    | macOS 13+   | SwiftUI, NavigationSplitView |
+| Windows  | C#       | .NET 8      | WPF, Newtonsoft.Json, CommunityToolkit.Mvvm, DPAPI |
 
 ---
 
@@ -177,7 +263,7 @@ medical_erp/
 The install script handles OS detection, Python version checking, virtual environment creation, dependency installation, database initialization, and integration tests.
 
 ```bash
-git clone https://github.com/robert-andrew-stillwell/MedPharm.git
+git clone https://github.com/stillwell/MedPharm.git
 cd MedPharm
 chmod +x install.sh
 ./install.sh
@@ -187,15 +273,16 @@ The installer will:
 1. Detect your operating system and install system-level dependencies
 2. Verify Python 3.10+ is available
 3. Create a virtual environment in `venv/`
-4. Install all Python packages from `requirements.txt` plus ReportLab
+4. Install all Python packages including flask-cors for cloud API support
 5. Initialize the SQLite database and seed it with sample data
-6. Run integration tests to verify everything works
-7. Create quick-launch scripts (`start_web.sh`, `start_desktop.sh`, `generate_docs.sh`)
+6. Seed expanded reference data (symptoms, conditions, additional medications)
+7. Run integration tests to verify everything works
+8. Create quick-launch scripts (`start_web.sh`, `start_desktop.sh`, `start_cloud.sh`, `generate_docs.sh`)
 
 ### Manual Install
 
 ```bash
-git clone https://github.com/robert-andrew-stillwell/MedPharm.git
+git clone https://github.com/stillwell/MedPharm.git
 cd MedPharm
 
 # Create and activate virtual environment
@@ -204,24 +291,67 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-cloud.txt
 pip install reportlab
 
 # Initialize the database
 python3 -c "
 import sys, os
-sys.path.insert(0, os.path.dirname(os.getcwd()))
-from medical_erp.database.db_manager import DatabaseManager
-from medical_erp.database.seed_data import seed_database
+sys.path.insert(0, os.getcwd())
+from database.db_manager import DatabaseManager
+from database.seed_data import seed_database
+from database.seed_expanded import seed_expanded_data
 db = DatabaseManager('medpharm_erp.db')
 db.init_db()
 seed_database(db)
+seed_expanded_data(db)
 print('Database initialized with sample data.')
 "
+```
+
+### Docker Deployment (Cloud API)
+
+```bash
+docker-compose up --build
+```
+
+The API will be available at `http://localhost:8080/api/v1`.
+
+### Building Mobile / Desktop Clients
+
+**Android:**
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+**iOS / macOS:**
+Open `ios/MedPharm/MedPharm.xcodeproj` or `macos/MedPharm/MedPharm.xcodeproj` in Xcode and build.
+
+**Windows:**
+```bash
+cd windows/MedPharm
+dotnet build
+dotnet run
 ```
 
 ---
 
 ## Quick Start
+
+### Start the Cloud API Server (Required for Mobile/Desktop Clients)
+
+```bash
+./start_cloud.sh
+```
+
+Or manually:
+```bash
+source venv/bin/activate
+python3 run_cloud.py
+```
+
+The API server starts at **http://localhost:8080/api/v1**. All Android, iOS, macOS, and Windows clients connect to this endpoint.
 
 ### Start the Web Portal (Patient Interface)
 
@@ -262,6 +392,18 @@ Pass the port as an argument:
 
 ## Usage Guide
 
+### Cloud API — Mobile & Desktop Client Access
+
+The REST API provides JWT-authenticated endpoints for all client platforms:
+
+- **Authentication:** `POST /api/v1/auth/login/patient`, `POST /api/v1/auth/login/staff`, `POST /api/v1/auth/register`
+- **Patient Endpoints:** `/api/v1/patient/dashboard`, `/prescriptions`, `/billing`, `/records`, `/appointments`, `/profile`, `/notifications`
+- **Insurance Claims:** `POST /api/v1/patient/insurance/claims` to submit, `GET` to list, staff can process via `/staff/insurance/claims/<id>/process`
+- **Reference Data:** `/api/v1/reference/symptoms`, `/reference/conditions`, `/medications/search`
+- **Staff Endpoints:** `/api/v1/staff/dashboard`, `/patients`, `/appointments`, `/prescriptions`, `/analytics/*`
+
+All endpoints require a `Bearer <token>` Authorization header except `/health`, `/auth/*`.
+
 ### Desktop Application — Clinical Staff Workflow
 
 1. **Login** — Authenticate with your staff credentials. Access is role-based (Doctor, Psychiatrist, Pharmacist, Admin).
@@ -272,15 +414,17 @@ Pass the port as an argument:
 
 4. **Prescriptions** — View all prescriptions or create new ones. The prescription dialog lets you select a patient, add multiple medication lines, and set dosage/frequency/duration/quantity for each. When you add medications, the system automatically checks for drug-drug interactions and displays warnings with severity levels. Saving a prescription auto-generates a priced invoice.
 
-5. **Medication Database** — Browse and search the full catalog of 55 medications. Filter by drug class or schedule. Select any medication to view detailed information including NDC code, manufacturer, dosage forms, pricing, and contraindications. Export the catalog to CSV.
+5. **Medication Database** — Browse and search the full catalog of 75+ medications. Filter by drug class or schedule. Select any medication to view detailed information including NDC code, manufacturer, dosage forms, pricing, and contraindications.
 
 6. **Appointments** — A calendar widget on the left lets you pick a date. Appointments for that date appear on the right. Create new appointments or update their status through the workflow: Scheduled → Checked In → In Progress → Completed.
 
 7. **Medical Records** — Select a patient and filter records by type (lab results, imaging, clinical notes, etc.).
 
-8. **Billing** — View all invoices with status indicators (Pending, Partial, Paid, Overdue). Record payments against invoices. Summary cards show total billed, collected, and outstanding amounts.
+8. **Billing** — View all invoices with status indicators (Pending, Partial, Paid, Overdue). Record payments against invoices. Submit and process insurance claims with approval/denial workflow. Summary cards show total billed, collected, and outstanding amounts.
 
-9. **Analytics** — Four chart panels powered by matplotlib: monthly revenue trends, patient age/gender demographics, top prescribed medications, and provider workload distribution.
+9. **Symptoms & Conditions** — Browse the medical reference database. Search symptoms by name or body system with emergency indicators. Search conditions by name, ICD-10 code, or category. Select any entry to view detailed information including associated conditions, typical medications, and prevalence data.
+
+10. **Analytics** — Four chart panels powered by matplotlib: monthly revenue trends, patient age/gender demographics, top prescribed medications, and provider workload distribution.
 
 ### Web Portal — Patient Workflow
 
@@ -306,7 +450,7 @@ Pass the port as an argument:
 
 ## Documentation
 
-A comprehensive 31-page technical reference PDF is included with the project. It covers the complete system architecture, source code walkthroughs, database schema, security controls, deployment guide, and API reference with clickable web links to external documentation.
+A comprehensive technical reference PDF is included with the project. It covers the complete system architecture, source code walkthroughs, database schema, security controls, deployment guide, and API reference.
 
 ### View the PDF
 
@@ -331,37 +475,60 @@ python3 docs/generate_pdf.py
 
 The PDF includes:
 - System architecture overview with component diagrams
-- Complete database schema with all 20 models and relationships
-- Step-by-step source code explanations with annotated code blocks
+- Complete database schema with all 23 models and relationships
+- Multi-platform client architecture (Android, iOS, macOS, Windows)
+- Cloud REST API endpoint reference with authentication details
+- Insurance claims workflow documentation
 - Drug interaction checking algorithm walkthrough
 - Flask web portal route reference
 - Qt desktop application module documentation
-- Security control matrix (authentication, authorization, hashing, audit logging)
+- Security control matrix (JWT auth, HMAC-SHA256, DPAPI, Keychain, password hashing, audit logging)
 - Deployment and configuration guide
-- Links to external documentation (SQLAlchemy, Flask, PyQt6, HIPAA, FDA, OWASP)
+- Links to external documentation (SQLAlchemy, Flask, PyQt6, Retrofit, SwiftUI, WPF)
 
 ---
 
 ## Default Credentials
 
-### Desktop Application (Staff)
+### Desktop Application & Cloud API (Staff)
 
 | Role          | Username     | Password    |
 |--------------|-------------|-------------|
 | Doctor       | dr.carter   | doctor123   |
+| Doctor       | dr.chen     | doctor123   |
 | Psychiatrist | dr.brooks   | doctor123   |
 | Pharmacist   | pharm.davis | pharm123    |
 | Admin        | admin       | admin123    |
 
-### Web Portal (Patients)
+### Web Portal, Mobile & Desktop Clients (Patients)
 
 | Patient             | Username          | Password    |
 |--------------------|-------------------|-------------|
 | John Smith         | jsmith_portal     | patient123  |
 | Maria Johnson      | mjohnson_portal   | patient123  |
 | Emily Williams     | ewilliams_portal  | patient123  |
+| Sarah Davis        | sdavis_portal     | patient123  |
+| Linda Martinez     | lmartinez_portal  | patient123  |
 
 > **Note:** These are demo credentials for development and testing. Change all passwords before any production deployment.
+
+---
+
+## Environment Variables
+
+The cloud API server can be configured via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MEDPHARM_DB_PATH` | `medpharm_erp.db` | Path to SQLite database |
+| `MEDPHARM_SECRET_KEY` | Auto-generated | Flask secret key |
+| `MEDPHARM_JWT_SECRET` | Dev default | JWT signing secret (change in production) |
+| `MEDPHARM_TOKEN_EXPIRY` | `86400` | Access token lifetime in seconds (24h) |
+| `MEDPHARM_REFRESH_EXPIRY` | `604800` | Refresh token lifetime in seconds (7 days) |
+| `MEDPHARM_CORS_ORIGINS` | `*` | Allowed CORS origins |
+| `MEDPHARM_HOST` | `0.0.0.0` | Server bind host |
+| `MEDPHARM_PORT` | `8080` | Server bind port |
+| `MEDPHARM_DEBUG` | `false` | Enable debug mode |
 
 ---
 

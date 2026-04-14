@@ -173,8 +173,8 @@ class SymptomsWidget(QWidget):
             query = self.symptom_search.text().strip()
             body_system = self.body_system_filter.currentData() or ""
             symptoms = self.db_manager.search_symptoms(query=query, body_system=body_system)
-            self.symptoms_table.setRowCount(len(symptoms))
             self._symptoms_data = symptoms
+            self.symptoms_table.setRowCount(len(symptoms))
             for row, s in enumerate(symptoms):
                 name_item = QTableWidgetItem(s["name"])
                 self.symptoms_table.setItem(row, 0, name_item)
@@ -195,8 +195,8 @@ class SymptomsWidget(QWidget):
             query = self.condition_search.text().strip()
             category = self.category_filter.currentData() or ""
             conditions = self.db_manager.search_conditions(query=query, category=category)
-            self.conditions_table.setRowCount(len(conditions))
             self._conditions_data = conditions
+            self.conditions_table.setRowCount(len(conditions))
             for row, c in enumerate(conditions):
                 self.conditions_table.setItem(row, 0, QTableWidgetItem(c["name"]))
                 self.conditions_table.setItem(row, 1, QTableWidgetItem(c.get("icd10_code", "") or ""))

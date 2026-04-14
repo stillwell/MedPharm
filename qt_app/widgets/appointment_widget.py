@@ -354,7 +354,7 @@ class AppointmentWidget(QWidget):
             QMessageBox.warning(dialog, "Error", "Please select a provider.")
             return
         try:
-            from medical_erp.database.models import AppointmentType, AppointmentStatus
+            from database.models import AppointmentType, AppointmentStatus
             self.db_manager.create_appointment(
                 patient_id=patient_id,
                 provider_id=provider_id,

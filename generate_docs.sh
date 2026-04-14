@@ -18,6 +18,6 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
-export PYTHONPATH="${SCRIPT_DIR}/.."
+export PYTHONPATH="${SCRIPT_DIR}"
 cd "${SCRIPT_DIR}"
 python3 docs/generate_pdf.py

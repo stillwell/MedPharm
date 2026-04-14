@@ -23,7 +23,7 @@ Patient portal for prescription viewing, bill pay, and record access.
 import os
 import secrets
 from flask import Flask, redirect, url_for, session, g, render_template
-from medical_erp.web.routes import portal_bp
+from web.routes import portal_bp
 
 
 def create_app(db_manager):
