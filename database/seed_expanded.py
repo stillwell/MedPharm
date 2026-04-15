@@ -653,7 +653,7 @@ def seed_expanded_data(db_manager: DatabaseManager):
                        contraindications="Systemic fungal infections, Live vaccines",
                        side_effects="Weight gain, Hyperglycemia, Osteoporosis, Mood changes, Insomnia",
                        avg_wholesale_price=2.00, retail_price=8.99),
-            Medication(ndc_code="0093-0058-01", brand_name="Buspirone", generic_name="Buspirone HCl",
+            Medication(ndc_code="0555-0115-02", brand_name="Buspirone", generic_name="Buspirone HCl",
                        manufacturer="Bristol-Myers Squibb", drug_class="Anxiolytic - Azapirone", schedule=DrugSchedule.NONE,
                        route=DrugRoute.ORAL, form=DrugForm.TABLET, strength="10mg", unit="mg",
                        description="Non-benzodiazepine anxiolytic for generalized anxiety",
