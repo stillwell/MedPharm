@@ -426,7 +426,7 @@ def build_document():
         ("20", "Insurance Claims Workflow"),
         ("21", "Authentication & Security Model"),
         ("22", "Deployment & Configuration Guide"),
-        ("23", "Docker Server Deployment (Ubuntu)"),
+        ("23", "Docker Server Deployment & CI/CD Pipeline"),
         ("24", "API Reference"),
         ("25", "Appendix — Technology References"),
     ]
@@ -559,6 +559,9 @@ def build_document():
     ├── docker-compose.yml              # Docker Compose (API only)
     ├── .dockerignore                   # Docker build exclusions
     ├── LICENSE                         # GNU GPL v3.0
+    │
+    ├── .github/workflows/
+    │   └── docker-publish.yml          # CI/CD auto-build to Docker Hub
     │
     ├── server/                         # ── Docker Server Package ──────
     │   ├── Dockerfile                  # Full stack (Ubuntu 24.04 LTS)
@@ -1778,6 +1781,37 @@ def build_document():
         f'{code("MEDPHARM_SECRET_KEY")} to unique, random values in production. '
         "The .env.example file provides a template for all configurable settings.",
         styles["Warning"]))
+
+    story.append(Paragraph("20.7 CI/CD Pipeline (GitHub Actions)", styles["H2"]))
+    story.append(Paragraph(
+        "Docker images are automatically built and pushed to Docker Hub on every tagged release "
+        "via the GitHub Actions workflow at .github/workflows/docker-publish.yml. The pipeline "
+        "first validates source code (syntax checks, database init, API health check, web portal "
+        "login page), then builds and pushes two images to Docker Hub under the enlightec namespace.",
+        styles["BodyText2"]))
+
+    story.append(code_block(textwrap.dedent("""\
+    # Trigger a release build
+    git tag v1.2.0
+    git push origin v1.2.0
+
+    # Pre-built images on Docker Hub:
+    docker pull enlightec/medpharm-server:1.1.0   # Full stack
+    docker pull enlightec/medpharm-api:1.1.0       # API only"""), styles))
+
+    cicd_data = [
+        ["Image", "Contents", "Base"],
+        ["enlightec/medpharm-server", "Nginx + API + Web Portal", "Ubuntu 24.04 LTS"],
+        ["enlightec/medpharm-api", "REST API only", "Ubuntu 24.04 LTS"],
+    ]
+    story.append(make_table(cicd_data[0], cicd_data[1:], [2.0*inch, 2.2*inch, 1.5*inch]))
+    story.append(Paragraph("Table 20.2: Docker Hub images", styles["Caption"]))
+
+    story.append(Paragraph(
+        f'{bold("Required GitHub Secrets:")} {code("DOCKERHUB_USERNAME")} (e.g., enlightec) and '
+        f'{code("DOCKERHUB_TOKEN")} (Docker Hub access token). Set these in the repository '
+        "Settings under Secrets and variables > Actions.",
+        styles["Note"]))
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════

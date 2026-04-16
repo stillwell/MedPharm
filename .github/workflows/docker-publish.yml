@@ -1,0 +1,219 @@
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# ==============================================================================
+# MedPharm ERP - Docker Build & Push CI/CD Pipeline
+#
+# Triggers on tagged releases (v*.*.*) and pushes Docker images to Docker Hub:
+#   - enlightec/medpharm-server  (Full stack: Nginx + API + Web Portal)
+#   - enlightec/medpharm-api     (API only)
+#
+# Required GitHub Secrets:
+#   DOCKERHUB_USERNAME  - Docker Hub username (e.g., enlightec)
+#   DOCKERHUB_TOKEN     - Docker Hub access token (not password)
+# ==============================================================================
+
+name: Build & Push Docker Images
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g., 1.1.0)'
+        required: false
+        default: 'latest'
+
+env:
+  DOCKERHUB_NAMESPACE: enlightec
+  SERVER_IMAGE: enlightec/medpharm-server
+  API_IMAGE: enlightec/medpharm-api
+
+jobs:
+  # ── Run Tests ──────────────────────────────────────────────────────────────
+  test:
+    name: Validate Source Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-cloud.txt
+          pip install Flask SQLAlchemy Werkzeug
+
+      - name: Verify Python syntax (all modules)
+        run: |
+          python -m py_compile run_cloud.py
+          python -m py_compile run_web.py
+          python -m py_compile api/app.py
+          python -m py_compile api/auth.py
+          python -m py_compile api/routes.py
+          python -m py_compile database/models.py
+          python -m py_compile database/db_manager.py
+          python -m py_compile database/seed_data.py
+          python -m py_compile database/seed_expanded.py
+          python -m py_compile web/app.py
+          python -m py_compile web/routes.py
+
+      - name: Test database initialization
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          from database.db_manager import DatabaseManager
+          from database.seed_data import seed_database
+          from database.seed_expanded import seed_expanded_data
+          db = DatabaseManager('/tmp/test_medpharm.db')
+          db.init_db()
+          seed_database(db)
+          seed_expanded_data(db)
+          print('Database initialization: OK')
+          "
+
+      - name: Test API app creation
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          from database.db_manager import DatabaseManager
+          from database.seed_data import seed_database
+          from api.app import create_cloud_app
+          db = DatabaseManager('/tmp/test_medpharm.db')
+          db.init_db()
+          seed_database(db)
+          app = create_cloud_app(db)
+          client = app.test_client()
+          resp = client.get('/api/v1/health')
+          assert resp.status_code == 200, f'Health check failed: {resp.status_code}'
+          print('API health check: OK')
+          "
+
+      - name: Test Web Portal app creation
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, os.getcwd())
+          from database.db_manager import DatabaseManager
+          from database.seed_data import seed_database
+          from web.app import create_app
+          db = DatabaseManager('/tmp/test_medpharm.db')
+          db.init_db()
+          seed_database(db)
+          app = create_app(db)
+          client = app.test_client()
+          resp = client.get('/login')
+          assert resp.status_code == 200, f'Login page failed: {resp.status_code}'
+          print('Web portal login page: OK')
+          "
+
+  # ── Build & Push Docker Images ─────────────────────────────────────────────
+  docker:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Full Server Stack (Nginx + API + Web Portal) ──
+      - name: Build & push medpharm-server
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: |
+            ${{ env.SERVER_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.SERVER_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.title=MedPharm ERP Server
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.vendor=Enlightec Ltd.
+            org.opencontainers.image.description=MedPharm ERP Full Stack Server (Ubuntu 24.04)
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── API Only ──
+      - name: Build & push medpharm-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.API_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.title=MedPharm ERP Cloud API
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.vendor=Enlightec Ltd.
+            org.opencontainers.image.description=MedPharm ERP REST API (Ubuntu 24.04)
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Print image details
+        run: |
+          echo "============================================"
+          echo "  Docker images pushed successfully!"
+          echo "============================================"
+          echo ""
+          echo "  Full Stack:  ${{ env.SERVER_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "  API Only:    ${{ env.API_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo ""
+          echo "  Pull commands:"
+          echo "    docker pull ${{ env.SERVER_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "    docker pull ${{ env.API_IMAGE }}:${{ steps.version.outputs.version }}"
+          echo "============================================"

@@ -157,6 +157,9 @@ MedPharm/
 ├── .dockerignore              # Docker build exclusions
 ├── LICENSE                    # GNU General Public License v3.0
 │
+├── .github/workflows/
+│   └── docker-publish.yml     # CI/CD: build & push to Docker Hub
+│
 ├── server/                    # ── Docker Server Package ───────
 │   ├── Dockerfile             # Full stack (Ubuntu 24.04 LTS)
 │   ├── docker-compose.yml     # Nginx + API + Web Portal
@@ -351,6 +354,36 @@ docker compose up -d       # Starts API on port 8080
 ```
 
 The API will be available at `http://localhost:8080/api/v1`.
+
+**Pre-built images from Docker Hub:**
+
+```bash
+docker pull enlightec/medpharm-server:latest   # Full stack
+docker pull enlightec/medpharm-api:latest       # API only
+```
+
+### CI/CD Pipeline (GitHub Actions)
+
+Docker images are automatically built and pushed to Docker Hub on every tagged release. The pipeline:
+
+1. **Validates source code** — Syntax checks all Python modules, tests database initialization, verifies API health check and web portal login page
+2. **Builds & pushes** two images to Docker Hub:
+   - `enlightec/medpharm-server:<version>` — Full stack (Nginx + API + Web Portal)
+   - `enlightec/medpharm-api:<version>` — API only
+
+**To trigger a release:**
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0   # Triggers the pipeline
+```
+
+**Required GitHub Secrets** (set in Settings > Secrets and variables > Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKERHUB_USERNAME` | Docker Hub username (e.g., `enlightec`) |
+| `DOCKERHUB_TOKEN` | Docker Hub access token ([create one here](https://hub.docker.com/settings/security)) |
 
 ### Building Mobile / Desktop Clients
 
