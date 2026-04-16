@@ -41,6 +41,25 @@ VENV_DIR="${SCRIPT_DIR}/venv"
 DB_DIR="${SCRIPT_DIR}/data"
 DB_PATH="${DB_DIR}/medpharm.db"
 LOG_FILE="${SCRIPT_DIR}/install.log"
+FRESH=false
+
+# ── Parse Arguments ──────────────────────────────────────────────────────────
+
+for arg in "$@"; do
+    case "$arg" in
+        --fresh) FRESH=true ;;
+        --help|-h)
+            echo "Usage: ./install.sh [--fresh]"
+            echo "  --fresh   Recreate virtual environment and reinitialize database without prompting"
+            exit 0
+            ;;
+    esac
+done
+
+# Auto-detect non-interactive environments (CI, piped input, etc.)
+if [[ ! -t 0 ]]; then
+    FRESH=true
+fi
 
 # ── Helper Functions ──────────────────────────────────────────────────────────
 
@@ -65,18 +84,18 @@ spinner() {
 banner() {
     echo -e "${CYAN}${BOLD}"
     cat << 'BANNER'
-    ╔═══════════════════════════════════════════════════════════════╗
-    ║                                                               ║
-    ║   ███╗   ███╗███████╗██████╗ ██████╗ ██╗  ██╗ █████╗ ██████╗ ║
-    ║   ████╗ ████║██╔════╝██╔══██╗██╔══██╗██║  ██║██╔══██╗██╔══██╗║
-    ║   ██╔████╔██║█████╗  ██║  ██║██████╔╝███████║███████║██████╔╝║
-    ║   ██║╚██╔╝██║██╔══╝  ██║  ██║██╔═══╝ ██╔══██║██╔══██║██╔══██╗║
-    ║   ██║ ╚═╝ ██║███████╗██████╔╝██║     ██║  ██║██║  ██║██║  ██║║
-    ║   ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝║
-    ║                   E R P   S Y S T E M                        ║
-    ║         Medical & Pharmaceutical Management v1.0              ║
-    ║                                                               ║
-    ╚═══════════════════════════════════════════════════════════════╝
+    ╔═════════════════════════════════════════════════════════════════════╗
+    ║                                                                     ║
+    ║   ███╗   ███╗███████╗██████╗ ██████╗ ██╗  ██╗ █████╗ ██████╗ ███╗  ║
+    ║   ████╗ ████║██╔════╝██╔══██╗██╔══██╗██║  ██║██╔══██╗██╔══██╗████║ ║
+    ║   ██╔████╔██║█████╗  ██║  ██║██████╔╝███████║███████║██████╔╝██╔═╝ ║
+    ║   ██║╚██╔╝██║██╔══╝  ██║  ██║██╔═══╝ ██╔══██║██╔══██║██╔══██╗     ║
+    ║   ██║ ╚═╝ ██║███████╗██████╔╝██║     ██║  ██║██║  ██║██║  ██║     ║
+    ║   ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝  ║
+    ║                     E R P   S Y S T E M                             ║
+    ║           Medical & Pharmaceutical Management v1.0                  ║
+    ║                                                                     ║
+    ╚═════════════════════════════════════════════════════════════════════╝
 BANNER
     echo -e "${NC}"
 }
@@ -120,7 +139,7 @@ check_python() {
     done
 
     if [[ -z "$python_cmd" ]]; then
-        fail "Python 3.10+ is required but not found. Install it first:"
+        echo -e "${RED}[✗]${NC} Python 3.10+ is required but not found. Install it first:"
         info "  Ubuntu/Debian: sudo apt install python3 python3-venv python3-pip"
         info "  Fedora:        sudo dnf install python3 python3-pip"
         info "  macOS:         brew install python@3.12"
@@ -185,15 +204,20 @@ setup_venv() {
     header "Setting Up Virtual Environment"
 
     if [[ -d "$VENV_DIR" ]]; then
-        warn "Existing virtual environment found at ${VENV_DIR}"
-        read -p "    Recreate it? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [[ "$FRESH" == "true" ]]; then
+            warn "Removing existing virtual environment (--fresh)"
             rm -rf "$VENV_DIR"
         else
-            log "Using existing virtual environment"
-            source "${VENV_DIR}/bin/activate"
-            return
+            warn "Existing virtual environment found at ${VENV_DIR}"
+            read -p "    Recreate it? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                rm -rf "$VENV_DIR"
+            else
+                log "Using existing virtual environment"
+                source "${VENV_DIR}/bin/activate"
+                return
+            fi
         fi
     fi
 
@@ -201,7 +225,7 @@ setup_venv() {
     "$PYTHON" -m venv "$VENV_DIR" 2>/dev/null || {
         warn "venv module not available. Trying with --without-pip..."
         "$PYTHON" -m venv --without-pip "$VENV_DIR" 2>/dev/null || {
-            fail "Cannot create virtual environment. Install python3-venv:"
+            echo -e "${RED}[✗]${NC} Cannot create virtual environment. Install python3-venv:"
             info "  sudo apt install python${PYTHON_VERSION}-venv"
             exit 1
         }
@@ -276,15 +300,20 @@ init_database() {
     mkdir -p "$DB_DIR"
 
     if [[ -f "$DB_PATH" ]]; then
-        warn "Database already exists at ${DB_PATH}"
-        read -p "    Reinitialize with fresh seed data? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [[ "$FRESH" == "true" ]]; then
+            warn "Removing existing database (--fresh)"
             rm -f "$DB_PATH"
-            info "Old database removed"
         else
-            log "Keeping existing database"
-            return
+            warn "Database already exists at ${DB_PATH}"
+            read -p "    Reinitialize with fresh seed data? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                rm -f "$DB_PATH"
+                info "Old database removed"
+            else
+                log "Keeping existing database"
+                return
+            fi
         fi
     fi
 
