@@ -152,9 +152,22 @@ MedPharm/
 ├── generate_docs.sh           # PDF documentation generator script
 ├── requirements.txt           # Qt desktop + web portal dependencies
 ├── requirements-cloud.txt     # Cloud API server dependencies
-├── Dockerfile                 # Docker container for cloud API
-├── docker-compose.yml         # Docker Compose configuration
-├── Procfile                   # Heroku/cloud deployment
+├── Dockerfile                 # Docker image (API only, Ubuntu 24.04)
+├── docker-compose.yml         # Docker Compose (API only)
+├── .dockerignore              # Docker build exclusions
+├── LICENSE                    # GNU General Public License v3.0
+│
+├── server/                    # ── Docker Server Package ───────
+│   ├── Dockerfile             # Full stack (Ubuntu 24.04 LTS)
+│   ├── docker-compose.yml     # Nginx + API + Web Portal
+│   ├── entrypoint.sh          # DB init & process bootstrap
+│   ├── healthcheck.sh         # Docker health check script
+│   ├── supervisord.conf       # Process manager config
+│   ├── requirements-server.txt# Combined server dependencies
+│   ├── .env.example           # Environment variable template
+│   ├── .dockerignore          # Server build exclusions
+│   └── nginx/
+│       └── medpharm.conf      # Nginx reverse proxy config
 │
 ├── database/
 │   ├── models.py              # 23 SQLAlchemy ORM models & 18 enums
@@ -309,10 +322,32 @@ print('Database initialized with sample data.')
 "
 ```
 
-### Docker Deployment (Cloud API)
+### Docker Deployment (Ubuntu 24.04 LTS)
+
+Both Docker images run on **Ubuntu Server 24.04 LTS**.
+
+**Full Server Stack** (Nginx + Cloud API + Web Portal):
 
 ```bash
-docker-compose up --build
+cd server
+cp .env.example .env      # Edit secrets before production use
+docker compose up -d       # Start all services
+docker compose logs -f     # View logs
+```
+
+Services available:
+
+| Endpoint | Description |
+|----------|-------------|
+| `http://localhost/api/v1/health` | REST API via Nginx |
+| `http://localhost/portal/` | Web Portal via Nginx |
+| `http://localhost:8080/` | API direct access |
+| `http://localhost:5000/` | Web Portal direct access |
+
+**API Only** (lightweight, no Nginx):
+
+```bash
+docker compose up -d       # Starts API on port 8080
 ```
 
 The API will be available at `http://localhost:8080/api/v1`.
@@ -516,7 +551,7 @@ The PDF includes:
 
 ## Environment Variables
 
-The cloud API server can be configured via environment variables:
+The cloud API server and Docker deployment can be configured via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -529,6 +564,11 @@ The cloud API server can be configured via environment variables:
 | `MEDPHARM_HOST` | `0.0.0.0` | Server bind host |
 | `MEDPHARM_PORT` | `8080` | Server bind port |
 | `MEDPHARM_DEBUG` | `false` | Enable debug mode |
+| `MEDPHARM_HTTP_PORT` | `80` | Nginx listen port (Docker full stack) |
+| `MEDPHARM_API_PORT` | `8080` | Gunicorn API port (Docker full stack) |
+| `MEDPHARM_WEB_PORT` | `5000` | Gunicorn Web Portal port (Docker full stack) |
+| `MEDPHARM_WORKERS` | `4` | Gunicorn worker processes |
+| `MEDPHARM_THREADS` | `2` | Gunicorn threads per worker |
 
 ---
 
@@ -538,6 +578,7 @@ This project is licensed under the **GNU General Public License v3.0**.
 
 Copyright (C) 2026 [Enlightec Ltd.](https://www.enlightec.com)
 Author: Robert Andrew Stillwell
+Email: Andrew.Stillwell@enlightec.com
 
 See the [LICENSE](LICENSE) file for the full license text.
 

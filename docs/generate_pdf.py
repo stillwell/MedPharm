@@ -426,8 +426,9 @@ def build_document():
         ("20", "Insurance Claims Workflow"),
         ("21", "Authentication & Security Model"),
         ("22", "Deployment & Configuration Guide"),
-        ("23", "API Reference"),
-        ("24", "Appendix — Technology References"),
+        ("23", "Docker Server Deployment (Ubuntu)"),
+        ("24", "API Reference"),
+        ("25", "Appendix — Technology References"),
     ]
     for num, title in toc_entries:
         indent = 0 if "." not in num else 20
@@ -554,7 +555,18 @@ def build_document():
     ├── run_cloud.py                    # Cloud API server launcher
     ├── requirements.txt                # Desktop + web dependencies
     ├── requirements-cloud.txt          # Cloud API dependencies
-    ├── Dockerfile / docker-compose.yml # Docker deployment
+    ├── Dockerfile                      # Docker image (API, Ubuntu 24.04)
+    ├── docker-compose.yml              # Docker Compose (API only)
+    ├── .dockerignore                   # Docker build exclusions
+    ├── LICENSE                         # GNU GPL v3.0
+    │
+    ├── server/                         # ── Docker Server Package ──────
+    │   ├── Dockerfile                  # Full stack (Ubuntu 24.04 LTS)
+    │   ├── docker-compose.yml          # Nginx + API + Web Portal
+    │   ├── entrypoint.sh               # DB init & process bootstrap
+    │   ├── supervisord.conf            # Process manager config
+    │   ├── nginx/medpharm.conf         # Nginx reverse proxy
+    │   └── .env.example                # Environment variable template
     │
     ├── database/                       # ── Data Layer ──────────────────
     │   ├── models.py                   # 23 SQLAlchemy ORM models + enums
@@ -605,8 +617,8 @@ def build_document():
         styles["BodyText2"]))
 
     story.append(Paragraph(
-        f'{bold("Total codebase:")} ~16,000+ lines across 130+ files '
-        "(Python, Kotlin, Swift, C#/XAML, HTML, CSS, JavaScript)",
+        f'{bold("Total codebase:")} ~18,000+ lines across 160+ files '
+        "(Python, Kotlin, Swift, C#/XAML, HTML, CSS, JavaScript, Shell, Nginx, Docker)",
         styles["Note"]))
     story.append(PageBreak())
 
@@ -1664,10 +1676,115 @@ def build_document():
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # SECTION 17: API REFERENCE
+    # SECTION 20: DOCKER SERVER DEPLOYMENT
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("20. API Reference", styles["H1"]))
+    story.append(Paragraph("20. Docker Server Deployment (Ubuntu)", styles["H1"]))
+    story.append(SectionDivider())
+
+    story.append(Paragraph(
+        "MedPharm ERP includes a production-ready Docker server package based on "
+        "Ubuntu Server 24.04 LTS. Two deployment options are provided: a lightweight "
+        "API-only container and a full-stack server with Nginx reverse proxy.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("20.1 Full Server Stack (Recommended)", styles["H2"]))
+    story.append(Paragraph(
+        "The full stack runs three services managed by Supervisor inside a single "
+        "container: Nginx reverse proxy (port 80), Cloud REST API via Gunicorn "
+        "(port 8080), and Patient Web Portal via Gunicorn (port 5000).",
+        styles["BodyText2"]))
+
+    story.append(code_block(textwrap.dedent("""\
+    # Deploy the full server stack
+    cd server
+    cp .env.example .env           # Configure secrets and ports
+    docker compose up -d           # Start all services
+    docker compose logs -f         # View logs
+    docker compose down            # Stop
+
+    # Endpoints via Nginx (port 80):
+    #   http://localhost/api/v1/health    REST API health check
+    #   http://localhost/portal/          Patient Web Portal
+    #   http://localhost:8080/            API direct access
+    #   http://localhost:5000/            Web Portal direct access"""), styles))
+
+    story.append(Paragraph("20.2 API-Only Container", styles["H2"]))
+    story.append(Paragraph(
+        "For deployments that only need the REST API (e.g., serving mobile clients), "
+        "the root-level Dockerfile provides a lightweight Ubuntu container running "
+        "Gunicorn without Nginx or the web portal.",
+        styles["BodyText2"]))
+
+    story.append(code_block(textwrap.dedent("""\
+    # API-only deployment
+    docker compose up -d           # Starts API on port 8080
+    curl http://localhost:8080/api/v1/health"""), styles))
+
+    story.append(Paragraph("20.3 Docker Architecture", styles["H2"]))
+
+    docker_data = [
+        ["Component", "Base Image", "Port", "Process Manager"],
+        ["Full Stack", "Ubuntu 24.04 LTS", "80, 8080, 5000", "Supervisor + Nginx"],
+        ["API Only", "Ubuntu 24.04 LTS", "8080", "Gunicorn"],
+    ]
+    story.append(make_table(docker_data[0], docker_data[1:], [1.2*inch, 1.5*inch, 1.3*inch, 2.0*inch]))
+
+    story.append(Paragraph("20.4 Environment Variables", styles["H2"]))
+
+    env_data = [
+        ["Variable", "Default", "Description"],
+        ["MEDPHARM_JWT_SECRET", "dev default", "JWT signing secret (change in production)"],
+        ["MEDPHARM_SECRET_KEY", "auto-generated", "Flask secret key"],
+        ["MEDPHARM_DB_PATH", "/data/medpharm_erp.db", "SQLite database path"],
+        ["MEDPHARM_WORKERS", "4", "Gunicorn worker processes"],
+        ["MEDPHARM_THREADS", "2", "Gunicorn threads per worker"],
+        ["MEDPHARM_HTTP_PORT", "80", "Nginx listen port (full stack)"],
+        ["MEDPHARM_API_PORT", "8080", "API server port"],
+        ["MEDPHARM_WEB_PORT", "5000", "Web portal port"],
+        ["MEDPHARM_CORS_ORIGINS", "*", "Allowed CORS origins"],
+        ["MEDPHARM_TOKEN_EXPIRY", "86400", "Access token lifetime (seconds)"],
+        ["MEDPHARM_REFRESH_EXPIRY", "604800", "Refresh token lifetime (seconds)"],
+    ]
+    story.append(make_table(env_data[0], env_data[1:], [1.8*inch, 1.5*inch, 2.8*inch]))
+    story.append(Paragraph("Table 20.1: Docker environment variables", styles["Caption"]))
+
+    story.append(Paragraph("20.5 Nginx Routing", styles["H2"]))
+    story.append(Paragraph(
+        "The Nginx reverse proxy routes requests to the appropriate backend service. "
+        "Security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection) "
+        "are added to all responses. CORS preflight requests are handled at the proxy level.",
+        styles["BodyText2"]))
+
+    nginx_data = [
+        ["Path", "Upstream", "Description"],
+        ["/api/*", "gunicorn :8080", "Cloud REST API"],
+        ["/portal/*", "gunicorn :5000", "Patient Web Portal"],
+        ["/", "gunicorn :8080", "API root info"],
+        ["/health", "gunicorn :8080", "Health check (no logging)"],
+    ]
+    story.append(make_table(nginx_data[0], nginx_data[1:], [1.2*inch, 1.5*inch, 3.0*inch]))
+
+    story.append(Paragraph("20.6 Persistent Storage", styles["H2"]))
+    story.append(Paragraph(
+        "The Docker deployment uses named volumes for persistent data. The SQLite "
+        "database is stored at /data/medpharm_erp.db inside the container, mapped to "
+        "the medpharm-data volume. Server logs are stored in /var/log/medpharm/, "
+        "mapped to the medpharm-logs volume.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph(
+        f'{bold("Security note:")} Always set {code("MEDPHARM_JWT_SECRET")} and '
+        f'{code("MEDPHARM_SECRET_KEY")} to unique, random values in production. '
+        "The .env.example file provides a template for all configurable settings.",
+        styles["Warning"]))
+    story.append(PageBreak())
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION 21: API REFERENCE
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    story.append(Paragraph("21. API Reference", styles["H1"]))
     story.append(SectionDivider())
 
     story.append(Paragraph(
@@ -1676,7 +1793,7 @@ def build_document():
         "the logged-in patient only.",
         styles["BodyText2"]))
 
-    story.append(Paragraph("20.1 GET /api/notifications", styles["H2"]))
+    story.append(Paragraph("21.1 GET /api/notifications", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: { "count": 3, "notifications": [
     #   { "type": "danger",  "message": "Invoice INV-XXXXX is overdue" },
@@ -1686,7 +1803,7 @@ def build_document():
     #
     # Polled every 30 seconds by app.js for notification badge updates"""), styles))
 
-    story.append(Paragraph("20.2 GET /api/prescriptions", styles["H2"]))
+    story.append(Paragraph("21.2 GET /api/prescriptions", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: [
     #   { "id": 1, "rx_number": "RX-00000001", "status": "active",
@@ -1698,7 +1815,7 @@ def build_document():
     #   ...
     # ]"""), styles))
 
-    story.append(Paragraph("20.3 GET /api/invoices/outstanding", styles["H2"]))
+    story.append(Paragraph("21.3 GET /api/invoices/outstanding", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     # Response: [
     #   { "id": 5, "invoice_number": "INV-00000005", "status": "overdue",
@@ -1712,10 +1829,10 @@ def build_document():
     # SECTION 18: APPENDIX
     # ═══════════════════════════════════════════════════════════════════════════
 
-    story.append(Paragraph("21. Appendix — Technology References", styles["H1"]))
+    story.append(Paragraph("22. Appendix — Technology References", styles["H1"]))
     story.append(SectionDivider())
 
-    story.append(Paragraph("21.1 Essential Documentation Links", styles["H2"]))
+    story.append(Paragraph("22.1 Essential Documentation Links", styles["H2"]))
 
     ref_links = [
         ("Python 3 Standard Library", "https://docs.python.org/3/library/index.html"),
@@ -1738,6 +1855,10 @@ def build_document():
         ("ICD-10 Code Search", "https://www.icd10data.com/"),
         ("Drugs.com Interaction Checker", "https://www.drugs.com/drug_interactions.html"),
         ("Medscape Drug Reference", "https://reference.medscape.com/drugs"),
+        ("Docker Documentation", "https://docs.docker.com/"),
+        ("Nginx Reverse Proxy Guide", "https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/"),
+        ("Supervisor Configuration", "http://supervisord.org/configuration.html"),
+        ("Gunicorn Deployment", "https://docs.gunicorn.org/en/stable/deploy.html"),
     ]
 
     for title, url in ref_links:
@@ -1748,7 +1869,7 @@ def build_document():
         ))
 
     story.append(Spacer(1, 20))
-    story.append(Paragraph("21.2 Default Credentials Reference", styles["H2"]))
+    story.append(Paragraph("22.2 Default Credentials Reference", styles["H2"]))
 
     creds = [
         ["Application", "Username", "Password", "Role"],
