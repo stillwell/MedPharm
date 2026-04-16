@@ -1,6 +1,7 @@
 # MedPharm ERP - Medical & Pharmaceutical Management System
 # Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
 # Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

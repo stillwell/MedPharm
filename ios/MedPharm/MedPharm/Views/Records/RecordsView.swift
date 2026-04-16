@@ -2,6 +2,7 @@
  * MedPharm ERP - iOS Application
  * Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
  * Author: Robert Andrew Stillwell
+ * Email: Andrew.Stillwell@enlightec.com
  * License: GNU General Public License v3.0
  */
 
