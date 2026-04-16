@@ -60,6 +60,9 @@
     <string name="filter_lab_results">Lab Results</string>
     <string name="filter_imaging">Imaging</string>
 
+    <!-- Copyright -->
+    <string name="copyright">© 2026 Enlightec Ltd.</string>
+
     <!-- Menu -->
     <string name="action_profile">Profile</string>
     <string name="action_medications">Medications</string>

@@ -56,7 +56,7 @@
                            TextWrapping="Wrap"
                            HorizontalAlignment="Center" />
 
-                <TextBlock Text="Copyright (C) 2026 Enlightec Ltd."
+                <TextBlock Text="© 2026 Enlightec Ltd."
                            Foreground="{StaticResource TextSecondaryBrush}"
                            FontSize="10" HorizontalAlignment="Center" Margin="0,20,0,0" />
             </StackPanel>

@@ -234,4 +234,5 @@ class MainWindow(QMainWindow):
             "<p>Medical & Pharmaceutical Enterprise Resource Planning System</p>"
             "<p>Comprehensive ERP for medical practices with prescription management, "
             "patient records, billing, and pharmaceutical database.</p>"
+            "<p>&copy; 2026 Enlightec Ltd.</p>"
         )

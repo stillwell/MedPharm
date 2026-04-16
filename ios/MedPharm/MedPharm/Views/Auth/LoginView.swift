@@ -63,6 +63,12 @@ struct LoginView: View {
                     Button("Don't have an account? Register") {
                         showRegister = true
                     }.foregroundColor(.teal)
+
+                    Spacer().frame(height: 20)
+
+                    Text("© 2026 Enlightec Ltd.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
             .sheet(isPresented: $showRegister) {

@@ -105,6 +105,11 @@ class LoginDialog(QDialog):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         form_layout.addWidget(hint)
 
+        copyright_label = QLabel("\u00a9 2026 Enlightec Ltd.")
+        copyright_label.setStyleSheet("color: #505050; font-size: 10px;")
+        copyright_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        form_layout.addWidget(copyright_label)
+
         layout.addWidget(form_container)
 
     def attempt_login(self):

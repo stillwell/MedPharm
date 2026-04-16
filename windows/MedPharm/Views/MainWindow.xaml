@@ -32,6 +32,9 @@
                             BorderBrush="#80FFFFFF" BorderThickness="1"
                             Padding="12,8" Cursor="Hand"
                             Click="LogoutBtn_Click" />
+                    <TextBlock Text="© 2026 Enlightec Ltd."
+                               Foreground="#80B2EBF2" FontSize="10"
+                               HorizontalAlignment="Center" Margin="0,12,0,0" />
                 </StackPanel>
 
                 <StackPanel>

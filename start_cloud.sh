@@ -34,6 +34,8 @@ echo "  ║                                                       ║"
 echo "  ║  Patient Login: jsmith_portal / patient123            ║"
 echo "  ║  Staff Login:   dr.carter / doctor123                 ║"
 echo "  ║  Press Ctrl+C to stop                                 ║"
+echo "  ║                                                       ║"
+echo "  ║  © 2026 Enlightec Ltd.                                ║"
 echo "  ╚═══════════════════════════════════════════════════════╝"
 echo ""
 

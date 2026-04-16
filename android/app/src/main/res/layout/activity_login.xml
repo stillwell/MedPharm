@@ -118,10 +118,19 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:layout_marginBottom="32dp"
             android:text="@string/register_link"
             android:textColor="@color/primary"
             android:textSize="14sp" />
+
+        <!-- Copyright -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="16dp"
+            android:text="@string/copyright"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
 
     </LinearLayout>
 </ScrollView>
