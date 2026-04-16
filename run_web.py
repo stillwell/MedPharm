@@ -34,17 +34,21 @@ from database.seed_data import seed_database
 from web.app import create_app
 
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db")
+DB_PATH = os.environ.get(
+    "MEDPHARM_DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db"),
+)
+
+# Database setup (module-level so gunicorn can import run_web:app)
+db_manager = DatabaseManager(DB_PATH)
+db_manager.init_db()
+seed_database(db_manager)
+
+# Create the Flask app (usable by gunicorn as run_web:app)
+app = create_app(db_manager)
 
 
 def main():
-    db_manager = DatabaseManager(DB_PATH)
-    db_manager.init_db()
-
-    seed_database(db_manager)
-
-    app = create_app(db_manager)
-
     print("=" * 60)
     print("  MedPharm ERP - Patient Web Portal")
     print("=" * 60)

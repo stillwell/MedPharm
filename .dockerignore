@@ -1,0 +1,25 @@
+# MedPharm ERP - Docker build exclusions
+.git
+.github
+.gradle
+__pycache__
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+venv/
+.venv/
+node_modules/
+android/
+ios/
+macos/
+windows/
+qt_app/
+docs/
+*.md
+*.pdf
+run_qt.py
+install.sh
+start_desktop.sh
+generate_docs.sh
+medpharm_erp.db

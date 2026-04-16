@@ -17,45 +17,61 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # ==============================================================================
-# MedPharm ERP - Docker Compose (API Only)
+# MedPharm ERP - Docker Compose (Ubuntu Server)
 #
-# Runs the Cloud REST API server with persistent database storage.
-# For the full server stack (API + Web Portal + Nginx), use server/docker-compose.yml.
+# Runs the full MedPharm ERP server stack:
+#   - Nginx reverse proxy (port 80)
+#   - Cloud REST API (Gunicorn)
+#   - Patient Web Portal (Gunicorn)
+#   - SQLite database (persistent volume)
 #
 # Usage:
+#   cd server
 #   docker compose up -d             # Start in background
 #   docker compose logs -f           # View logs
 #   docker compose down              # Stop
+#   docker compose up -d --build     # Rebuild and start
 #
 # Test:
-#   curl http://localhost:8080/api/v1/health
+#   curl http://localhost/api/v1/health
+#   curl http://localhost/portal/
 # ==============================================================================
 
 services:
-  api:
+  medpharm:
     build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: medpharm-api
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: medpharm-server
+    hostname: medpharm
     ports:
-      - "${MEDPHARM_PORT:-8080}:8080"
+      - "${MEDPHARM_HTTP_PORT:-80}:80"
+      - "${MEDPHARM_API_PORT:-8080}:8080"
+      - "${MEDPHARM_WEB_PORT:-5000}:5000"
     environment:
+      - MEDPHARM_DB_PATH=/data/medpharm_erp.db
+      - MEDPHARM_API_PORT=${MEDPHARM_API_PORT:-8080}
+      - MEDPHARM_WEB_PORT=${MEDPHARM_WEB_PORT:-5000}
+      - MEDPHARM_WORKERS=${MEDPHARM_WORKERS:-4}
+      - MEDPHARM_THREADS=${MEDPHARM_THREADS:-2}
       - MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-change-this-in-production}
       - MEDPHARM_SECRET_KEY=${MEDPHARM_SECRET_KEY:-change-this-in-production}
-      - MEDPHARM_DB_PATH=/data/medpharm_erp.db
       - MEDPHARM_CORS_ORIGINS=${MEDPHARM_CORS_ORIGINS:-*}
       - MEDPHARM_TOKEN_EXPIRY=${MEDPHARM_TOKEN_EXPIRY:-86400}
       - MEDPHARM_REFRESH_EXPIRY=${MEDPHARM_REFRESH_EXPIRY:-604800}
     volumes:
       - medpharm-data:/data
+      - medpharm-logs:/var/log/medpharm
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/health"]
+      test: ["CMD", "/opt/medpharm/healthcheck.sh"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
 volumes:
   medpharm-data:
+    driver: local
+  medpharm-logs:
     driver: local
