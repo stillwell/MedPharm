@@ -26,7 +26,9 @@ A multi-platform ERP system for medical practices and pharmacies featuring:
 - Flask web portal for patient self-service
 - SQLite database with 75+ medications, 30+ symptoms, 25+ conditions
 - Insurance claims workflow, prescription management, billing
+- Docker server deployment on Ubuntu 24.04 LTS with Nginx
+- GitHub Actions CI/CD pipeline for automated Docker Hub publishing
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "MedPharm ERP"
