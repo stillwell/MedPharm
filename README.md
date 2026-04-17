@@ -340,9 +340,12 @@ No local build required. Pull the images and start a container in under a minute
 **One-line install** (uses the included installer):
 
 ```bash
-./install.sh --docker           # API only (port 8080)
-./install.sh --docker-server    # Full stack: Nginx + API + Patient Portal (port 80)
+./install.sh --docker                     # API only (port 8080)
+./install.sh --docker-server              # Full stack: Nginx + API + Patient Portal (port 80)
+./install.sh --docker --docker-server     # Both at once (API on 8080 + Full stack on 80)
 ```
+
+Both `--docker` and `--docker-server` can be combined in a single invocation. When combined, the full-stack container's direct API host port is auto-remapped from `8080` to `8081` to avoid clashing with the API-only container that already owns `8080`. The full-stack Nginx entry point remains on port `80`, and the direct Patient Portal port remains on `5000`.
 
 **Interactive quick-launch helper:**
 
@@ -430,6 +433,34 @@ Services available (either option):
 | `http://localhost/portal/` | Web Portal via Nginx (full stack only) |
 | `http://localhost:8080/` | API direct access |
 | `http://localhost:5000/` | Web Portal direct access (full stack only) |
+
+#### Option C — Combined Deployment (API + Full Stack Simultaneously)
+
+You can run the API-only image **and** the full-stack image on the same host in a single installer invocation:
+
+```bash
+./install.sh --docker --docker-server
+```
+
+Both sets of flags after the same `./install.sh` command are parsed together. The installer auto-remaps the full-stack container's direct API host port from `8080` → `8081` so it does not collide with the API-only container that owns `8080`.
+
+Resulting endpoints when both deployments are active:
+
+| Endpoint | Container | Description |
+|----------|-----------|-------------|
+| `http://localhost:8080/api/v1` | `enlightec/medpharm-api` | Standalone REST API (default) |
+| `http://localhost/` | `enlightec/medpharm-server` | Full-stack Nginx entry point |
+| `http://localhost/api/v1/health` | `enlightec/medpharm-server` | Full-stack API via Nginx |
+| `http://localhost/portal/` | `enlightec/medpharm-server` | Patient Portal via Nginx |
+| `http://localhost:8081/` | `enlightec/medpharm-server` | Full-stack API direct (remapped from 8080) |
+| `http://localhost:5000/` | `enlightec/medpharm-server` | Patient Portal direct |
+
+Stop both deployments:
+
+```bash
+docker compose -f docker-compose.hub.yml down
+docker compose -f server/docker-compose.hub.yml down
+```
 
 ### CI/CD Pipeline (GitHub Actions)
 
@@ -520,9 +551,10 @@ cd MedPharm
 ./start_docker_hub.sh server     # Full stack on port 80
 
 # Option 3 — installer
-./install.sh --docker            # API only
-./install.sh --docker-server     # Full stack
-./install.sh --docker --tag=1.1.1   # Pin to a specific release
+./install.sh --docker                     # API only
+./install.sh --docker-server              # Full stack
+./install.sh --docker --docker-server     # Both (API on 8080 + Full stack on 80)
+./install.sh --docker --tag=1.1.1         # Pin to a specific release
 ```
 
 ### Compose Files for Docker Hub Images

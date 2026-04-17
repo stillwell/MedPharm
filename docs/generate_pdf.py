@@ -1750,15 +1750,20 @@ def build_document():
         "The pre-built images published to Docker Hub let operators deploy MedPharm "
         "ERP without cloning the source or running any Python install. The install.sh "
         "script supports --docker and --docker-server flags that pull the image and "
-        "start the container in a single step. A dedicated start_docker_hub.sh helper "
-        "provides an interactive launcher.",
+        "start the container in a single step. Both flags can be combined on the same "
+        "command line to deploy the API-only container AND the full-stack container "
+        "simultaneously; the installer automatically remaps the full-stack container's "
+        "direct API host port from 8080 to 8081 to avoid colliding with the API-only "
+        "container on 8080. A dedicated start_docker_hub.sh helper provides an "
+        "interactive launcher.",
         styles["BodyText2"]))
 
     story.append(code_block(textwrap.dedent("""\
     # One-line installers (pulls from Docker Hub automatically)
-    ./install.sh --docker              # API only on port 8080
-    ./install.sh --docker-server       # Full stack on port 80
-    ./install.sh --docker --tag=1.1.1  # Pin to a specific release
+    ./install.sh --docker                     # API only on port 8080
+    ./install.sh --docker-server              # Full stack on port 80
+    ./install.sh --docker --docker-server     # Both at once (API on 8080 + Full stack on 80)
+    ./install.sh --docker --tag=1.1.1         # Pin to a specific release
 
     # Interactive launcher
     ./start_docker_hub.sh              # Menu

@@ -43,16 +43,22 @@ DB_DIR="${SCRIPT_DIR}/data"
 DB_PATH="${DB_DIR}/medpharm.db"
 LOG_FILE="${SCRIPT_DIR}/install.log"
 FRESH=false
-INSTALL_MODE="source"     # source | docker-api | docker-server
+INSTALL_DOCKER_API=false
+INSTALL_DOCKER_SERVER=false
 DOCKER_IMAGE_TAG="${MEDPHARM_IMAGE_TAG:-latest}"
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
+#
+# --docker and --docker-server can be combined on the same command line to
+# deploy both the API-only container AND the full-stack container at once.
+# When combined, the full-stack container's direct API port is remapped from
+# 8080 to 8081 to avoid conflicting with the API-only container on 8080.
 
 for arg in "$@"; do
     case "$arg" in
         --fresh) FRESH=true ;;
-        --docker|--docker-api) INSTALL_MODE="docker-api" ;;
-        --docker-server|--docker-full) INSTALL_MODE="docker-server" ;;
+        --docker|--docker-api) INSTALL_DOCKER_API=true ;;
+        --docker-server|--docker-full) INSTALL_DOCKER_SERVER=true ;;
         --tag=*) DOCKER_IMAGE_TAG="${arg#--tag=}" ;;
         --help|-h)
             cat <<HELP
@@ -62,17 +68,27 @@ Source install (default):
   --fresh             Recreate virtual environment and reinitialize database
 
 Pre-built Docker Hub images (no Python build required):
-  --docker            Pull enlightec/medpharm-api and start the API-only container
+  --docker            Pull enlightec/medpharm-api and start the API-only
+                      container (port 8080)
   --docker-api        Same as --docker
   --docker-server     Pull enlightec/medpharm-server and start the full stack
-                      (Nginx + REST API + Patient Web Portal)
+                      — Nginx + REST API + Patient Web Portal (port 80)
   --tag=<version>     Image tag to pull (default: latest)
 
+Combined Docker Hub deployment:
+  --docker --docker-server
+                      Deploy BOTH the API-only container AND the full-stack
+                      container on the same host. The full-stack container's
+                      direct API port is remapped from 8080 to 8081 so it
+                      does not conflict with the API-only container on 8080.
+                      The full-stack Nginx entry point stays on port 80.
+
 Examples:
-  ./install.sh                       # Source install (Python venv)
-  ./install.sh --docker              # API-only via Docker Hub
-  ./install.sh --docker-server       # Full stack via Docker Hub
-  ./install.sh --docker --tag=1.1.1  # Pin to a specific released version
+  ./install.sh                              # Source install (Python venv)
+  ./install.sh --docker                     # API-only via Docker Hub
+  ./install.sh --docker-server              # Full stack via Docker Hub
+  ./install.sh --docker --docker-server     # Both (API + full stack) at once
+  ./install.sh --docker --tag=1.1.1         # Pin to a specific released version
 
 Docker Hub:
   https://hub.docker.com/r/enlightec/medpharm-api
@@ -182,18 +198,30 @@ install_docker_server() {
         warn "Edit server/.env and replace JWT/SECRET values before production"
     fi
 
+    # When the API-only container is also being installed, remap the full
+    # stack's direct API host port from 8080 to 8081 to avoid a port clash
+    # with the API-only container that owns 8080.
+    local server_api_port="8080"
+    if [[ "$INSTALL_DOCKER_API" == "true" ]]; then
+        server_api_port="8081"
+        export MEDPHARM_API_PORT="${server_api_port}"
+        warn "Remapping full-stack direct API port 8080 → ${server_api_port} to avoid clash with --docker (API-only on 8080)"
+    fi
+
     info "Pulling image..."
     docker pull "enlightec/medpharm-server:${DOCKER_IMAGE_TAG}" 2>&1 | tee -a "$LOG_FILE" \
         || fail "Failed to pull enlightec/medpharm-server:${DOCKER_IMAGE_TAG}"
     log "Image pulled"
 
     info "Starting container via server/docker-compose.hub.yml..."
-    MEDPHARM_IMAGE_TAG="${DOCKER_IMAGE_TAG}" docker compose \
+    MEDPHARM_IMAGE_TAG="${DOCKER_IMAGE_TAG}" MEDPHARM_API_PORT="${server_api_port}" \
+        docker compose \
         --env-file "${SCRIPT_DIR}/server/.env" \
         -f "${SCRIPT_DIR}/server/docker-compose.hub.yml" up -d \
         || fail "docker compose up failed"
     log "Container running"
 
+    SERVER_API_PORT="${server_api_port}"
     print_docker_summary "server"
 }
 
@@ -215,10 +243,11 @@ DONE
         echo -e "  Logs:  docker compose -f docker-compose.hub.yml logs -f"
         echo -e "  Stop:  docker compose -f docker-compose.hub.yml down"
     else
+        local api_direct_port="${SERVER_API_PORT:-8080}"
         echo -e "${BOLD}Endpoints (via Nginx):${NC}"
         echo -e "  API:           http://localhost/api/v1/health"
         echo -e "  Patient Portal: http://localhost/portal/"
-        echo -e "  API direct:    http://localhost:8080/"
+        echo -e "  API direct:    http://localhost:${api_direct_port}/"
         echo -e "  Portal direct: http://localhost:5000/\n"
         echo -e "${BOLD}Manage:${NC}"
         echo -e "  Logs:  docker compose -f server/docker-compose.hub.yml logs -f"
@@ -675,8 +704,9 @@ DONE
 
     echo -e "${BOLD}Docker Hub Alternative:${NC}"
     echo -e "  Skip the Python build and pull pre-built images instead:"
-    echo -e "    ./install.sh --docker           ${DIM}# API only (port 8080)${NC}"
-    echo -e "    ./install.sh --docker-server    ${DIM}# Full stack (port 80)${NC}"
+    echo -e "    ./install.sh --docker                    ${DIM}# API only (port 8080)${NC}"
+    echo -e "    ./install.sh --docker-server             ${DIM}# Full stack (port 80)${NC}"
+    echo -e "    ./install.sh --docker --docker-server    ${DIM}# Both at once${NC}"
     echo -e "  Or pull directly:"
     echo -e "    docker pull enlightec/medpharm-api:latest"
     echo -e "    docker pull enlightec/medpharm-server:latest"
@@ -694,18 +724,28 @@ main() {
 
     banner
 
-    case "$INSTALL_MODE" in
-        docker-api)
-            check_docker
+    # Docker Hub deployment path — --docker and --docker-server may be set
+    # individually or together on the same command line. When both are set,
+    # install the API-only container first, then the full-stack container
+    # (whose direct API host port is auto-remapped to 8081 inside
+    # install_docker_server to avoid clashing with the API-only 8080).
+    if [[ "$INSTALL_DOCKER_API" == "true" || "$INSTALL_DOCKER_SERVER" == "true" ]]; then
+        check_docker
+        if [[ "$INSTALL_DOCKER_API" == "true" ]]; then
             install_docker_api
-            return
-            ;;
-        docker-server)
-            check_docker
+        fi
+        if [[ "$INSTALL_DOCKER_SERVER" == "true" ]]; then
             install_docker_server
-            return
-            ;;
-    esac
+        fi
+        if [[ "$INSTALL_DOCKER_API" == "true" && "$INSTALL_DOCKER_SERVER" == "true" ]]; then
+            echo -e "${BOLD}Combined deployment summary:${NC}"
+            echo -e "  API-only:    http://localhost:8080/api/v1   ${DIM}(enlightec/medpharm-api)${NC}"
+            echo -e "  Full stack:  http://localhost/              ${DIM}(enlightec/medpharm-server via Nginx)${NC}"
+            echo -e "  Full-stack direct API:    http://localhost:${SERVER_API_PORT:-8081}/"
+            echo -e "  Full-stack direct Portal: http://localhost:5000/\n"
+        fi
+        return
+    fi
 
     detect_os
     check_python

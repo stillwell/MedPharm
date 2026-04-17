@@ -13,8 +13,10 @@ installation information:
   docker pull enlightec/medpharm-server:latest     # Full stack (Nginx + API + Portal)
 
   # Fastest: use the included launcher
-  ./install.sh --docker             # API only  (http://localhost:8080)
-  ./install.sh --docker-server      # Full stack (http://localhost)
+  ./install.sh --docker                     # API only  (http://localhost:8080)
+  ./install.sh --docker-server              # Full stack (http://localhost)
+  ./install.sh --docker --docker-server     # Both at once — API on 8080 + Full stack on 80
+                                            # (full-stack direct API auto-remapped 8080 → 8081)
 
   # Or via docker compose
   docker compose -f docker-compose.hub.yml up -d                # API only
