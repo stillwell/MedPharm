@@ -15,6 +15,7 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - [Project Structure](#project-structure)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Docker Hub Images](#docker-hub-images)
 - [Quick Start](#quick-start)
 - [Usage Guide](#usage-guide)
 - [Documentation](#documentation)
@@ -153,7 +154,9 @@ MedPharm/
 ├── requirements.txt           # Qt desktop + web portal dependencies
 ├── requirements-cloud.txt     # Cloud API server dependencies
 ├── Dockerfile                 # Docker image (API only, Ubuntu 24.04)
-├── docker-compose.yml         # Docker Compose (API only)
+├── docker-compose.yml         # Docker Compose — API (build from source)
+├── docker-compose.hub.yml     # Docker Compose — API (pull from Docker Hub)
+├── start_docker_hub.sh        # Interactive launcher for Docker Hub images
 ├── .dockerignore              # Docker build exclusions
 ├── LICENSE                    # GNU General Public License v3.0
 │
@@ -162,7 +165,8 @@ MedPharm/
 │
 ├── server/                    # ── Docker Server Package ───────
 │   ├── Dockerfile             # Full stack (Ubuntu 24.04 LTS)
-│   ├── docker-compose.yml     # Nginx + API + Web Portal
+│   ├── docker-compose.yml     # Full stack — build from source
+│   ├── docker-compose.hub.yml # Full stack — pull from Docker Hub
 │   ├── entrypoint.sh          # DB init & process bootstrap
 │   ├── healthcheck.sh         # Docker health check script
 │   ├── supervisord.conf       # Process manager config
@@ -327,40 +331,105 @@ print('Database initialized with sample data.')
 
 ### Docker Deployment (Ubuntu 24.04 LTS)
 
-Both Docker images run on **Ubuntu Server 24.04 LTS**.
+Both Docker images run on **Ubuntu Server 24.04 LTS** and are published to Docker Hub under the [`enlightec`](https://hub.docker.com/u/enlightec) namespace. You can either **pull pre-built images** (fastest, recommended) or **build from source** using the included Dockerfiles.
+
+#### Option A — Pull Pre-built Images from Docker Hub (Recommended)
+
+No local build required. Pull the images and start a container in under a minute.
+
+**One-line install** (uses the included installer):
+
+```bash
+./install.sh --docker           # API only (port 8080)
+./install.sh --docker-server    # Full stack: Nginx + API + Patient Portal (port 80)
+```
+
+**Interactive quick-launch helper:**
+
+```bash
+./start_docker_hub.sh           # Menu — choose API only, full stack, pull, or stop
+./start_docker_hub.sh api       # Start API-only container
+./start_docker_hub.sh server    # Start full stack
+./start_docker_hub.sh pull      # Pull both images without starting
+./start_docker_hub.sh stop      # Stop all MedPharm containers
+```
+
+**Manual docker compose (API only)** — uses `docker-compose.hub.yml`:
+
+```bash
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+curl http://localhost:8080/api/v1/health
+```
+
+**Manual docker compose (Full stack)** — uses `server/docker-compose.hub.yml`:
+
+```bash
+cd server
+cp .env.example .env                              # Edit secrets before production
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+curl http://localhost/api/v1/health
+```
+
+**Pull without docker compose:**
+
+```bash
+docker pull enlightec/medpharm-server:latest    # Full stack
+docker pull enlightec/medpharm-api:latest       # API only
+
+# Pin to a specific release
+docker pull enlightec/medpharm-api:1.1.1
+```
+
+**Run directly with `docker run`:**
+
+```bash
+# API only
+docker run -d --name medpharm-api \
+  -p 8080:8080 \
+  -v medpharm-data:/data \
+  -e MEDPHARM_JWT_SECRET=your-secret-here \
+  -e MEDPHARM_SECRET_KEY=your-other-secret \
+  enlightec/medpharm-api:latest
+
+# Full stack
+docker run -d --name medpharm-server \
+  -p 80:80 -p 8080:8080 -p 5000:5000 \
+  -v medpharm-data:/data \
+  -v medpharm-logs:/var/log/medpharm \
+  -e MEDPHARM_JWT_SECRET=your-secret-here \
+  -e MEDPHARM_SECRET_KEY=your-other-secret \
+  enlightec/medpharm-server:latest
+```
+
+#### Option B — Build from Source
+
+If you want to build the images locally (e.g., to make source modifications):
 
 **Full Server Stack** (Nginx + Cloud API + Web Portal):
 
 ```bash
 cd server
 cp .env.example .env      # Edit secrets before production use
-docker compose up -d       # Start all services
+docker compose up -d       # Build from server/Dockerfile and start
 docker compose logs -f     # View logs
 ```
-
-Services available:
-
-| Endpoint | Description |
-|----------|-------------|
-| `http://localhost/api/v1/health` | REST API via Nginx |
-| `http://localhost/portal/` | Web Portal via Nginx |
-| `http://localhost:8080/` | API direct access |
-| `http://localhost:5000/` | Web Portal direct access |
 
 **API Only** (lightweight, no Nginx):
 
 ```bash
-docker compose up -d       # Starts API on port 8080
+docker compose up -d       # Build from root Dockerfile, starts API on port 8080
 ```
 
-The API will be available at `http://localhost:8080/api/v1`.
+Services available (either option):
 
-**Pre-built images from Docker Hub:**
-
-```bash
-docker pull enlightec/medpharm-server:latest   # Full stack
-docker pull enlightec/medpharm-api:latest       # API only
-```
+| Endpoint | Description |
+|----------|-------------|
+| `http://localhost/api/v1/health` | REST API via Nginx (full stack only) |
+| `http://localhost/portal/` | Web Portal via Nginx (full stack only) |
+| `http://localhost:8080/` | API direct access |
+| `http://localhost:5000/` | Web Portal direct access (full stack only) |
 
 ### CI/CD Pipeline (GitHub Actions)
 
@@ -405,7 +474,101 @@ dotnet run
 
 ---
 
+## Docker Hub Images
+
+MedPharm ERP publishes two official container images to Docker Hub under the **[enlightec](https://hub.docker.com/u/enlightec)** namespace. Both images are built from the Dockerfiles in this repository and are tagged on every versioned release (`v*.*.*`).
+
+### Published Images
+
+| Image | Docker Hub | Contents | Base | Exposed Ports |
+|-------|------------|----------|------|---------------|
+| [`enlightec/medpharm-server:latest`](https://hub.docker.com/r/enlightec/medpharm-server) | [hub.docker.com/r/enlightec/medpharm-server](https://hub.docker.com/r/enlightec/medpharm-server) | Nginx + Cloud REST API + Patient Web Portal (Supervisor-managed) | Ubuntu 24.04 LTS | `80`, `8080`, `5000` |
+| [`enlightec/medpharm-api:latest`](https://hub.docker.com/r/enlightec/medpharm-api) | [hub.docker.com/r/enlightec/medpharm-api](https://hub.docker.com/r/enlightec/medpharm-api) | Cloud REST API only (Gunicorn) | Ubuntu 24.04 LTS | `8080` |
+
+All images are available at [https://hub.docker.com/u/enlightec](https://hub.docker.com/u/enlightec) and can be browsed at [https://hub.docker.com/repositories/enlightec](https://hub.docker.com/repositories/enlightec).
+
+### Supported Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Most recent release |
+| `1.1.1`, `1.1.0`, `1.0.0` | Pinned semantic version tags (published from `v*.*.*` git tags) |
+
+### Quick Pull
+
+```bash
+docker pull enlightec/medpharm-server:latest
+docker pull enlightec/medpharm-api:latest
+
+# Pin to a specific release
+docker pull enlightec/medpharm-api:1.1.1
+```
+
+### Quick Start
+
+The fastest way to run MedPharm without any local Python setup:
+
+```bash
+git clone https://github.com/stillwell/MedPharm.git
+cd MedPharm
+
+# Option 1 — interactive menu
+./start_docker_hub.sh
+
+# Option 2 — direct flags
+./start_docker_hub.sh api        # API only on port 8080
+./start_docker_hub.sh server     # Full stack on port 80
+
+# Option 3 — installer
+./install.sh --docker            # API only
+./install.sh --docker-server     # Full stack
+./install.sh --docker --tag=1.1.1   # Pin to a specific release
+```
+
+### Compose Files for Docker Hub Images
+
+The repository ships two compose files that reference the Docker Hub images (no build step):
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.hub.yml` | API-only deployment (`enlightec/medpharm-api`) |
+| `server/docker-compose.hub.yml` | Full stack deployment (`enlightec/medpharm-server`) |
+
+```bash
+# API only
+docker compose -f docker-compose.hub.yml up -d
+
+# Full stack
+cd server && docker compose -f docker-compose.hub.yml up -d
+```
+
+### Persistent Data & Volumes
+
+Both images use named Docker volumes so your data survives container restarts and re-pulls:
+
+| Volume | Mount Point | Purpose |
+|--------|-------------|---------|
+| `medpharm-data` | `/data` | SQLite database (`medpharm_erp.db`) |
+| `medpharm-logs` | `/var/log/medpharm` | Nginx + Supervisor logs (full stack only) |
+
+### Image Rebuilds
+
+Docker images are automatically rebuilt and published to Docker Hub by the [GitHub Actions workflow](.github/workflows/docker-publish.yml) on every tagged release. See the [CI/CD Pipeline](#cicd-pipeline-github-actions) section for details.
+
+---
+
 ## Quick Start
+
+### Start via Docker Hub (Zero-Build)
+
+Skip the Python build entirely and run the official images directly:
+
+```bash
+./start_docker_hub.sh server     # Full stack at http://localhost
+./start_docker_hub.sh api        # API only at http://localhost:8080
+```
+
+See [Docker Hub Images](#docker-hub-images) for more options.
 
 ### Start the Cloud API Server (Required for Mobile/Desktop Clients)
 

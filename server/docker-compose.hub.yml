@@ -1,0 +1,83 @@
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# ==============================================================================
+# MedPharm ERP - Docker Compose (Pre-built Full Stack image from Docker Hub)
+#
+# Pulls the pre-built enlightec/medpharm-server image from Docker Hub instead
+# of building from source. Runs the full MedPharm ERP stack in a single
+# container managed by Supervisor:
+#   - Nginx reverse proxy (port 80)
+#   - Cloud REST API via Gunicorn (port 8080)
+#   - Patient Web Portal via Gunicorn (port 5000)
+#
+# Docker Hub: https://hub.docker.com/r/enlightec/medpharm-server
+#
+# Usage:
+#   cd server
+#   cp .env.example .env                              # Edit secrets first
+#   docker compose -f docker-compose.hub.yml pull     # Fetch latest image
+#   docker compose -f docker-compose.hub.yml up -d    # Start in background
+#   docker compose -f docker-compose.hub.yml logs -f  # View logs
+#   docker compose -f docker-compose.hub.yml down     # Stop
+#
+# Test:
+#   curl http://localhost/api/v1/health
+#   curl http://localhost/portal/
+#
+# Override the image tag with:
+#   MEDPHARM_IMAGE_TAG=1.1.1 docker compose -f docker-compose.hub.yml up -d
+# ==============================================================================
+
+services:
+  medpharm:
+    image: enlightec/medpharm-server:${MEDPHARM_IMAGE_TAG:-latest}
+    pull_policy: always
+    container_name: medpharm-server
+    hostname: medpharm
+    ports:
+      - "${MEDPHARM_HTTP_PORT:-80}:80"
+      - "${MEDPHARM_API_PORT:-8080}:8080"
+      - "${MEDPHARM_WEB_PORT:-5000}:5000"
+    environment:
+      - MEDPHARM_DB_PATH=/data/medpharm_erp.db
+      - MEDPHARM_API_PORT=${MEDPHARM_API_PORT:-8080}
+      - MEDPHARM_WEB_PORT=${MEDPHARM_WEB_PORT:-5000}
+      - MEDPHARM_WORKERS=${MEDPHARM_WORKERS:-4}
+      - MEDPHARM_THREADS=${MEDPHARM_THREADS:-2}
+      - MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-change-this-in-production}
+      - MEDPHARM_SECRET_KEY=${MEDPHARM_SECRET_KEY:-change-this-in-production}
+      - MEDPHARM_CORS_ORIGINS=${MEDPHARM_CORS_ORIGINS:-*}
+      - MEDPHARM_TOKEN_EXPIRY=${MEDPHARM_TOKEN_EXPIRY:-86400}
+      - MEDPHARM_REFRESH_EXPIRY=${MEDPHARM_REFRESH_EXPIRY:-604800}
+    volumes:
+      - medpharm-data:/data
+      - medpharm-logs:/var/log/medpharm
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/medpharm/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  medpharm-data:
+    driver: local
+  medpharm-logs:
+    driver: local

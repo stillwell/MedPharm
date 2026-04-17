@@ -43,15 +43,41 @@ DB_DIR="${SCRIPT_DIR}/data"
 DB_PATH="${DB_DIR}/medpharm.db"
 LOG_FILE="${SCRIPT_DIR}/install.log"
 FRESH=false
+INSTALL_MODE="source"     # source | docker-api | docker-server
+DOCKER_IMAGE_TAG="${MEDPHARM_IMAGE_TAG:-latest}"
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
 
 for arg in "$@"; do
     case "$arg" in
         --fresh) FRESH=true ;;
+        --docker|--docker-api) INSTALL_MODE="docker-api" ;;
+        --docker-server|--docker-full) INSTALL_MODE="docker-server" ;;
+        --tag=*) DOCKER_IMAGE_TAG="${arg#--tag=}" ;;
         --help|-h)
-            echo "Usage: ./install.sh [--fresh]"
-            echo "  --fresh   Recreate virtual environment and reinitialize database without prompting"
+            cat <<HELP
+Usage: ./install.sh [OPTIONS]
+
+Source install (default):
+  --fresh             Recreate virtual environment and reinitialize database
+
+Pre-built Docker Hub images (no Python build required):
+  --docker            Pull enlightec/medpharm-api and start the API-only container
+  --docker-api        Same as --docker
+  --docker-server     Pull enlightec/medpharm-server and start the full stack
+                      (Nginx + REST API + Patient Web Portal)
+  --tag=<version>     Image tag to pull (default: latest)
+
+Examples:
+  ./install.sh                       # Source install (Python venv)
+  ./install.sh --docker              # API-only via Docker Hub
+  ./install.sh --docker-server       # Full stack via Docker Hub
+  ./install.sh --docker --tag=1.1.1  # Pin to a specific released version
+
+Docker Hub:
+  https://hub.docker.com/r/enlightec/medpharm-api
+  https://hub.docker.com/r/enlightec/medpharm-server
+HELP
             exit 0
             ;;
     esac
@@ -99,6 +125,111 @@ banner() {
     ╚═════════════════════════════════════════════════════════════════════╝
 BANNER
     echo -e "${NC}"
+}
+
+# ── Docker Hub Install Mode ──────────────────────────────────────────────────
+#
+# When --docker or --docker-server is passed, skip the Python venv path entirely
+# and pull the official MedPharm images from Docker Hub. Compose files at
+# docker-compose.hub.yml (API only) and server/docker-compose.hub.yml (full
+# stack) reference these images.
+
+check_docker() {
+    header "Checking Docker"
+    command -v docker >/dev/null 2>&1 || {
+        echo -e "${RED}[✗]${NC} Docker is required for --docker install modes."
+        info "  Install Docker: https://docs.docker.com/get-docker/"
+        exit 1
+    }
+    docker compose version >/dev/null 2>&1 || {
+        echo -e "${RED}[✗]${NC} Docker Compose plugin is required."
+        info "  Install docker-compose-plugin (e.g., apt install docker-compose-plugin)"
+        exit 1
+    }
+    docker info >/dev/null 2>&1 || fail "Docker daemon is not running"
+    log "Docker $(docker --version | awk '{print $3}' | tr -d ',') detected"
+    log "Docker Compose plugin available"
+}
+
+install_docker_api() {
+    header "Installing MedPharm ERP — API (Docker Hub)"
+    info "Image: enlightec/medpharm-api:${DOCKER_IMAGE_TAG}"
+    info "Source: https://hub.docker.com/r/enlightec/medpharm-api"
+
+    info "Pulling image..."
+    docker pull "enlightec/medpharm-api:${DOCKER_IMAGE_TAG}" 2>&1 | tee -a "$LOG_FILE" \
+        || fail "Failed to pull enlightec/medpharm-api:${DOCKER_IMAGE_TAG}"
+    log "Image pulled"
+
+    info "Starting container via docker-compose.hub.yml..."
+    MEDPHARM_IMAGE_TAG="${DOCKER_IMAGE_TAG}" docker compose \
+        -f "${SCRIPT_DIR}/docker-compose.hub.yml" up -d \
+        || fail "docker compose up failed"
+    log "Container running"
+
+    print_docker_summary "api"
+}
+
+install_docker_server() {
+    header "Installing MedPharm ERP — Full Stack (Docker Hub)"
+    info "Image: enlightec/medpharm-server:${DOCKER_IMAGE_TAG}"
+    info "Source: https://hub.docker.com/r/enlightec/medpharm-server"
+
+    # Ensure a .env file exists for the server compose
+    if [[ ! -f "${SCRIPT_DIR}/server/.env" ]]; then
+        warn "server/.env not found — copying from server/.env.example"
+        cp "${SCRIPT_DIR}/server/.env.example" "${SCRIPT_DIR}/server/.env"
+        warn "Edit server/.env and replace JWT/SECRET values before production"
+    fi
+
+    info "Pulling image..."
+    docker pull "enlightec/medpharm-server:${DOCKER_IMAGE_TAG}" 2>&1 | tee -a "$LOG_FILE" \
+        || fail "Failed to pull enlightec/medpharm-server:${DOCKER_IMAGE_TAG}"
+    log "Image pulled"
+
+    info "Starting container via server/docker-compose.hub.yml..."
+    MEDPHARM_IMAGE_TAG="${DOCKER_IMAGE_TAG}" docker compose \
+        --env-file "${SCRIPT_DIR}/server/.env" \
+        -f "${SCRIPT_DIR}/server/docker-compose.hub.yml" up -d \
+        || fail "docker compose up failed"
+    log "Container running"
+
+    print_docker_summary "server"
+}
+
+print_docker_summary() {
+    local mode="$1"
+    echo -e "\n${GREEN}${BOLD}"
+    cat <<'DONE'
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║          ✓ DOCKER HUB DEPLOYMENT COMPLETE                     ║
+    ╚═══════════════════════════════════════════════════════════════╝
+DONE
+    echo -e "${NC}"
+
+    if [[ "$mode" == "api" ]]; then
+        echo -e "${BOLD}Endpoints:${NC}"
+        echo -e "  API base:   http://localhost:8080/api/v1"
+        echo -e "  Health:     http://localhost:8080/api/v1/health\n"
+        echo -e "${BOLD}Manage:${NC}"
+        echo -e "  Logs:  docker compose -f docker-compose.hub.yml logs -f"
+        echo -e "  Stop:  docker compose -f docker-compose.hub.yml down"
+    else
+        echo -e "${BOLD}Endpoints (via Nginx):${NC}"
+        echo -e "  API:           http://localhost/api/v1/health"
+        echo -e "  Patient Portal: http://localhost/portal/"
+        echo -e "  API direct:    http://localhost:8080/"
+        echo -e "  Portal direct: http://localhost:5000/\n"
+        echo -e "${BOLD}Manage:${NC}"
+        echo -e "  Logs:  docker compose -f server/docker-compose.hub.yml logs -f"
+        echo -e "  Stop:  docker compose -f server/docker-compose.hub.yml down"
+    fi
+    echo
+    echo -e "${BOLD}Default Credentials:${NC}"
+    echo -e "  Staff:   dr.carter / doctor123"
+    echo -e "  Patient: jsmith_portal / patient123\n"
+    echo -e "${DIM}Image tag: ${DOCKER_IMAGE_TAG}${NC}"
+    echo -e "${DIM}Docker Hub: https://hub.docker.com/u/enlightec${NC}\n"
 }
 
 # ── Detect OS & Package Manager ───────────────────────────────────────────────
@@ -542,6 +673,15 @@ DONE
     echo -e "    Sarah Davis:   sdavis_portal / patient123"
     echo -e "    Linda Martinez: lmartinez_portal / patient123\n"
 
+    echo -e "${BOLD}Docker Hub Alternative:${NC}"
+    echo -e "  Skip the Python build and pull pre-built images instead:"
+    echo -e "    ./install.sh --docker           ${DIM}# API only (port 8080)${NC}"
+    echo -e "    ./install.sh --docker-server    ${DIM}# Full stack (port 80)${NC}"
+    echo -e "  Or pull directly:"
+    echo -e "    docker pull enlightec/medpharm-api:latest"
+    echo -e "    docker pull enlightec/medpharm-server:latest"
+    echo -e "  Docker Hub: ${DIM}https://hub.docker.com/u/enlightec${NC}\n"
+
     echo -e "${DIM}Database: ${DB_PATH}${NC}"
     echo -e "${DIM}Logs:     ${LOG_FILE}${NC}\n"
 }
@@ -553,6 +693,20 @@ main() {
     echo "" > "$LOG_FILE"
 
     banner
+
+    case "$INSTALL_MODE" in
+        docker-api)
+            check_docker
+            install_docker_api
+            return
+            ;;
+        docker-server)
+            check_docker
+            install_docker_server
+            return
+            ;;
+    esac
+
     detect_os
     check_python
 

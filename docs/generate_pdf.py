@@ -556,7 +556,9 @@ def build_document():
     ├── requirements.txt                # Desktop + web dependencies
     ├── requirements-cloud.txt          # Cloud API dependencies
     ├── Dockerfile                      # Docker image (API, Ubuntu 24.04)
-    ├── docker-compose.yml              # Docker Compose (API only)
+    ├── docker-compose.yml              # Docker Compose — API (build from source)
+    ├── docker-compose.hub.yml          # Docker Compose — API (pull from Docker Hub)
+    ├── start_docker_hub.sh             # Interactive launcher for Docker Hub images
     ├── .dockerignore                   # Docker build exclusions
     ├── LICENSE                         # GNU GPL v3.0
     │
@@ -565,7 +567,8 @@ def build_document():
     │
     ├── server/                         # ── Docker Server Package ──────
     │   ├── Dockerfile                  # Full stack (Ubuntu 24.04 LTS)
-    │   ├── docker-compose.yml          # Nginx + API + Web Portal
+    │   ├── docker-compose.yml          # Full stack — build from source
+    │   ├── docker-compose.hub.yml      # Full stack — pull from Docker Hub
     │   ├── entrypoint.sh               # DB init & process bootstrap
     │   ├── supervisord.conf            # Process manager config
     │   ├── nginx/medpharm.conf         # Nginx reverse proxy
@@ -1688,10 +1691,28 @@ def build_document():
     story.append(Paragraph(
         "MedPharm ERP includes a production-ready Docker server package based on "
         "Ubuntu Server 24.04 LTS. Two deployment options are provided: a lightweight "
-        "API-only container and a full-stack server with Nginx reverse proxy.",
+        "API-only container and a full-stack server with Nginx reverse proxy. Both "
+        "images are published to Docker Hub under the enlightec namespace and can be "
+        "pulled directly without a local build.",
         styles["BodyText2"]))
 
-    story.append(Paragraph("20.1 Full Server Stack (Recommended)", styles["H2"]))
+    story.append(Paragraph("20.1 Deployment Modes", styles["H2"]))
+    story.append(Paragraph(
+        "MedPharm ships four docker compose files — two that build from source and "
+        "two that pull the pre-built images from Docker Hub:",
+        styles["BodyText2"]))
+
+    compose_files = [
+        ["File", "Image", "Source"],
+        ["docker-compose.yml", "medpharm-api (local build)", "Dockerfile"],
+        ["docker-compose.hub.yml", "enlightec/medpharm-api:latest", "Docker Hub"],
+        ["server/docker-compose.yml", "medpharm-server (local build)", "server/Dockerfile"],
+        ["server/docker-compose.hub.yml", "enlightec/medpharm-server:latest", "Docker Hub"],
+    ]
+    story.append(make_table(compose_files[0], compose_files[1:], [2.2*inch, 2.3*inch, 1.3*inch]))
+    story.append(Paragraph("Table 20.0: Docker Compose files", styles["Caption"]))
+
+    story.append(Paragraph("20.2 Full Server Stack (Recommended)", styles["H2"]))
     story.append(Paragraph(
         "The full stack runs three services managed by Supervisor inside a single "
         "container: Nginx reverse proxy (port 80), Cloud REST API via Gunicorn "
@@ -1712,7 +1733,7 @@ def build_document():
     #   http://localhost:8080/            API direct access
     #   http://localhost:5000/            Web Portal direct access"""), styles))
 
-    story.append(Paragraph("20.2 API-Only Container", styles["H2"]))
+    story.append(Paragraph("20.3 API-Only Container", styles["H2"]))
     story.append(Paragraph(
         "For deployments that only need the REST API (e.g., serving mobile clients), "
         "the root-level Dockerfile provides a lightweight Ubuntu container running "
@@ -1724,7 +1745,33 @@ def build_document():
     docker compose up -d           # Starts API on port 8080
     curl http://localhost:8080/api/v1/health"""), styles))
 
-    story.append(Paragraph("20.3 Docker Architecture", styles["H2"]))
+    story.append(Paragraph("20.4 Zero-Build Deployment via Docker Hub", styles["H2"]))
+    story.append(Paragraph(
+        "The pre-built images published to Docker Hub let operators deploy MedPharm "
+        "ERP without cloning the source or running any Python install. The install.sh "
+        "script supports --docker and --docker-server flags that pull the image and "
+        "start the container in a single step. A dedicated start_docker_hub.sh helper "
+        "provides an interactive launcher.",
+        styles["BodyText2"]))
+
+    story.append(code_block(textwrap.dedent("""\
+    # One-line installers (pulls from Docker Hub automatically)
+    ./install.sh --docker              # API only on port 8080
+    ./install.sh --docker-server       # Full stack on port 80
+    ./install.sh --docker --tag=1.1.1  # Pin to a specific release
+
+    # Interactive launcher
+    ./start_docker_hub.sh              # Menu
+    ./start_docker_hub.sh server       # Full stack
+    ./start_docker_hub.sh api          # API only
+    ./start_docker_hub.sh pull         # Pull latest, do not start
+    ./start_docker_hub.sh stop         # Stop all MedPharm containers
+
+    # Or use docker compose directly against the Hub compose files
+    docker compose -f docker-compose.hub.yml up -d              # API only
+    cd server && docker compose -f docker-compose.hub.yml up -d # Full stack"""), styles))
+
+    story.append(Paragraph("20.5 Docker Architecture", styles["H2"]))
 
     docker_data = [
         ["Component", "Base Image", "Port", "Process Manager"],
@@ -1733,7 +1780,7 @@ def build_document():
     ]
     story.append(make_table(docker_data[0], docker_data[1:], [1.2*inch, 1.5*inch, 1.3*inch, 2.0*inch]))
 
-    story.append(Paragraph("20.4 Environment Variables", styles["H2"]))
+    story.append(Paragraph("20.6 Environment Variables", styles["H2"]))
 
     env_data = [
         ["Variable", "Default", "Description"],
@@ -1752,7 +1799,7 @@ def build_document():
     story.append(make_table(env_data[0], env_data[1:], [1.8*inch, 1.5*inch, 2.8*inch]))
     story.append(Paragraph("Table 20.1: Docker environment variables", styles["Caption"]))
 
-    story.append(Paragraph("20.5 Nginx Routing", styles["H2"]))
+    story.append(Paragraph("20.7 Nginx Routing", styles["H2"]))
     story.append(Paragraph(
         "The Nginx reverse proxy routes requests to the appropriate backend service. "
         "Security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection) "
@@ -1768,7 +1815,7 @@ def build_document():
     ]
     story.append(make_table(nginx_data[0], nginx_data[1:], [1.2*inch, 1.5*inch, 3.0*inch]))
 
-    story.append(Paragraph("20.6 Persistent Storage", styles["H2"]))
+    story.append(Paragraph("20.8 Persistent Storage", styles["H2"]))
     story.append(Paragraph(
         "The Docker deployment uses named volumes for persistent data. The SQLite "
         "database is stored at /data/medpharm_erp.db inside the container, mapped to "
@@ -1782,7 +1829,7 @@ def build_document():
         "The .env.example file provides a template for all configurable settings.",
         styles["Warning"]))
 
-    story.append(Paragraph("20.7 CI/CD Pipeline (GitHub Actions)", styles["H2"]))
+    story.append(Paragraph("20.9 CI/CD Pipeline (GitHub Actions)", styles["H2"]))
     story.append(Paragraph(
         "Docker images are automatically built and pushed to Docker Hub on every tagged release "
         "via the GitHub Actions workflow at .github/workflows/docker-publish.yml. The pipeline "
@@ -1795,16 +1842,24 @@ def build_document():
     git tag v1.2.0
     git push origin v1.2.0
 
-    # Pre-built images on Docker Hub:
-    docker pull enlightec/medpharm-server:1.1.0   # Full stack
-    docker pull enlightec/medpharm-api:1.1.0       # API only"""), styles))
+    # Pre-built images on Docker Hub (https://hub.docker.com/u/enlightec):
+    docker pull enlightec/medpharm-server:latest   # Full stack
+    docker pull enlightec/medpharm-api:latest      # API only
+
+    # Or pin to a specific release
+    docker pull enlightec/medpharm-server:1.1.1
+    docker pull enlightec/medpharm-api:1.1.1"""), styles))
 
     cicd_data = [
-        ["Image", "Contents", "Base"],
-        ["enlightec/medpharm-server", "Nginx + API + Web Portal", "Ubuntu 24.04 LTS"],
-        ["enlightec/medpharm-api", "REST API only", "Ubuntu 24.04 LTS"],
+        ["Image", "Docker Hub URL", "Contents"],
+        ["enlightec/medpharm-server",
+         "hub.docker.com/r/enlightec/medpharm-server",
+         "Nginx + API + Web Portal"],
+        ["enlightec/medpharm-api",
+         "hub.docker.com/r/enlightec/medpharm-api",
+         "REST API only"],
     ]
-    story.append(make_table(cicd_data[0], cicd_data[1:], [2.0*inch, 2.2*inch, 1.5*inch]))
+    story.append(make_table(cicd_data[0], cicd_data[1:], [1.9*inch, 2.4*inch, 1.6*inch]))
     story.append(Paragraph("Table 20.2: Docker Hub images", styles["Caption"]))
 
     story.append(Paragraph(

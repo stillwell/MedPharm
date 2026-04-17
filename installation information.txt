@@ -1,12 +1,40 @@
 installation information:
 
-# Install dependencies
-  pip install Flask SQLAlchemy Werkzeug matplotlib numpy PyQt6
+# ──────────────────────────────────────────────────────────────────────────────
+# Option A — Pre-built Docker Hub images (no Python install required)
+# ──────────────────────────────────────────────────────────────────────────────
+# Both images are published to Docker Hub under the enlightec namespace:
+#   https://hub.docker.com/u/enlightec
+#   https://hub.docker.com/r/enlightec/medpharm-api
+#   https://hub.docker.com/r/enlightec/medpharm-server
+
+  # Pull both images
+  docker pull enlightec/medpharm-api:latest        # REST API only
+  docker pull enlightec/medpharm-server:latest     # Full stack (Nginx + API + Portal)
+
+  # Fastest: use the included launcher
+  ./install.sh --docker             # API only  (http://localhost:8080)
+  ./install.sh --docker-server      # Full stack (http://localhost)
+
+  # Or via docker compose
+  docker compose -f docker-compose.hub.yml up -d                # API only
+  docker compose -f server/docker-compose.hub.yml up -d         # Full stack
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Option B — Python source install
+# ──────────────────────────────────────────────────────────────────────────────
+
+  # Install dependencies
+  pip install Flask SQLAlchemy Werkzeug matplotlib numpy PyQt6 flask-cors
 
   # Launch the web portal (patients)
-  python3 medical_erp/run_web.py
+  python3 run_web.py
   # → http://localhost:5000  (login: jsmith_portal / patient123)
 
   # Launch the Qt desktop app (doctors)
-  python3 medical_erp/run_qt.py
+  python3 run_qt.py
   # → Login: dr.carter / doctor123  (or dr.brooks for psychiatrist)
+
+  # Launch the Cloud REST API (mobile/desktop clients)
+  python3 run_cloud.py
+  # → http://localhost:8080/api/v1
