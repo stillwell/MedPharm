@@ -136,7 +136,7 @@ banner() {
     ║   ██║ ╚═╝ ██║███████╗██████╔╝██║     ██║  ██║██║  ██║██║  ██║     ║
     ║   ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝  ║
     ║                     E R P   S Y S T E M                             ║
-    ║           Medical & Pharmaceutical Management v1.0                  ║
+    ║           Medical & Pharmaceutical Management v1.5.1                ║
     ║                                                                     ║
     ╚═════════════════════════════════════════════════════════════════════╝
 BANNER
@@ -701,16 +701,28 @@ validate_install() {
 from database.db_manager import DatabaseManager
 from database.seed_data import seed_database
 from web.app import create_app
-import tempfile, os
+import tempfile, os, re
 
 db = os.path.join(tempfile.gettempdir(), 'medpharm_test_install.db')
+if os.path.exists(db):
+    os.remove(db)
 dm = DatabaseManager(db)
 dm.init_db()
 seed_database(dm)
 app = create_app(dm)
 c = app.test_client()
 
-c.post('/login', data={'username':'jsmith_portal','password':'patient123'})
+# Login flow now requires a CSRF token (HIPAA hardening, 1.5.1+).
+login_page = c.get('/login').data.decode()
+m = re.search(r'name=\"csrf_token\" value=\"([^\"]+)\"', login_page)
+assert m, 'CSRF token not present on /login page'
+resp = c.post('/login', data={
+    'username': 'jsmith_portal',
+    'password': 'patient123',
+    'csrf_token': m.group(1),
+})
+assert resp.status_code in (200, 302), f'login POST failed: {resp.status_code}'
+
 assert c.get('/dashboard').status_code == 200
 assert c.get('/prescriptions').status_code == 200
 assert c.get('/billing').status_code == 200
