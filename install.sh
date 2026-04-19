@@ -506,9 +506,57 @@ print('Database schema created and seed data loaded.')
 create_launchers() {
     header "Creating Launcher Scripts"
 
-    # Web portal launcher
-    cat > "${SCRIPT_DIR}/start_web.sh" << 'LAUNCHER'
+    # Fallback launcher templates used only when the tracked launcher is
+    # missing from the working tree. These intentionally carry the same GPL
+    # header as the rest of the project so regenerated files stay
+    # license-consistent with the repo.
+    #
+    # The tracked versions in the repo are richer (extra env setup, dep
+    # checks, etc.) — when they are already present, preserve them instead
+    # of clobbering with a minimal rewrite.
+
+    _write_launcher_if_missing() {
+        local path="$1"
+        local name
+        name="$(basename "$path")"
+        if [[ -f "$path" ]]; then
+            log "Preserving existing ${name}"
+            chmod +x "$path" 2>/dev/null || true
+            return
+        fi
+        shift
+        "$@" > "$path"
+        chmod +x "$path"
+        log "Created ${name}"
+    }
+
+    _launcher_header() {
+        cat <<'HDR'
 #!/usr/bin/env bash
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+HDR
+    }
+
+    _web_launcher() {
+        _launcher_header
+        cat <<'LAUNCHER'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
 export PYTHONPATH="${SCRIPT_DIR}"
@@ -520,17 +568,18 @@ echo "  ║  Running at: http://localhost:${PORT}                  ║"
 echo "  ║                                                       ║"
 echo "  ║  Login:  jsmith_portal / patient123                   ║"
 echo "  ║  Press Ctrl+C to stop                                 ║"
+echo "  ║                                                       ║"
+echo "  ║  © 2026 Enlightec Ltd.                                ║"
 echo "  ╚═══════════════════════════════════════════════════════╝"
 echo ""
 cd "${SCRIPT_DIR}"
 python3 run_web.py "$PORT"
 LAUNCHER
-    chmod +x "${SCRIPT_DIR}/start_web.sh"
-    log "Created start_web.sh"
+    }
 
-    # Qt desktop launcher
-    cat > "${SCRIPT_DIR}/start_desktop.sh" << 'LAUNCHER'
-#!/usr/bin/env bash
+    _desktop_launcher() {
+        _launcher_header
+        cat <<'LAUNCHER'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
 export PYTHONPATH="${SCRIPT_DIR}"
@@ -542,22 +591,41 @@ echo "  ║  Doctor:       dr.carter / doctor123                  ║"
 echo "  ║  Psychiatrist: dr.brooks / doctor123                  ║"
 echo "  ║  Pharmacist:   pharm.davis / pharm123                 ║"
 echo "  ║  Admin:        admin / admin123                       ║"
+echo "  ║                                                       ║"
+echo "  ║  © 2026 Enlightec Ltd.                                ║"
 echo "  ╚═══════════════════════════════════════════════════════╝"
 echo ""
 cd "${SCRIPT_DIR}"
 python3 run_qt.py
 LAUNCHER
-    chmod +x "${SCRIPT_DIR}/start_desktop.sh"
-    log "Created start_desktop.sh"
+    }
 
-    # Cloud API server launcher
-    cat > "${SCRIPT_DIR}/start_cloud.sh" << 'LAUNCHER'
+    _cloud_launcher() {
+        cat <<'LAUNCHER'
 #!/usr/bin/env bash
+# MedPharm ERP - Cloud API Server Quick Start
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# License: GNU General Public License v3.0
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
 export PYTHONPATH="${SCRIPT_DIR}"
+
+if ! command -v python3 &> /dev/null; then
+    echo "Error: Python 3 is required but not installed."
+    exit 1
+fi
+
+if ! python3 -c "import flask_cors" 2>/dev/null; then
+    echo "Installing cloud dependencies..."
+    pip install -r "${SCRIPT_DIR}/requirements-cloud.txt"
+fi
+
+export MEDPHARM_DB_PATH="${SCRIPT_DIR}/data/medpharm.db"
 export MEDPHARM_DEBUG=${MEDPHARM_DEBUG:-true}
+export MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-dev-secret-do-not-use-in-production}
 export MEDPHARM_PORT=${MEDPHARM_PORT:-8080}
+
 echo ""
 echo "  ╔═══════════════════════════════════════════════════════╗"
 echo "  ║  MedPharm ERP - Cloud API Server                     ║"
@@ -567,25 +635,31 @@ echo "  ║                                                       ║"
 echo "  ║  Patient Login: jsmith_portal / patient123            ║"
 echo "  ║  Staff Login:   dr.carter / doctor123                 ║"
 echo "  ║  Press Ctrl+C to stop                                 ║"
+echo "  ║                                                       ║"
+echo "  ║  © 2026 Enlightec Ltd.                                ║"
 echo "  ╚═══════════════════════════════════════════════════════╝"
 echo ""
+
 cd "${SCRIPT_DIR}"
 python3 run_cloud.py
 LAUNCHER
-    chmod +x "${SCRIPT_DIR}/start_cloud.sh"
-    log "Created start_cloud.sh"
+    }
 
-    # PDF documentation generator
-    cat > "${SCRIPT_DIR}/generate_docs.sh" << 'LAUNCHER'
-#!/usr/bin/env bash
+    _docs_launcher() {
+        _launcher_header
+        cat <<'LAUNCHER'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/venv/bin/activate" 2>/dev/null || true
 export PYTHONPATH="${SCRIPT_DIR}"
 cd "${SCRIPT_DIR}"
 python3 docs/generate_pdf.py
 LAUNCHER
-    chmod +x "${SCRIPT_DIR}/generate_docs.sh"
-    log "Created generate_docs.sh"
+    }
+
+    _write_launcher_if_missing "${SCRIPT_DIR}/start_web.sh"     _web_launcher
+    _write_launcher_if_missing "${SCRIPT_DIR}/start_desktop.sh" _desktop_launcher
+    _write_launcher_if_missing "${SCRIPT_DIR}/start_cloud.sh"   _cloud_launcher
+    _write_launcher_if_missing "${SCRIPT_DIR}/generate_docs.sh" _docs_launcher
 }
 
 # ── Validate Installation ────────────────────────────────────────────────────
