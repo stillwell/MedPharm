@@ -40,3 +40,20 @@ installation information:
   # Launch the Cloud REST API (mobile/desktop clients)
   python3 run_cloud.py
   # → http://localhost:8080/api/v1
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Uninstall — reverses ./install.sh
+# ──────────────────────────────────────────────────────────────────────────────
+# Removes venv/, data/medpharm.db, install.log, and project __pycache__.
+# Docker teardown is opt-in via explicit flags. Tracked source files
+# (launcher scripts, .env.example, docs) are never touched.
+
+  ./uninstall.sh                             # Interactive cleanup
+  ./uninstall.sh --force                     # Non-interactive
+  ./uninstall.sh --keep-data                 # Preserve database
+  ./uninstall.sh --docker --docker-volumes   # Tear down API-only container + volume
+  ./uninstall.sh --all --force               # Everything: containers, volumes, images, env
+  ./uninstall.sh --help                      # Full flag reference
+
+  # Reinstall afterwards
+  ./install.sh --fresh

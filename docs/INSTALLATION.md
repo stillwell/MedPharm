@@ -294,20 +294,69 @@ Expected responses:
 
 ## Uninstallation
 
-### Python venv
+The repository ships with `uninstall.sh`, a companion to `install.sh` that reverses every artifact the installer creates. It never touches tracked source files (launcher scripts, `.env.example`, docs, Dockerfiles) — for a fully pristine tree use `git clean -fdx`.
+
+### Quick reference
 
 ```bash
-deactivate 2>/dev/null
-rm -rf venv medpharm_erp.db
+./uninstall.sh                             # Interactive — remove venv, DB, log
+./uninstall.sh --force                     # Non-interactive source cleanup
+./uninstall.sh --keep-data                 # Remove venv but preserve data/medpharm.db
+./uninstall.sh --docker --docker-volumes   # Tear down API-only container + persistent volume
+./uninstall.sh --all --force               # Scorched earth — no prompts, no confirmations
 ```
 
-### Docker
+### What `uninstall.sh` removes
+
+| Artifact | Removed by default | Flag to change |
+|----------|--------------------|----------------|
+| `venv/`                     | ✓ | — |
+| `data/medpharm.db` + empty `data/` | ✓ | `--keep-data` |
+| `install.log`               | ✓ | — |
+| `__pycache__/` (project-side, excludes `venv/`) | ✓ | — |
+| `*.pyc` (project-side) | ✓ | — |
+| `${TMPDIR}/medpharm_test_install.db` stray test DB | ✓ | — |
+| `server/.env` (contains JWT / session secrets) | ✗ | `--remove-env` |
+| Docker container `medpharm-api` (API-only) | ✗ | `--docker` / `--docker-api` |
+| Docker container `medpharm-server` (full stack) | ✗ | `--docker-server` / `--docker-full` |
+| Docker volumes `medpharm-data`, `medpharm-logs` (plus project-prefixed variants) | ✗ | `--docker-volumes` |
+| Images `enlightec/medpharm-api`, `enlightec/medpharm-server` (all cached tags) | ✗ | `--docker-images` |
+
+### Flag reference
+
+| Flag | Effect |
+|------|--------|
+| `-f` / `--force` / `--yes` | Skip every confirmation prompt (auto-enabled under non-interactive shells / CI). |
+| `--keep-data`              | Preserve `data/medpharm.db` and the `data/` directory. |
+| `--remove-env`             | Also delete `server/.env` (kept by default — contains your generated secrets). |
+| `--docker`, `--docker-api` | Run `docker compose -f docker-compose.hub.yml down` and force-remove the `medpharm-api` container if it lingers. |
+| `--docker-server`, `--docker-full` | Same for `server/docker-compose.hub.yml` / `medpharm-server`. |
+| `--docker-volumes`         | Remove named volumes after containers stop. **Deletes persisted DB data.** |
+| `--docker-images`          | Remove every locally cached tag of `enlightec/medpharm-api` and `enlightec/medpharm-server`. |
+| `--all`                    | Expands to `--docker --docker-server --docker-volumes --docker-images --remove-env`. |
+| `-h` / `--help`            | Print usage and exit. |
+
+Every run writes an audit trail to `uninstall.log` (timestamped, one line per action).
+
+### Reinstall after uninstall
 
 ```bash
-docker compose -f docker-compose.hub.yml down -v
-docker compose -f server/docker-compose.hub.yml down -v
-docker volume rm medpharm-data medpharm-logs 2>/dev/null
-docker image rm enlightec/medpharm-api enlightec/medpharm-server 2>/dev/null
+./install.sh --fresh
+```
+
+### Manual equivalents (if you cannot run `uninstall.sh`)
+
+```bash
+# Source install cleanup
+deactivate 2>/dev/null
+rm -rf venv data install.log
+find . -type d -name __pycache__ -not -path './venv/*' -exec rm -rf {} +
+
+# Docker Hub cleanup
+docker compose -f docker-compose.hub.yml down
+docker compose --env-file server/.env -f server/docker-compose.hub.yml down
+docker volume rm medpharm-data medpharm-logs 2>/dev/null || true
+docker image rm enlightec/medpharm-api enlightec/medpharm-server 2>/dev/null || true
 ```
 
 ---

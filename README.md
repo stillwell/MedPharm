@@ -147,6 +147,7 @@ MedPharm/
 ├── run_web.py                 # Web portal launcher
 ├── run_cloud.py               # Cloud API server launcher
 ├── install.sh                 # Automated installer (cross-platform)
+├── uninstall.sh               # Companion uninstaller — reverses install.sh
 ├── start_desktop.sh           # Desktop quick-launch script
 ├── start_web.sh               # Web portal quick-launch script
 ├── start_cloud.sh             # Cloud API quick-launch script
@@ -297,7 +298,28 @@ The installer will:
 5. Initialize the SQLite database and seed it with sample data
 6. Seed expanded reference data (symptoms, conditions, additional medications)
 7. Run integration tests to verify everything works
-8. Create quick-launch scripts (`start_web.sh`, `start_desktop.sh`, `start_cloud.sh`, `generate_docs.sh`)
+8. Preserve the tracked launcher scripts (`start_web.sh`, `start_desktop.sh`, `start_cloud.sh`, `generate_docs.sh`) — fallback templates with full GPL headers are only written when a launcher is missing from the working tree
+
+### Uninstallation
+
+The repository ships with `uninstall.sh`, which reverses every artifact `install.sh` creates. Tracked source files (launcher scripts, `.env.example`, docs, Dockerfiles) are never touched.
+
+```bash
+./uninstall.sh                             # Interactive — remove venv, DB, log, __pycache__
+./uninstall.sh --force                     # Non-interactive (for CI / scripting)
+./uninstall.sh --keep-data                 # Preserve data/medpharm.db
+./uninstall.sh --docker --docker-volumes   # Tear down API-only container + persistent volume
+./uninstall.sh --all --force               # Scorched earth: containers, volumes, images, env, no prompts
+./uninstall.sh --help                      # Full flag reference
+```
+
+Docker teardown is **opt-in** — nothing Docker-related runs unless you pass `--docker`, `--docker-server`, `--docker-volumes`, `--docker-images`, or `--all`. See [docs/INSTALLATION.md](docs/INSTALLATION.md#uninstallation) for the full flag matrix.
+
+To reinstall after uninstalling:
+
+```bash
+./install.sh --fresh
+```
 
 ### Manual Install
 
