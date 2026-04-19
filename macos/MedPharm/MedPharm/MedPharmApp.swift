@@ -32,7 +32,7 @@ struct MedPharmApp: App {
                 Button("About MedPharm ERP") {
                     NSApplication.shared.orderFrontStandardAboutPanel(options: [
                         .applicationName: "MedPharm ERP",
-                        .applicationVersion: "1.1.0",
+                        .applicationVersion: "1.5.1",
                         .credits: NSAttributedString(string: "Copyright © 2026 Enlightec Ltd.")
                     ])
                 }

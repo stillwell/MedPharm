@@ -21,21 +21,55 @@ MedPharm ERP - REST API Routes
 JSON API endpoints for Android and mobile clients.
 """
 
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 
 from api.auth import (
     create_token, decode_token,
     token_required, patient_required, staff_required
 )
+from security.lockout import LockoutTracker, AccountLockedError
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
+
+
+_api_lockout: LockoutTracker | None = None
+
+
+def _api_lockout_tracker() -> LockoutTracker:
+    global _api_lockout
+    if _api_lockout is None:
+        cfg = current_app.config.get("SECURITY_CONFIG")
+        if cfg is None:
+            _api_lockout = LockoutTracker()
+        else:
+            _api_lockout = LockoutTracker(
+                threshold=cfg.lockout_threshold,
+                window_seconds=cfg.lockout_window_seconds,
+                lockout_seconds=cfg.lockout_duration_seconds,
+            )
+    return _api_lockout
+
+
+def _record_login_attempt(username: str, *, account_type: str,
+                          successful: bool) -> None:
+    if successful:
+        return
+    try:
+        g.db_manager.record_failed_login(
+            username=username, account_type=account_type,
+            ip=request.remote_addr or "",
+            user_agent=request.headers.get("User-Agent", "")[:255],
+            reason="bad_credentials",
+        )
+    except Exception:
+        pass
 
 
 # ── Health Check ──────────────────────────────────────────────────────────────
 
 @api_bp.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.1.0", "copyright": "\u00a9 2026 Enlightec Ltd."})
+    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.5.1", "copyright": "\u00a9 2026 Enlightec Ltd."})
 
 
 # ── Authentication ────────────────────────────────────────────────────────────
@@ -50,9 +84,22 @@ def patient_login():
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
 
+    tracker = _api_lockout_tracker()
+    key = f"api-patient:{username.lower()}"
+    try:
+        tracker.assert_not_locked(key)
+    except AccountLockedError as exc:
+        return jsonify({
+            "error": "Account temporarily locked",
+            "retry_after_seconds": exc.retry_after,
+        }), 429
+
     account = g.db_manager.authenticate_portal(username, password)
     if not account:
+        tracker.record_failure(key)
+        _record_login_attempt(username, account_type="patient", successful=False)
         return jsonify({"error": "Invalid credentials"}), 401
+    tracker.record_success(key)
 
     patient = g.db_manager.get_portal_patient(account["id"])
     patient_name = patient["full_name"] if patient else username
@@ -90,9 +137,22 @@ def staff_login():
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
 
+    tracker = _api_lockout_tracker()
+    key = f"api-staff:{username.lower()}"
+    try:
+        tracker.assert_not_locked(key)
+    except AccountLockedError as exc:
+        return jsonify({
+            "error": "Account temporarily locked",
+            "retry_after_seconds": exc.retry_after,
+        }), 429
+
     user = g.db_manager.authenticate_user(username, password)
     if not user:
+        tracker.record_failure(key)
+        _record_login_attempt(username, account_type="staff", successful=False)
         return jsonify({"error": "Invalid credentials"}), 401
+    tracker.record_success(key)
 
     access_token = create_token(
         user_type="staff", user_id=user.id,
@@ -146,8 +206,13 @@ def patient_register():
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
-    if len(data["password"]) < 6:
-        return jsonify({"error": "Password must be at least 6 characters"}), 400
+    from security.passwords import validate_password, PasswordPolicy, PasswordPolicyError
+    cfg = current_app.config.get("SECURITY_CONFIG")
+    policy = PasswordPolicy(min_length=cfg.password_min_length if cfg else 12)
+    try:
+        validate_password(data["password"], policy=policy, username=data.get("username", ""))
+    except PasswordPolicyError as exc:
+        return jsonify({"error": f"Password rejected: {exc}"}), 400
 
     from datetime import date
     try:

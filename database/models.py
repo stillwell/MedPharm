@@ -607,6 +607,323 @@ class AuditLog(Base):
     entity_id = Column(Integer)
     details_json = Column(Text)
     ip_address = Column(String(45))
+    user_agent = Column(String(300))
+    prev_hash = Column(String(64))
+    row_hash = Column(String(64), index=True)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+# ── HIPAA: PHI access log (§ 164.312(b)) ──────────────────────────────────────
+
+class PHIAccessLog(Base):
+    """
+    Dedicated log of every read against PHI. Writes go to AuditLog; this
+    captures the addressable "record read" audit requirement with enough
+    detail to satisfy audit controls and accounting-of-disclosures queries.
+    """
+    __tablename__ = "phi_access_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    actor_id = Column(Integer, nullable=True, index=True)
+    actor_type = Column(String(20), nullable=False, default="staff")  # staff|patient|system
+    entity_type = Column(String(50), nullable=False, index=True)       # patient, prescription, ...
+    entity_id = Column(Integer, index=True)
+    reason = Column(String(40), nullable=False, default="treatment")
+    endpoint = Column(String(200))
+    method = Column(String(10))
+    ip_address = Column(String(45))
+    user_agent = Column(String(300))
+    duration_ms = Column(Integer)
+    accessed_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class FailedLogin(Base):
+    """
+    Persistent record of failed login attempts for account-lockout history
+    and post-incident forensics. Pair with security.lockout.LockoutTracker.
+    """
+    __tablename__ = "failed_logins"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False, index=True)
+    account_type = Column(String(20), nullable=False, default="staff")  # staff|patient
+    ip_address = Column(String(45))
+    user_agent = Column(String(300))
+    reason = Column(String(60))
+    occurred_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class PasswordHistory(Base):
+    """Per-user hash of the last N passwords to enforce reuse policy."""
+    __tablename__ = "password_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_type = Column(String(20), nullable=False)  # staff|patient
+    account_id = Column(Integer, nullable=False, index=True)
+    password_hash = Column(String(256), nullable=False)
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MFASecret(Base):
+    """TOTP shared secret for users that enrolled in multi-factor auth."""
+    __tablename__ = "mfa_secrets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_type = Column(String(20), nullable=False)
+    account_id = Column(Integer, nullable=False, index=True)
+    secret_encrypted = Column(String(500), nullable=False)
+    enrolled_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime)
+    backup_codes_json = Column(Text)  # encrypted list of one-time backup codes
+
+
+class EmergencyAccessGrantRec(Base):
+    """
+    "Break-glass" grant — records who opened what PHI under an emergency
+    justification, and when the grant expires. Paired with AuditLog.
+    """
+    __tablename__ = "emergency_access_grants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    justification = Column(Text, nullable=False)
+    granted_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    ip_address = Column(String(45))
+    user_agent = Column(String(300))
+
+
+# ── HIPAA: patient consent management ─────────────────────────────────────────
+
+class ConsentType(enum.Enum):
+    TREATMENT = "treatment"
+    PAYMENT = "payment"
+    DATA_SHARING = "data_sharing"
+    RESEARCH = "research"
+    MARKETING = "marketing"
+    TELEHEALTH = "telehealth"
+    HIE_OPT_IN = "hie_opt_in"           # health information exchange
+    RELEASE_OF_INFORMATION = "release_of_information"
+
+
+class ConsentStatus(enum.Enum):
+    GRANTED = "granted"
+    REVOKED = "revoked"
+    EXPIRED = "expired"
+
+
+class PatientConsent(Base):
+    __tablename__ = "patient_consents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    consent_type = Column(Enum(ConsentType), nullable=False)
+    status = Column(Enum(ConsentStatus), nullable=False, default=ConsentStatus.GRANTED)
+    scope = Column(Text)                          # free-text scope description
+    granted_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    witnessed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    signature_hash = Column(String(64))           # sha256 of signed document
+    document_ref = Column(String(500))            # path or URL to signed form
+
+    patient = relationship("Patient")
+    witness = relationship("User")
+
+
+# ── Secure provider ↔ patient messaging ──────────────────────────────────────
+
+class MessageThread(Base):
+    __tablename__ = "message_threads"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    provider_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    subject = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_message_at = Column(DateTime, default=datetime.utcnow, index=True)
+    is_closed = Column(Boolean, default=False)
+
+    patient = relationship("Patient")
+    provider = relationship("User")
+    messages = relationship("SecureMessage", back_populates="thread",
+                            cascade="all, delete-orphan",
+                            order_by="SecureMessage.sent_at")
+
+
+class SecureMessage(Base):
+    __tablename__ = "secure_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    thread_id = Column(Integer, ForeignKey("message_threads.id"), nullable=False)
+    sender_type = Column(String(20), nullable=False)   # staff|patient|system
+    sender_id = Column(Integer, nullable=False)
+    body_encrypted = Column(Text, nullable=False)      # Fernet ciphertext
+    sent_at = Column(DateTime, default=datetime.utcnow)
+    read_at = Column(DateTime, nullable=True)
+
+    thread = relationship("MessageThread", back_populates="messages")
+
+
+# ── Labs (orders & results) ──────────────────────────────────────────────────
+
+class LabOrderStatus(enum.Enum):
+    ORDERED = "ordered"
+    COLLECTED = "collected"
+    IN_PROCESS = "in_process"
+    RESULTED = "resulted"
+    CANCELLED = "cancelled"
+
+
+class LabResultFlag(enum.Enum):
+    NORMAL = "normal"
+    LOW = "low"
+    HIGH = "high"
+    CRITICAL_LOW = "critical_low"
+    CRITICAL_HIGH = "critical_high"
+    ABNORMAL = "abnormal"
+
+
+class LabOrder(Base):
+    __tablename__ = "lab_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    provider_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    loinc_code = Column(String(20), index=True)        # panel or analyte
+    test_name = Column(String(300), nullable=False)
+    status = Column(Enum(LabOrderStatus), default=LabOrderStatus.ORDERED)
+    priority = Column(String(20), default="routine")   # routine|stat|asap
+    clinical_indication = Column(Text)
+    ordered_at = Column(DateTime, default=datetime.utcnow)
+    collected_at = Column(DateTime, nullable=True)
+    resulted_at = Column(DateTime, nullable=True)
+
+    patient = relationship("Patient")
+    provider = relationship("User")
+    results = relationship("LabResult", back_populates="order",
+                           cascade="all, delete-orphan")
+
+
+class LabResult(Base):
+    __tablename__ = "lab_results"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("lab_orders.id"), nullable=False)
+    analyte = Column(String(200), nullable=False)
+    loinc_code = Column(String(20))
+    value = Column(String(100))           # stringified — units separate
+    unit = Column(String(30))
+    reference_range = Column(String(60))
+    flag = Column(Enum(LabResultFlag), default=LabResultFlag.NORMAL)
+    resulted_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text)
+
+    order = relationship("LabOrder", back_populates="results")
+
+
+# ── Care plans / problem list ────────────────────────────────────────────────
+
+class CarePlanStatus(enum.Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ON_HOLD = "on_hold"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class CarePlan(Base):
+    __tablename__ = "care_plans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(300), nullable=False)
+    description = Column(Text)
+    status = Column(Enum(CarePlanStatus), default=CarePlanStatus.ACTIVE)
+    goals_json = Column(Text)             # [{goal, target_date, progress}]
+    interventions_json = Column(Text)     # [{intervention, frequency}]
+    started_on = Column(Date, default=date.today)
+    review_on = Column(Date)
+    closed_on = Column(Date, nullable=True)
+
+    patient = relationship("Patient")
+    author = relationship("User")
+
+
+# ── Immunizations ────────────────────────────────────────────────────────────
+
+class Immunization(Base):
+    __tablename__ = "immunizations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    administered_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    vaccine_name = Column(String(200), nullable=False)
+    cvx_code = Column(String(10))         # CDC CVX vaccine code
+    lot_number = Column(String(50))
+    manufacturer = Column(String(200))
+    administered_at = Column(DateTime, default=datetime.utcnow)
+    dose_number = Column(Integer)
+    route = Column(String(50))
+    site = Column(String(50))             # e.g., left deltoid
+    notes = Column(Text)
+
+    patient = relationship("Patient")
+    administered_by = relationship("User")
+
+
+# ── Referrals ────────────────────────────────────────────────────────────────
+
+class ReferralStatus(enum.Enum):
+    REQUESTED = "requested"
+    SCHEDULED = "scheduled"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class Referral(Base):
+    __tablename__ = "referrals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    referring_provider_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    to_specialist_name = Column(String(200), nullable=False)
+    to_specialty = Column(String(100))
+    to_organization = Column(String(200))
+    reason = Column(Text, nullable=False)
+    status = Column(Enum(ReferralStatus), default=ReferralStatus.REQUESTED)
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    scheduled_for = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    notes = Column(Text)
+
+    patient = relationship("Patient")
+    referring_provider = relationship("User")
+
+
+# ── Document vault ───────────────────────────────────────────────────────────
+
+class PatientDocument(Base):
+    """
+    Patient-uploaded or provider-attached documents. Bytes are stored
+    outside the DB; this row keeps metadata + Fernet-encrypted filename
+    and SHA-256 integrity hash of the ciphertext-at-rest file.
+    """
+    __tablename__ = "patient_documents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    uploaded_by_id = Column(Integer, nullable=True)
+    uploader_type = Column(String(20), default="staff")   # staff|patient
+    category = Column(String(50), default="other")         # lab|consent|imaging|...
+    filename_encrypted = Column(String(500), nullable=False)
+    content_type = Column(String(100))
+    size_bytes = Column(Integer)
+    storage_ref = Column(String(500), nullable=False)      # path on disk or S3 key
+    sha256_ciphertext = Column(String(64), nullable=False) # integrity check
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)

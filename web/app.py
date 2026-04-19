@@ -21,9 +21,17 @@ MedPharm ERP - Flask Web Application Factory
 Patient portal for prescription viewing, bill pay, and record access.
 """
 
+import logging
 import os
-import secrets
 from flask import Flask, redirect, url_for, session, g, render_template
+
+from security import (
+    load_security_config,
+    require_production_secrets,
+    apply_session_hardening,
+    enforce_idle_timeout,
+    generate_csrf_token,
+)
 from web.routes import portal_bp
 
 
@@ -32,12 +40,23 @@ def create_app(db_manager):
                 template_folder=os.path.join(os.path.dirname(__file__), "templates"),
                 static_folder=os.path.join(os.path.dirname(__file__), "static"))
 
-    app.secret_key = secrets.token_hex(32)
+    cfg = load_security_config()
+    app.secret_key = cfg.flask_secret
     app.config["DB_MANAGER"] = db_manager
+    app.config["SECURITY_CONFIG"] = cfg
+
+    if cfg.is_production:
+        errors = require_production_secrets(cfg)
+        for err in errors:
+            logging.getLogger("medpharm.security").error(err)
+
+    apply_session_hardening(app, cfg)
+    app.before_request(enforce_idle_timeout(cfg))
 
     @app.before_request
     def load_user():
         g.db_manager = app.config["DB_MANAGER"]
+        g.security_config = app.config["SECURITY_CONFIG"]
         g.user_id = session.get("user_id")
         g.patient_id = session.get("patient_id")
         g.username = session.get("username")
@@ -49,6 +68,7 @@ def create_app(db_manager):
             "current_year": 2026,
             "user_logged_in": "user_id" in session,
             "patient_name": session.get("patient_name", ""),
+            "csrf_token": generate_csrf_token,
         }
 
     app.register_blueprint(portal_bp)

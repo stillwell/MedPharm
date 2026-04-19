@@ -26,11 +26,34 @@ from functools import wraps
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    session, flash, g, jsonify
+    session, flash, g, jsonify, current_app
 )
 from werkzeug.security import generate_password_hash
 
+from security.csrf import csrf_required
+from security.lockout import LockoutTracker, AccountLockedError
+from security.passwords import validate_password, PasswordPolicy, PasswordPolicyError
+
 portal_bp = Blueprint("portal", __name__)
+
+
+_lockout_tracker: LockoutTracker | None = None
+
+
+def _get_lockout() -> LockoutTracker:
+    """Lazy, app-scoped lockout tracker keyed off the security config."""
+    global _lockout_tracker
+    if _lockout_tracker is None:
+        cfg = current_app.config.get("SECURITY_CONFIG")
+        if cfg is None:
+            _lockout_tracker = LockoutTracker()
+        else:
+            _lockout_tracker = LockoutTracker(
+                threshold=cfg.lockout_threshold,
+                window_seconds=cfg.lockout_window_seconds,
+                lockout_seconds=cfg.lockout_duration_seconds,
+            )
+    return _lockout_tracker
 
 
 def login_required(f):
@@ -46,6 +69,7 @@ def login_required(f):
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
 @portal_bp.route("/login", methods=["GET", "POST"])
+@csrf_required
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -53,8 +77,22 @@ def login():
         if not username or not password:
             flash("Please enter both username and password.", "danger")
             return render_template("login.html")
+
+        tracker = _get_lockout()
+        key = f"portal:{username.lower()}"
+        try:
+            tracker.assert_not_locked(key)
+        except AccountLockedError as exc:
+            minutes = max(1, exc.retry_after // 60)
+            flash(
+                f"Too many failed login attempts. Try again in {minutes} minutes.",
+                "danger"
+            )
+            return render_template("login.html")
+
         account = g.db_manager.authenticate_portal(username, password)
         if account:
+            tracker.record_success(key)
             patient = g.db_manager.get_portal_patient(account["id"])
             session["user_id"] = account["id"]
             session["patient_id"] = account["patient_id"]
@@ -62,7 +100,23 @@ def login():
             session["patient_name"] = patient["full_name"] if patient else username
             flash(f"Welcome back, {session['patient_name']}!", "success")
             return redirect(url_for("portal.dashboard"))
-        flash("Invalid username or password.", "danger")
+
+        remaining = tracker.record_failure(key)
+        try:
+            g.db_manager.record_failed_login(
+                username=username, account_type="patient",
+                ip=request.remote_addr or "",
+                user_agent=request.headers.get("User-Agent", "")[:255],
+                reason="bad_credentials",
+            )
+        except Exception:
+            pass
+        if remaining == 0:
+            flash("Account temporarily locked due to too many failed attempts.",
+                  "danger")
+        else:
+            flash(f"Invalid username or password. {remaining} attempts remaining.",
+                  "danger")
     return render_template("login.html")
 
 
@@ -74,6 +128,7 @@ def logout():
 
 
 @portal_bp.route("/register", methods=["GET", "POST"])
+@csrf_required
 def register():
     if request.method == "POST":
         first_name = request.form.get("first_name", "").strip()
@@ -91,8 +146,15 @@ def register():
         if password != confirm:
             flash("Passwords do not match.", "danger")
             return render_template("register.html")
-        if len(password) < 6:
-            flash("Password must be at least 6 characters.", "danger")
+
+        cfg = current_app.config.get("SECURITY_CONFIG")
+        policy = PasswordPolicy(
+            min_length=cfg.password_min_length if cfg else 12,
+        )
+        try:
+            validate_password(password, policy=policy, username=username)
+        except PasswordPolicyError as exc:
+            flash(f"Password rejected: {exc}", "danger")
             return render_template("register.html")
 
         try:
@@ -162,6 +224,7 @@ def prescription_detail(rx_id):
 
 @portal_bp.route("/prescriptions/<int:rx_id>/refill", methods=["POST"])
 @login_required
+@csrf_required
 def request_refill(rx_id):
     rx = g.db_manager.get_prescription(rx_id)
     if not rx or rx["patient_id"] != session["patient_id"]:
@@ -194,6 +257,7 @@ def billing():
 
 @portal_bp.route("/billing/<int:invoice_id>/pay", methods=["GET", "POST"])
 @login_required
+@csrf_required
 def pay_bill(invoice_id):
     inv = g.db_manager.get_invoice(invoice_id)
     if not inv or inv["patient_id"] != session["patient_id"]:
@@ -273,6 +337,7 @@ def medications():
 
 @portal_bp.route("/profile", methods=["GET", "POST"])
 @login_required
+@csrf_required
 def profile():
     patient_id = session["patient_id"]
     patient = g.db_manager.get_patient_full(patient_id)

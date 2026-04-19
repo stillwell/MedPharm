@@ -88,7 +88,7 @@ Examples:
   ./install.sh --docker                     # API-only via Docker Hub
   ./install.sh --docker-server              # Full stack via Docker Hub
   ./install.sh --docker --docker-server     # Both (API + full stack) at once
-  ./install.sh --docker --tag=1.1.1         # Pin to a specific released version
+  ./install.sh --docker --tag=1.5.1         # Pin to a specific released version
 
 Docker Hub:
   https://hub.docker.com/r/enlightec/medpharm-api

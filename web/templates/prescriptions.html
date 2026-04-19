@@ -60,6 +60,7 @@
                         <div class="col-md-2 text-end">
                             {% if item.refills_remaining > 0 %}
                             <form method="POST" action="{{ url_for('portal.request_refill', rx_id=rx.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button class="btn btn-sm btn-outline-primary" onclick="return confirm('Request refill?')">
                                     <i class="fas fa-redo me-1"></i>Refill
                                 </button>

@@ -30,5 +30,5 @@ A multi-platform ERP system for medical practices and pharmacies featuring:
 - GitHub Actions CI/CD pipeline for automated Docker Hub publishing
 """
 
-__version__ = "1.1.1"
+__version__ = "1.5.1"
 __author__ = "MedPharm ERP"

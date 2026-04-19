@@ -65,6 +65,7 @@
             <div class="portal-card">
                 <h5 class="text-primary mb-3"><i class="fas fa-credit-card me-2"></i>Payment Information</h5>
                 <form method="POST" action="{{ url_for('portal.pay_bill', invoice_id=invoice.id) }}" id="paymentForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Payment Amount</label>
                         <div class="input-group input-group-lg">

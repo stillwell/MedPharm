@@ -39,7 +39,12 @@ from database.models import (
     Payment, AuditLog, InsuranceClaim, Symptom, Condition,
     UserRole, PrescriptionStatus, AppointmentStatus,
     InvoiceStatus, PaymentStatus, PaymentMethod, InteractionSeverity,
-    InsuranceClaimStatus
+    InsuranceClaimStatus,
+    PHIAccessLog, FailedLogin, PasswordHistory, MFASecret,
+    EmergencyAccessGrantRec, PatientConsent, ConsentType, ConsentStatus,
+    MessageThread, SecureMessage, LabOrder, LabResult, LabOrderStatus,
+    LabResultFlag, CarePlan, CarePlanStatus, Immunization, Referral,
+    ReferralStatus, PatientDocument,
 )
 
 
@@ -837,15 +842,23 @@ class DatabaseManager:
     # ── Audit Log ──────────────────────────────────────────────────────────
 
     def log_action(self, user_id: int, action: str, entity_type: str = "",
-                   entity_id: int = None, details: dict = None, ip: str = ""):
-        with self.get_session() as session:
-            log = AuditLog(
-                user_id=user_id, action=action, entity_type=entity_type,
-                entity_id=entity_id,
-                details_json=json.dumps(details) if details else None,
-                ip_address=ip
-            )
-            session.add(log)
+                   entity_id: int = None, details: dict = None, ip: str = "",
+                   user_agent: str = ""):
+        """
+        Append to the hash-chained audit log. Every row references the
+        previous row's SHA-256 so tampering is detectable with
+        `security.audit.verify_audit_chain()`.
+        """
+        from security.audit import AuditChain
+        AuditChain(self).append(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+            ip=ip,
+            user_agent=user_agent,
+        )
 
     def get_recent_activity(self, limit: int = 10) -> list[dict]:
         with self.get_session() as session:
@@ -1099,3 +1112,562 @@ class DatabaseManager:
     def is_database_empty(self) -> bool:
         with self.get_session() as session:
             return session.query(func.count(User.id)).scalar() == 0
+
+    # ── HIPAA: PHI access log ─────────────────────────────────────────────
+
+    def log_phi_access(self, *, actor_id: int | None, actor_type: str,
+                       entity_type: str, entity_id: int | None,
+                       reason: str = "treatment", endpoint: str = "",
+                       method: str = "GET", ip: str = "",
+                       user_agent: str = "", duration_ms: int = 0) -> int:
+        with self.get_session() as session:
+            row = PHIAccessLog(
+                actor_id=actor_id, actor_type=actor_type or "staff",
+                entity_type=entity_type, entity_id=entity_id,
+                reason=reason, endpoint=endpoint[:200], method=method[:10],
+                ip_address=ip, user_agent=user_agent[:300] if user_agent else None,
+                duration_ms=duration_ms,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def recent_phi_access(self, *, patient_id: int | None = None,
+                          limit: int = 50) -> list[dict]:
+        with self.get_session() as session:
+            q = session.query(PHIAccessLog).order_by(desc(PHIAccessLog.accessed_at))
+            if patient_id is not None:
+                q = q.filter(
+                    (PHIAccessLog.entity_type == "patient") & (PHIAccessLog.entity_id == patient_id)
+                )
+            rows = q.limit(limit).all()
+            return [{
+                "id": r.id, "actor_id": r.actor_id, "actor_type": r.actor_type,
+                "entity_type": r.entity_type, "entity_id": r.entity_id,
+                "reason": r.reason, "endpoint": r.endpoint, "method": r.method,
+                "ip": r.ip_address, "accessed_at": r.accessed_at.isoformat() if r.accessed_at else None,
+                "duration_ms": r.duration_ms,
+            } for r in rows]
+
+    # ── HIPAA: failed login history ───────────────────────────────────────
+
+    def record_failed_login(self, *, username: str, account_type: str = "staff",
+                            ip: str = "", user_agent: str = "",
+                            reason: str = "bad_credentials") -> None:
+        with self.get_session() as session:
+            session.add(FailedLogin(
+                username=username[:100], account_type=account_type,
+                ip_address=ip, user_agent=user_agent[:300] if user_agent else None,
+                reason=reason[:60],
+            ))
+
+    # ── HIPAA: password history ───────────────────────────────────────────
+
+    def get_password_history(self, *, account_type: str, account_id: int,
+                             limit: int = 5) -> list[str]:
+        with self.get_session() as session:
+            rows = (session.query(PasswordHistory)
+                           .filter_by(account_type=account_type, account_id=account_id)
+                           .order_by(desc(PasswordHistory.changed_at))
+                           .limit(limit).all())
+            return [r.password_hash for r in rows]
+
+    def push_password_history(self, *, account_type: str, account_id: int,
+                              password_hash: str, keep: int = 5) -> None:
+        with self.get_session() as session:
+            session.add(PasswordHistory(
+                account_type=account_type, account_id=account_id,
+                password_hash=password_hash,
+            ))
+            session.flush()
+            stale = (session.query(PasswordHistory)
+                            .filter_by(account_type=account_type, account_id=account_id)
+                            .order_by(desc(PasswordHistory.changed_at))
+                            .offset(keep).all())
+            for row in stale:
+                session.delete(row)
+
+    # ── HIPAA: MFA (TOTP) ─────────────────────────────────────────────────
+
+    def enroll_mfa(self, *, account_type: str, account_id: int,
+                   secret_encrypted: str, backup_codes_encrypted: str) -> int:
+        with self.get_session() as session:
+            session.query(MFASecret).filter_by(
+                account_type=account_type, account_id=account_id
+            ).delete()
+            row = MFASecret(
+                account_type=account_type, account_id=account_id,
+                secret_encrypted=secret_encrypted,
+                backup_codes_json=backup_codes_encrypted,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_mfa_secret(self, *, account_type: str, account_id: int) -> dict | None:
+        with self.get_session() as session:
+            row = session.query(MFASecret).filter_by(
+                account_type=account_type, account_id=account_id
+            ).first()
+            if not row:
+                return None
+            return {
+                "id": row.id,
+                "secret_encrypted": row.secret_encrypted,
+                "backup_codes_json": row.backup_codes_json,
+            }
+
+    def record_mfa_use(self, *, account_type: str, account_id: int) -> None:
+        with self.get_session() as session:
+            row = session.query(MFASecret).filter_by(
+                account_type=account_type, account_id=account_id
+            ).first()
+            if row:
+                row.last_used_at = datetime.utcnow()
+
+    # ── HIPAA: emergency access / break-glass ─────────────────────────────
+
+    def create_emergency_access_grant(self, *, user_id: int, patient_id: int,
+                                      justification: str,
+                                      expires_at: datetime,
+                                      ip: str = "", user_agent: str = "") -> int:
+        with self.get_session() as session:
+            grant = EmergencyAccessGrantRec(
+                user_id=user_id, patient_id=patient_id,
+                justification=justification, expires_at=expires_at,
+                ip_address=ip, user_agent=user_agent[:300] if user_agent else None,
+            )
+            session.add(grant)
+            session.flush()
+            return grant.id
+
+    def get_active_emergency_access(self, *, user_id: int, patient_id: int) -> dict | None:
+        with self.get_session() as session:
+            row = (session.query(EmergencyAccessGrantRec)
+                          .filter(EmergencyAccessGrantRec.user_id == user_id,
+                                  EmergencyAccessGrantRec.patient_id == patient_id,
+                                  EmergencyAccessGrantRec.expires_at > datetime.utcnow())
+                          .order_by(desc(EmergencyAccessGrantRec.granted_at)).first())
+            if not row:
+                return None
+            return {
+                "id": row.id, "user_id": row.user_id, "patient_id": row.patient_id,
+                "justification": row.justification,
+                "granted_at": row.granted_at.isoformat(),
+                "expires_at": row.expires_at.isoformat(),
+            }
+
+    # ── Consent management ───────────────────────────────────────────────
+
+    def record_consent(self, *, patient_id: int, consent_type: str,
+                       scope: str = "", expires_at: datetime | None = None,
+                       witness_user_id: int | None = None,
+                       signature_hash: str = "", document_ref: str = "") -> int:
+        with self.get_session() as session:
+            row = PatientConsent(
+                patient_id=patient_id,
+                consent_type=ConsentType(consent_type),
+                status=ConsentStatus.GRANTED,
+                scope=scope, expires_at=expires_at,
+                witnessed_by_user_id=witness_user_id,
+                signature_hash=signature_hash[:64] if signature_hash else None,
+                document_ref=document_ref[:500] if document_ref else None,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def revoke_consent(self, consent_id: int) -> bool:
+        with self.get_session() as session:
+            row = session.get(PatientConsent, consent_id)
+            if not row:
+                return False
+            row.status = ConsentStatus.REVOKED
+            row.revoked_at = datetime.utcnow()
+            return True
+
+    def get_patient_consents(self, patient_id: int) -> list[dict]:
+        with self.get_session() as session:
+            rows = (session.query(PatientConsent)
+                           .filter_by(patient_id=patient_id)
+                           .order_by(desc(PatientConsent.granted_at)).all())
+            return [{
+                "id": r.id,
+                "consent_type": r.consent_type.value if r.consent_type else None,
+                "status": r.status.value if r.status else None,
+                "scope": r.scope, "granted_at": r.granted_at.isoformat() if r.granted_at else None,
+                "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+                "revoked_at": r.revoked_at.isoformat() if r.revoked_at else None,
+                "signature_hash": r.signature_hash,
+                "document_ref": r.document_ref,
+            } for r in rows]
+
+    def has_active_consent(self, patient_id: int, consent_type: str) -> bool:
+        with self.get_session() as session:
+            row = (session.query(PatientConsent)
+                          .filter_by(patient_id=patient_id,
+                                     consent_type=ConsentType(consent_type),
+                                     status=ConsentStatus.GRANTED)
+                          .order_by(desc(PatientConsent.granted_at)).first())
+            if not row:
+                return False
+            if row.expires_at and row.expires_at < datetime.utcnow():
+                return False
+            return True
+
+    # ── Secure messaging ─────────────────────────────────────────────────
+
+    def create_message_thread(self, *, patient_id: int, provider_id: int | None,
+                              subject: str) -> int:
+        with self.get_session() as session:
+            row = MessageThread(
+                patient_id=patient_id, provider_id=provider_id,
+                subject=subject[:200],
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def post_secure_message(self, *, thread_id: int, sender_type: str,
+                            sender_id: int, body_plain: str) -> int:
+        from security.encryption import encrypt_field
+        cipher = encrypt_field(body_plain)
+        with self.get_session() as session:
+            thread = session.get(MessageThread, thread_id)
+            if not thread:
+                raise ValueError(f"Thread {thread_id} not found")
+            msg = SecureMessage(
+                thread_id=thread_id, sender_type=sender_type,
+                sender_id=sender_id, body_encrypted=cipher,
+            )
+            session.add(msg)
+            thread.last_message_at = datetime.utcnow()
+            session.flush()
+            return msg.id
+
+    def get_message_threads(self, *, patient_id: int | None = None,
+                            provider_id: int | None = None) -> list[dict]:
+        with self.get_session() as session:
+            q = session.query(MessageThread)
+            if patient_id is not None:
+                q = q.filter(MessageThread.patient_id == patient_id)
+            if provider_id is not None:
+                q = q.filter(MessageThread.provider_id == provider_id)
+            rows = q.order_by(desc(MessageThread.last_message_at)).all()
+            return [{
+                "id": t.id, "patient_id": t.patient_id, "provider_id": t.provider_id,
+                "subject": t.subject, "is_closed": t.is_closed,
+                "last_message_at": t.last_message_at.isoformat() if t.last_message_at else None,
+                "message_count": len(t.messages),
+            } for t in rows]
+
+    def get_thread_messages(self, thread_id: int) -> list[dict]:
+        from security.encryption import decrypt_field
+        with self.get_session() as session:
+            thread = session.get(MessageThread, thread_id)
+            if not thread:
+                return []
+            out = []
+            for m in thread.messages:
+                try:
+                    body = decrypt_field(m.body_encrypted)
+                except Exception:
+                    body = "[decryption error]"
+                out.append({
+                    "id": m.id, "sender_type": m.sender_type,
+                    "sender_id": m.sender_id, "body": body,
+                    "sent_at": m.sent_at.isoformat() if m.sent_at else None,
+                    "read_at": m.read_at.isoformat() if m.read_at else None,
+                })
+            return out
+
+    def mark_messages_read(self, thread_id: int, reader_type: str) -> int:
+        with self.get_session() as session:
+            now = datetime.utcnow()
+            q = (session.query(SecureMessage)
+                        .filter(SecureMessage.thread_id == thread_id,
+                                SecureMessage.read_at.is_(None),
+                                SecureMessage.sender_type != reader_type))
+            count = 0
+            for msg in q.all():
+                msg.read_at = now
+                count += 1
+            return count
+
+    # ── Lab orders / results ─────────────────────────────────────────────
+
+    def create_lab_order(self, *, patient_id: int, provider_id: int,
+                         test_name: str, loinc_code: str = "",
+                         priority: str = "routine",
+                         clinical_indication: str = "") -> int:
+        with self.get_session() as session:
+            row = LabOrder(
+                patient_id=patient_id, provider_id=provider_id,
+                test_name=test_name[:300], loinc_code=loinc_code[:20],
+                priority=priority[:20], clinical_indication=clinical_indication,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def add_lab_result(self, *, order_id: int, analyte: str, value: str,
+                       unit: str = "", reference_range: str = "",
+                       flag: str = "normal", loinc_code: str = "",
+                       notes: str = "") -> int:
+        with self.get_session() as session:
+            order = session.get(LabOrder, order_id)
+            if not order:
+                raise ValueError(f"Lab order {order_id} not found")
+            row = LabResult(
+                order_id=order_id, analyte=analyte[:200], value=value[:100],
+                unit=unit[:30], reference_range=reference_range[:60],
+                flag=LabResultFlag(flag), loinc_code=loinc_code[:20],
+                notes=notes,
+            )
+            session.add(row)
+            order.status = LabOrderStatus.RESULTED
+            order.resulted_at = datetime.utcnow()
+            session.flush()
+            return row.id
+
+    def get_patient_lab_orders(self, patient_id: int) -> list[dict]:
+        with self.get_session() as session:
+            orders = (session.query(LabOrder)
+                             .filter_by(patient_id=patient_id)
+                             .order_by(desc(LabOrder.ordered_at)).all())
+            return [{
+                "id": o.id, "test_name": o.test_name,
+                "loinc_code": o.loinc_code, "status": o.status.value if o.status else None,
+                "priority": o.priority,
+                "ordered_at": o.ordered_at.isoformat() if o.ordered_at else None,
+                "resulted_at": o.resulted_at.isoformat() if o.resulted_at else None,
+                "results": [{
+                    "id": r.id, "analyte": r.analyte, "value": r.value,
+                    "unit": r.unit, "reference_range": r.reference_range,
+                    "flag": r.flag.value if r.flag else None,
+                    "resulted_at": r.resulted_at.isoformat() if r.resulted_at else None,
+                } for r in o.results],
+            } for o in orders]
+
+    # ── Care plans ───────────────────────────────────────────────────────
+
+    def create_care_plan(self, *, patient_id: int, author_id: int,
+                         title: str, description: str = "",
+                         goals: list | None = None,
+                         interventions: list | None = None,
+                         review_date: date | None = None) -> int:
+        with self.get_session() as session:
+            row = CarePlan(
+                patient_id=patient_id, author_id=author_id,
+                title=title[:300], description=description,
+                goals_json=json.dumps(goals or []),
+                interventions_json=json.dumps(interventions or []),
+                review_on=review_date,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_patient_care_plans(self, patient_id: int) -> list[dict]:
+        with self.get_session() as session:
+            plans = (session.query(CarePlan)
+                            .filter_by(patient_id=patient_id)
+                            .order_by(desc(CarePlan.started_on)).all())
+            return [{
+                "id": p.id, "title": p.title, "description": p.description,
+                "status": p.status.value if p.status else None,
+                "started_on": p.started_on.isoformat() if p.started_on else None,
+                "review_on": p.review_on.isoformat() if p.review_on else None,
+                "goals": json.loads(p.goals_json) if p.goals_json else [],
+                "interventions": json.loads(p.interventions_json) if p.interventions_json else [],
+            } for p in plans]
+
+    # ── Immunizations ────────────────────────────────────────────────────
+
+    def record_immunization(self, *, patient_id: int, vaccine_name: str,
+                            cvx_code: str = "", dose_number: int | None = None,
+                            route: str = "", site: str = "",
+                            lot_number: str = "", manufacturer: str = "",
+                            administered_by_id: int | None = None,
+                            notes: str = "") -> int:
+        with self.get_session() as session:
+            row = Immunization(
+                patient_id=patient_id, vaccine_name=vaccine_name[:200],
+                cvx_code=cvx_code[:10], dose_number=dose_number,
+                route=route[:50], site=site[:50],
+                lot_number=lot_number[:50], manufacturer=manufacturer[:200],
+                administered_by_id=administered_by_id, notes=notes,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_patient_immunizations(self, patient_id: int) -> list[dict]:
+        with self.get_session() as session:
+            rows = (session.query(Immunization)
+                           .filter_by(patient_id=patient_id)
+                           .order_by(desc(Immunization.administered_at)).all())
+            return [{
+                "id": r.id, "vaccine_name": r.vaccine_name,
+                "cvx_code": r.cvx_code, "dose_number": r.dose_number,
+                "route": r.route, "site": r.site,
+                "lot_number": r.lot_number, "manufacturer": r.manufacturer,
+                "administered_at": r.administered_at.isoformat() if r.administered_at else None,
+                "administered_by_id": r.administered_by_id,
+                "notes": r.notes,
+            } for r in rows]
+
+    # ── Referrals ────────────────────────────────────────────────────────
+
+    def create_referral(self, *, patient_id: int, referring_provider_id: int,
+                        to_specialist_name: str, reason: str,
+                        to_specialty: str = "",
+                        to_organization: str = "") -> int:
+        with self.get_session() as session:
+            row = Referral(
+                patient_id=patient_id,
+                referring_provider_id=referring_provider_id,
+                to_specialist_name=to_specialist_name[:200],
+                to_specialty=to_specialty[:100],
+                to_organization=to_organization[:200],
+                reason=reason,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_patient_referrals(self, patient_id: int) -> list[dict]:
+        with self.get_session() as session:
+            rows = (session.query(Referral)
+                           .filter_by(patient_id=patient_id)
+                           .order_by(desc(Referral.requested_at)).all())
+            return [{
+                "id": r.id,
+                "to_specialist_name": r.to_specialist_name,
+                "to_specialty": r.to_specialty,
+                "to_organization": r.to_organization,
+                "reason": r.reason,
+                "status": r.status.value if r.status else None,
+                "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+                "scheduled_for": r.scheduled_for.isoformat() if r.scheduled_for else None,
+                "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+                "notes": r.notes,
+            } for r in rows]
+
+    # ── Document vault ───────────────────────────────────────────────────
+
+    def record_patient_document(self, *, patient_id: int, category: str,
+                                filename_encrypted: str, content_type: str,
+                                size_bytes: int, storage_ref: str,
+                                sha256_ciphertext: str,
+                                uploaded_by_id: int | None = None,
+                                uploader_type: str = "staff") -> int:
+        with self.get_session() as session:
+            row = PatientDocument(
+                patient_id=patient_id, category=category[:50],
+                filename_encrypted=filename_encrypted[:500],
+                content_type=content_type[:100],
+                size_bytes=size_bytes,
+                storage_ref=storage_ref[:500],
+                sha256_ciphertext=sha256_ciphertext[:64],
+                uploaded_by_id=uploaded_by_id,
+                uploader_type=uploader_type,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def list_patient_documents(self, patient_id: int) -> list[dict]:
+        from security.encryption import decrypt_field
+        with self.get_session() as session:
+            rows = (session.query(PatientDocument)
+                           .filter_by(patient_id=patient_id, is_active=True)
+                           .order_by(desc(PatientDocument.uploaded_at)).all())
+            out = []
+            for r in rows:
+                try:
+                    fname = decrypt_field(r.filename_encrypted)
+                except Exception:
+                    fname = "(encrypted)"
+                out.append({
+                    "id": r.id, "category": r.category,
+                    "filename": fname, "content_type": r.content_type,
+                    "size_bytes": r.size_bytes,
+                    "uploaded_at": r.uploaded_at.isoformat() if r.uploaded_at else None,
+                    "storage_ref": r.storage_ref,
+                })
+            return out
+
+    # ── Clinical Decision Support helpers ────────────────────────────────
+
+    def cds_check_prescription(self, *, patient_id: int,
+                               medication_id: int) -> dict:
+        """
+        Return a structured CDS report for prescribing `medication_id` to
+        `patient_id`: current allergies that match, active prescriptions
+        that duplicate the therapy class, and known drug-drug interactions.
+        """
+        warnings: list[dict] = []
+        with self.get_session() as session:
+            med = session.get(Medication, medication_id)
+            if not med:
+                return {"warnings": [], "medication": None}
+
+            # Allergy cross-check (string match against generic/brand name)
+            allergies = session.query(Allergy).filter_by(patient_id=patient_id).all()
+            for a in allergies:
+                aname = (a.allergen or "").lower()
+                if aname and (aname in (med.generic_name or "").lower()
+                              or aname in (med.brand_name or "").lower()):
+                    warnings.append({
+                        "severity": a.severity.value if a.severity else "unknown",
+                        "type": "allergy",
+                        "message": f"Patient has documented allergy to {a.allergen}",
+                    })
+
+            # Active prescriptions in the same drug class (duplicate therapy)
+            active_rx = (session.query(PrescriptionItem)
+                                 .join(Prescription)
+                                 .join(Medication)
+                                 .filter(Prescription.patient_id == patient_id,
+                                         Prescription.status == PrescriptionStatus.ACTIVE,
+                                         Medication.drug_class == med.drug_class,
+                                         Medication.id != medication_id)
+                                 .all())
+            for item in active_rx:
+                warnings.append({
+                    "severity": "moderate",
+                    "type": "duplicate_therapy",
+                    "message": f"Patient already taking {item.medication.generic_name} "
+                               f"({med.drug_class})",
+                })
+
+            # Drug-drug interactions with current actives
+            active_med_ids = {
+                item.medication_id for item in
+                session.query(PrescriptionItem).join(Prescription).filter(
+                    Prescription.patient_id == patient_id,
+                    Prescription.status == PrescriptionStatus.ACTIVE,
+                ).all()
+            }
+            if active_med_ids:
+                ints = session.query(MedicationInteraction).filter(
+                    ((MedicationInteraction.medication_a_id == medication_id)
+                     & (MedicationInteraction.medication_b_id.in_(active_med_ids)))
+                    | ((MedicationInteraction.medication_b_id == medication_id)
+                       & (MedicationInteraction.medication_a_id.in_(active_med_ids)))
+                ).all()
+                for i in ints:
+                    warnings.append({
+                        "severity": i.severity.value if i.severity else "unknown",
+                        "type": "drug_interaction",
+                        "message": i.description or "drug-drug interaction",
+                    })
+
+            return {
+                "medication": {
+                    "id": med.id, "generic_name": med.generic_name,
+                    "brand_name": med.brand_name, "drug_class": med.drug_class,
+                },
+                "warnings": warnings,
+            }
