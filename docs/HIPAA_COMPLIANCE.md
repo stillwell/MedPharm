@@ -1,6 +1,6 @@
 # MedPharm ERP — HIPAA Compliance Guide
 
-**Version 1.5.1 · 2026**
+**Version 1.6.0 · 2026**
 **Copyright © 2026 Enlightec Ltd. · GPL-3.0-or-later**
 
 MedPharm ERP implements the HIPAA Security Rule's **technical safeguards**

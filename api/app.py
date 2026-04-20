@@ -81,7 +81,7 @@ def create_cloud_app(db_manager):
     def root():
         return jsonify({
             "service": "MedPharm ERP Cloud API",
-            "version": "1.5.1",
+            "version": "1.6.0",
             "copyright": "\u00a9 2026 Enlightec Ltd.",
             "api_base": "/api/v1",
             "fhir_base": "/fhir",

@@ -88,7 +88,7 @@ Examples:
   ./install.sh --docker                     # API-only via Docker Hub
   ./install.sh --docker-server              # Full stack via Docker Hub
   ./install.sh --docker --docker-server     # Both (API + full stack) at once
-  ./install.sh --docker --tag=1.5.1         # Pin to a specific released version
+  ./install.sh --docker --tag=1.6.0         # Pin to a specific released version
 
 Docker Hub:
   https://hub.docker.com/r/enlightec/medpharm-api
@@ -136,7 +136,7 @@ banner() {
     ║   ██║ ╚═╝ ██║███████╗██████╔╝██║     ██║  ██║██║  ██║██║  ██║     ║
     ║   ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝  ║
     ║                     E R P   S Y S T E M                             ║
-    ║           Medical & Pharmaceutical Management v1.5.1                ║
+    ║           Medical & Pharmaceutical Management v1.6.0                ║
     ║                                                                     ║
     ╚═════════════════════════════════════════════════════════════════════╝
 BANNER
@@ -712,7 +712,7 @@ seed_database(dm)
 app = create_app(dm)
 c = app.test_client()
 
-# Login flow now requires a CSRF token (HIPAA hardening, 1.5.1+).
+# Login flow now requires a CSRF token (HIPAA hardening, 1.6.0+).
 login_page = c.get('/login').data.decode()
 m = re.search(r'name=\"csrf_token\" value=\"([^\"]+)\"', login_page)
 assert m, 'CSRF token not present on /login page'

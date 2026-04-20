@@ -404,7 +404,7 @@ docker pull enlightec/medpharm-server:latest    # Full stack
 docker pull enlightec/medpharm-api:latest       # API only
 
 # Pin to a specific release
-docker pull enlightec/medpharm-api:1.5.1
+docker pull enlightec/medpharm-api:1.6.0
 ```
 
 **Run directly with `docker run`:**
@@ -545,7 +545,7 @@ All images are available at [https://hub.docker.com/u/enlightec](https://hub.doc
 | Tag | Description |
 |-----|-------------|
 | `latest` | Most recent release |
-| `1.5.1`, `1.1.1`, `1.1.0`, `1.0.0` | Pinned semantic version tags (published from `v*.*.*` git tags) |
+| `1.6.0`, `1.1.1`, `1.1.0`, `1.0.0` | Pinned semantic version tags (published from `v*.*.*` git tags) |
 
 ### Quick Pull
 
@@ -554,7 +554,7 @@ docker pull enlightec/medpharm-server:latest
 docker pull enlightec/medpharm-api:latest
 
 # Pin to a specific release
-docker pull enlightec/medpharm-api:1.5.1
+docker pull enlightec/medpharm-api:1.6.0
 ```
 
 ### Quick Start
@@ -576,7 +576,7 @@ cd MedPharm
 ./install.sh --docker                     # API only
 ./install.sh --docker-server              # Full stack
 ./install.sh --docker --docker-server     # Both (API on 8080 + Full stack on 80)
-./install.sh --docker --tag=1.5.1         # Pin to a specific release
+./install.sh --docker --tag=1.6.0         # Pin to a specific release
 ```
 
 ### Compose Files for Docker Hub Images

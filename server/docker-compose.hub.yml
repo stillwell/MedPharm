@@ -41,7 +41,7 @@
 #   curl http://localhost/portal/
 #
 # Override the image tag with:
-#   MEDPHARM_IMAGE_TAG=1.5.1 docker compose -f docker-compose.hub.yml up -d
+#   MEDPHARM_IMAGE_TAG=1.6.0 docker compose -f docker-compose.hub.yml up -d
 # ==============================================================================
 
 services:

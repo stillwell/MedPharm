@@ -106,7 +106,7 @@ def capability_statement():
         "date": datetime.utcnow().date().isoformat(),
         "publisher": "Enlightec Ltd.",
         "kind": "instance",
-        "software": {"name": "MedPharm ERP", "version": "1.5.1"},
+        "software": {"name": "MedPharm ERP", "version": "1.6.0"},
         "fhirVersion": "4.0.1",
         "format": ["application/fhir+json"],
         "rest": [{
