@@ -26,7 +26,15 @@ public class ApiException : Exception
 public class ApiClient
 {
     private readonly HttpClient _http;
-    public string BaseUrl { get; set; } = "http://localhost:8080/api/v1";
+    private string _baseUrl = AppSettings.DefaultApiBaseUrl;
+
+    public string BaseUrl
+    {
+        get => _baseUrl;
+        set => _baseUrl = string.IsNullOrWhiteSpace(value)
+            ? AppSettings.DefaultApiBaseUrl
+            : value.TrimEnd('/');
+    }
 
     public ApiClient()
     {

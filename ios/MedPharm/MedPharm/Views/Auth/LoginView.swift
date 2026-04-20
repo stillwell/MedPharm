@@ -14,6 +14,7 @@ struct LoginView: View {
     @State private var password = ""
     @State private var isStaff = false
     @State private var showRegister = false
+    @State private var serverURL: String = APIClient.storedBaseURL
 
     var body: some View {
         NavigationStack {
@@ -32,6 +33,19 @@ struct LoginView: View {
                         Text("Patient").tag(false)
                         Text("Staff").tag(true)
                     }.pickerStyle(.segmented).padding(.horizontal)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Server URL").font(.caption).foregroundColor(.secondary)
+                        TextField("https://medpharm-erp.enlightec.com:8080/api/v1",
+                                  text: $serverURL)
+                            .textFieldStyle(.roundedBorder)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .keyboardType(.URL)
+                        Button("Reset to Default") {
+                            serverURL = APIClient.defaultBaseURL
+                        }.font(.caption).foregroundColor(.teal)
+                    }.padding(.horizontal)
 
                     VStack(spacing: 16) {
                         TextField("Username", text: $username)
@@ -79,6 +93,7 @@ struct LoginView: View {
     }
 
     private func login() {
+        APIClient.saveBaseURL(serverURL)
         Task {
             if isStaff {
                 await authManager.staffLogin(username: username, password: password)

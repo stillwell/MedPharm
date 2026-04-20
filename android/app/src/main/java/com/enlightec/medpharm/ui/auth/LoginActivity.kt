@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.enlightec.medpharm.R
+import com.enlightec.medpharm.data.api.ApiClient
+import com.enlightec.medpharm.data.api.ServerConfig
 import com.enlightec.medpharm.databinding.ActivityLoginBinding
 import com.enlightec.medpharm.ui.dashboard.MainActivity
 import com.enlightec.medpharm.util.Resource
@@ -43,13 +45,30 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
+        val serverConfig = ServerConfig.getInstance(this)
+        binding.etServerUrl.setText(serverConfig.apiBaseUrl)
+
+        binding.tvResetServerUrl.setOnClickListener {
+            binding.etServerUrl.setText(ServerConfig.DEFAULT_API_BASE_URL)
+        }
+
         binding.btnLogin.setOnClickListener {
             val username = binding.etUsername.text.toString().trim()
             val password = binding.etPassword.text.toString()
+            val serverUrl = binding.etServerUrl.text.toString().trim()
 
             if (username.isEmpty() || password.isEmpty()) {
                 Toast.makeText(this, "Please enter both username and password", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
+            }
+            if (serverUrl.isEmpty()) {
+                Toast.makeText(this, "Please enter a server URL", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (serverUrl != serverConfig.apiBaseUrl) {
+                serverConfig.apiBaseUrl = serverUrl
+                ApiClient.reconfigure()
             }
 
             if (binding.rgLoginType.checkedRadioButtonId == R.id.rbStaff) {

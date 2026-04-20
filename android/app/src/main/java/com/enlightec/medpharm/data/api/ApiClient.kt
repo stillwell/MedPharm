@@ -26,6 +26,9 @@ object ApiClient {
     @Volatile
     private var retrofit: Retrofit? = null
 
+    @Volatile
+    private var appContext: Context? = null
+
     val apiService: ApiService
         get() = requireNotNull(retrofit) {
             "ApiClient.init(context) must be called before apiService is used"
@@ -35,32 +38,46 @@ object ApiClient {
         if (retrofit != null) return
         synchronized(this) {
             if (retrofit != null) return
-
-            val tokenManager = TokenManager.getInstance(context)
-
-            val logging = HttpLoggingInterceptor().apply {
-                level = if (BuildConfig.DEBUG) {
-                    HttpLoggingInterceptor.Level.BASIC
-                } else {
-                    HttpLoggingInterceptor.Level.NONE
-                }
-            }
-
-            val client = OkHttpClient.Builder()
-                .addInterceptor(AuthInterceptor(tokenManager))
-                .addInterceptor(logging)
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .build()
-
-            val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
-
-            retrofit = Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
+            appContext = context.applicationContext
+            retrofit = buildRetrofit(context.applicationContext)
         }
+    }
+
+    /**
+     * Rebuild Retrofit after the user changes the API base URL.
+     * Safe to call from the login screen.
+     */
+    fun reconfigure() {
+        val ctx = appContext ?: return
+        synchronized(this) {
+            retrofit = buildRetrofit(ctx)
+        }
+    }
+
+    private fun buildRetrofit(context: Context): Retrofit {
+        val tokenManager = TokenManager.getInstance(context)
+        val serverConfig = ServerConfig.getInstance(context)
+
+        val logging = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
+        }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor(tokenManager))
+            .addInterceptor(logging)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(serverConfig.normalizeForRetrofit())
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
     }
 }

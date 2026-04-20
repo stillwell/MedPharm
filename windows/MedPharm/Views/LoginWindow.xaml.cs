@@ -16,18 +16,33 @@ public partial class LoginWindow : Window
     public LoginWindow()
     {
         InitializeComponent();
+        ServerUrlBox.Text = App.Settings.ApiBaseUrl;
+    }
+
+    private void ResetServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        ServerUrlBox.Text = AppSettings.DefaultApiBaseUrl;
     }
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
         var username = UsernameBox.Text.Trim();
         var password = PasswordBox.Password;
+        var serverUrl = ServerUrlBox.Text.Trim();
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
             StatusText.Text = "Please enter username and password";
             return;
         }
+
+        if (string.IsNullOrEmpty(serverUrl))
+        {
+            StatusText.Text = "Please enter a server URL";
+            return;
+        }
+
+        App.SaveSettings(new AppSettings { ApiBaseUrl = serverUrl });
 
         LoginButton.IsEnabled = false;
         StatusText.Text = "Logging in...";

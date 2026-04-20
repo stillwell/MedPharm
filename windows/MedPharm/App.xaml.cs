@@ -12,12 +12,22 @@ namespace MedPharm;
 
 public partial class App : Application
 {
+    public static SettingsStore SettingsStore { get; } = new SettingsStore();
+    public static AppSettings Settings { get; private set; } = SettingsStore.Load();
     public static ApiClient Api { get; } = new ApiClient();
     public static TokenStore Tokens { get; } = new TokenStore();
+
+    public static void SaveSettings(AppSettings settings)
+    {
+        Settings = settings;
+        SettingsStore.Save(settings);
+        Api.BaseUrl = settings.ApiBaseUrl;
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        Api.BaseUrl = Settings.ApiBaseUrl;
         Api.LoadTokens();
     }
 }

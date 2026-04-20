@@ -152,10 +152,16 @@ android/app/src/main/java/com/enlightec/medpharm/
 
 ### API base URL configuration
 
-1. Edit `BuildConfig.API_BASE_URL` in `app/build.gradle.kts`, **or**
-2. Override at runtime in `Settings` (saved via EncryptedSharedPreferences).
+The login screen has a **Server URL** field (with a "Reset to default" link) that
+lets the user point the app at any compatible MedPharm API host.
 
-Debug builds default to `http://10.0.2.2:8080/api/v1/` (the emulator loopback).
+* The value is persisted in `SharedPreferences` (`medpharm_server_prefs`) via
+  `com.enlightec.medpharm.data.api.ServerConfig`.
+* Built-in default: `https://medpharm-erp.enlightec.com:8080/api/v1`
+  (see `ServerConfig.DEFAULT_API_BASE_URL`).
+* Change the compiled-in default by editing that constant and rebuilding.
+* At runtime, submitting a different URL calls `ApiClient.reconfigure()` so the
+  new base URL takes effect without restarting the app.
 
 ### Build
 
@@ -189,6 +195,16 @@ ios/MedPharm/MedPharm/
 
 Dashboard · Prescriptions · Billing · Appointments · More (records, meds, symptoms, profile).
 
+### API base URL configuration
+
+The login screen exposes a **Server URL** field (with a "Reset to default" button).
+
+* Built-in default: `https://medpharm-erp.enlightec.com:8080/api/v1`
+  (see `APIClient.defaultBaseURL`).
+* User overrides are stored in `UserDefaults` under the key `medpharm.apiBaseURL`.
+* `APIClient.saveBaseURL(_:)` persists the value and hot-swaps it on the shared
+  client actor — no app relaunch required.
+
 ---
 
 ## macOS
@@ -200,6 +216,12 @@ Shares `Models/` and `Services/` source with iOS. Uses `NavigationSplitView` for
 * Native **SwiftUI Table** for prescriptions and medications
 * Mac-idiomatic keyboard shortcuts and menu bar
 * Keychain-based token persistence (same helper as iOS)
+
+### API base URL configuration
+
+Identical UX to iOS: a **Server URL** field on the login view with an inline
+"Reset" link. Persisted in `UserDefaults` (`medpharm.apiBaseURL`) and
+hot-applied via `APIClient.saveBaseURL(_:)`.
 
 ---
 
@@ -227,13 +249,16 @@ windows/MedPharm/
 └── MedPharm.csproj
 ```
 
-### Configure API host
+### API base URL configuration
 
-Set an environment variable before launch, or edit `Services/ApiClient.cs`:
+The login window has a **Server URL** field with a "Reset to Default" button.
 
-```powershell
-setx MEDPHARM_API "https://api.example.com/api/v1"
-```
+* Built-in default: `https://medpharm-erp.enlightec.com:8080/api/v1`
+  (see `AppSettings.DefaultApiBaseUrl`).
+* User overrides are persisted as JSON in
+  `%APPDATA%\MedPharm\settings.json` by `SettingsStore`.
+* On submit, `App.SaveSettings(...)` updates the on-disk config and
+  `ApiClient.BaseUrl` picks up the new value before the login request fires.
 
 ---
 

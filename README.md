@@ -46,6 +46,7 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - **Medication Search** — Full medication catalog search by name, drug class, or schedule
 - **CORS-enabled** — Configurable origins for cross-platform client access
 - **Production-ready** — Gunicorn support, environment variable configuration, health check endpoint
+- **Configurable client endpoint** — Every mobile and desktop client exposes a **Server URL** field on the login screen (with a "Reset to default" control) so operators can point the app at any compatible MedPharm API host. Default is `https://medpharm-erp.enlightec.com:8080/api/v1`. Overrides persist across launches: `UserDefaults` (iOS / macOS), `SharedPreferences` (Android), `%APPDATA%\MedPharm\settings.json` (Windows).
 
 ### Android Application (Kotlin)
 - **MVVM Architecture** — ViewModel + LiveData + Repository pattern with Retrofit/OkHttp networking
@@ -322,7 +323,7 @@ Manifests live under [`k8s/`](k8s/) as a kustomize base with cloud-specific over
 ```bash
 ./k8s/medpharm-k8s.sh install --hostname=erp.example.com     # auto-detects GKE/EKS/generic
 ./k8s/medpharm-k8s.sh status
-./k8s/medpharm-k8s.sh deploy --tag=1.7.2                     # rolling upgrade
+./k8s/medpharm-k8s.sh deploy --tag=1.7.3                     # rolling upgrade
 ./k8s/medpharm-k8s.sh backup pre-upgrade.db                  # SQLite hot backup
 ./k8s/medpharm-k8s.sh --help                                 # full command reference
 ```
@@ -428,7 +429,7 @@ docker pull enlightec/medpharm-server:latest    # Full stack
 docker pull enlightec/medpharm-api:latest       # API only
 
 # Pin to a specific release
-docker pull enlightec/medpharm-api:1.7.2
+docker pull enlightec/medpharm-api:1.7.3
 ```
 
 **Run directly with `docker run`:**
@@ -520,8 +521,8 @@ Docker images are automatically built and pushed to Docker Hub on every tagged r
 **To trigger a release:**
 
 ```bash
-git tag v1.7.2
-git push origin v1.7.2   # Triggers the pipeline
+git tag v1.7.3
+git push origin v1.7.3   # Triggers the pipeline
 ```
 
 **Required GitHub Secrets** (set in Settings > Secrets and variables > Actions):
@@ -569,7 +570,7 @@ All images are available at [https://hub.docker.com/u/enlightec](https://hub.doc
 | Tag | Description |
 |-----|-------------|
 | `latest` | Most recent release |
-| `1.7.2`, `1.6.0`, `1.1.1`, `1.1.0`, `1.0.0` | Pinned semantic version tags (published from `v*.*.*` git tags) |
+| `1.7.3`, `1.7.2`, `1.6.0`, `1.1.1`, `1.1.0`, `1.0.0` | Pinned semantic version tags (published from `v*.*.*` git tags) |
 
 ### Quick Pull
 
@@ -578,7 +579,7 @@ docker pull enlightec/medpharm-server:latest
 docker pull enlightec/medpharm-api:latest
 
 # Pin to a specific release
-docker pull enlightec/medpharm-api:1.7.2
+docker pull enlightec/medpharm-api:1.7.3
 ```
 
 ### Quick Start
@@ -600,7 +601,7 @@ cd MedPharm
 ./install.sh --docker                     # API only
 ./install.sh --docker-server              # Full stack
 ./install.sh --docker --docker-server     # Both (API on 8080 + Full stack on 80)
-./install.sh --docker --tag=1.7.2         # Pin to a specific release
+./install.sh --docker --tag=1.7.3         # Pin to a specific release
 ```
 
 ### Compose Files for Docker Hub Images

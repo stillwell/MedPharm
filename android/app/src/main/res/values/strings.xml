@@ -31,6 +31,9 @@
     <string name="login_type_patient">Patient</string>
     <string name="login_type_staff">Staff</string>
     <string name="register_link">Don\'t have an account? Register here</string>
+    <string name="hint_server_url">Server URL</string>
+    <string name="hint_server_url_helper">API base URL — e.g. https://medpharm-erp.enlightec.com:8080/api/v1</string>
+    <string name="btn_reset_server_url">Reset to default</string>
 
     <!-- Register -->
     <string name="register_title">Create Account</string>

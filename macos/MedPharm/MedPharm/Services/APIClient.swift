@@ -29,11 +29,21 @@ enum APIError: Error, LocalizedError {
 actor APIClient {
     static let shared = APIClient()
 
-    #if DEBUG
-    private var baseURL = "http://localhost:8080/api/v1"
-    #else
-    private var baseURL = "https://api.medpharm.example.com/api/v1"
-    #endif
+    static let defaultBaseURL = "https://medpharm-erp.enlightec.com:8080/api/v1"
+    private static let baseURLKey = "medpharm.apiBaseURL"
+
+    static var storedBaseURL: String {
+        UserDefaults.standard.string(forKey: baseURLKey) ?? defaultBaseURL
+    }
+
+    static func saveBaseURL(_ url: String) {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? defaultBaseURL : trimmed
+        UserDefaults.standard.set(value, forKey: baseURLKey)
+        Task { await APIClient.shared.setBaseURL(value) }
+    }
+
+    private var baseURL: String = APIClient.storedBaseURL
 
     private var accessToken: String? {
         get { KeychainHelper.get(key: "access_token") }

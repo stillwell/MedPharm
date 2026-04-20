@@ -16,19 +16,18 @@ android {
         applicationId = "com.enlightec.medpharm"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.7.2"
+        versionCode = 5
+        versionName = "1.7.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Cloud API base URL - override via build variants or gradle properties
-        buildConfigField("String", "API_BASE_URL", "\"https://api.medpharm.example.com\"")
+        // API base URL is now user-configurable at runtime via the login screen;
+        // see com.enlightec.medpharm.data.api.ServerConfig.DEFAULT_API_BASE_URL
+        // for the built-in default.
     }
 
     buildTypes {
         debug {
-            // Use local development server in debug builds
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
             isDebuggable = true
         }
         release {

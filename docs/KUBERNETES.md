@@ -41,7 +41,7 @@ k8s/
 
 ## Architecture Notes
 
-The published `enlightec/medpharm-server:1.7.2` image runs Nginx, the Cloud
+The published `enlightec/medpharm-server:1.7.3` image runs Nginx, the Cloud
 REST API (Gunicorn on `:8080`), and the Patient Web Portal (Gunicorn on
 `:5000`) inside one container, supervised by `supervisord`. Nginx on `:80` is
 the only port exposed by the Service and Ingress.
@@ -102,7 +102,7 @@ handles namespace, secret generation, rollout, and lifecycle operations.
 ./k8s/medpharm-k8s.sh health            # port-forwarded smoke check
 ./k8s/medpharm-k8s.sh logs -f           # tail pod logs
 ./k8s/medpharm-k8s.sh backup            # SQLite hot backup off-cluster
-./k8s/medpharm-k8s.sh deploy --tag=1.7.2
+./k8s/medpharm-k8s.sh deploy --tag=1.7.3
 ./k8s/medpharm-k8s.sh rollback          # or --tag=1.5.1 to pin
 ./k8s/medpharm-k8s.sh uninstall --keep-data
 ./k8s/medpharm-k8s.sh --help            # full command reference
@@ -300,7 +300,7 @@ Edit `images.newTag` in the overlay you use (or in `k8s/base/kustomization.yaml`
 ```yaml
 images:
   - name: enlightec/medpharm-server
-    newTag: "1.7.2"
+    newTag: "1.7.3"
 ```
 
 Then re-apply:

@@ -13,6 +13,7 @@ struct LoginView: View {
     @State private var username = ""
     @State private var password = ""
     @State private var loginType = "Patient"
+    @State private var serverURL: String = APIClient.storedBaseURL
 
     var body: some View {
         VStack(spacing: 24) {
@@ -33,6 +34,20 @@ struct LoginView: View {
                     Text("Patient").tag("Patient")
                     Text("Staff").tag("Staff")
                 }.pickerStyle(.segmented)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Server URL").font(.caption).foregroundColor(.secondary)
+                        Spacer()
+                        Button("Reset") {
+                            serverURL = APIClient.defaultBaseURL
+                        }.font(.caption).buttonStyle(.link)
+                    }
+                    TextField("https://medpharm-erp.enlightec.com:8080/api/v1",
+                              text: $serverURL)
+                        .textFieldStyle(.roundedBorder)
+                        .disableAutocorrection(true)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Username").font(.caption).foregroundColor(.secondary)
@@ -73,6 +88,7 @@ struct LoginView: View {
     }
 
     private func login() {
+        APIClient.saveBaseURL(serverURL)
         Task {
             if loginType == "Patient" {
                 await authManager.patientLogin(username: username, password: password)
