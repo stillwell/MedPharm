@@ -16,8 +16,8 @@ android {
         applicationId = "com.enlightec.medpharm"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.6.0"
+        versionCode = 4
+        versionName = "1.7.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

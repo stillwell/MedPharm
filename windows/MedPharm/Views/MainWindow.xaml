@@ -31,6 +31,24 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <Grid.Resources>
+            <Style x:Key="NavButton" TargetType="Button">
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="24,14" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="#33FFFFFF" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Resources>
+
         <!-- Sidebar -->
         <Border Grid.Column="0" Background="{StaticResource TealDarkBrush}">
             <DockPanel>
@@ -67,24 +85,6 @@
                 </StackPanel>
             </DockPanel>
         </Border>
-
-        <Grid.Resources>
-            <Style x:Key="NavButton" TargetType="Button">
-                <Setter Property="HorizontalAlignment" Value="Stretch" />
-                <Setter Property="HorizontalContentAlignment" Value="Left" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="White" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Padding" Value="24,14" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="Cursor" Value="Hand" />
-                <Style.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="#33FFFFFF" />
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
-        </Grid.Resources>
 
         <!-- Content Area -->
         <ContentControl x:Name="ContentArea" Grid.Column="1" Margin="24" />

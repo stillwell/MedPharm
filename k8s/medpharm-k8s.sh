@@ -34,7 +34,7 @@ SERVICE="medpharm-server"
 INGRESS="medpharm-server"
 SECRET_NAME="medpharm-secrets"
 IMAGE_REPO="enlightec/medpharm-server"
-DEFAULT_TAG="1.6.0"
+DEFAULT_TAG="1.7.2"
 
 CLOUD=""
 HOSTNAME_OVERRIDE=""
@@ -442,8 +442,8 @@ ${BOLD}Examples:${NC}
   # First install on GKE with a real hostname
   ./medpharm-k8s.sh install --cloud=gcp --hostname=erp.acme.com
 
-  # Upgrade to 1.7.0 on the current cluster
-  ./medpharm-k8s.sh deploy --tag=1.7.0
+  # Upgrade to 1.7.2 on the current cluster
+  ./medpharm-k8s.sh deploy --tag=1.7.2
 
   # Rolling rollback to previous revision
   ./medpharm-k8s.sh rollback
@@ -453,7 +453,7 @@ ${BOLD}Examples:${NC}
 
   # Take a backup before upgrading
   ./medpharm-k8s.sh backup pre-upgrade-\$(date +%F).db
-  ./medpharm-k8s.sh deploy --tag=1.7.0
+  ./medpharm-k8s.sh deploy --tag=1.7.2
 
   # Keep data on uninstall (e.g. migrating to a new cluster)
   ./medpharm-k8s.sh uninstall --keep-data

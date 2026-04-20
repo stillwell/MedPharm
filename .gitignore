@@ -25,3 +25,20 @@ Thumbs.db
 .env
 .env.local
 *.env
+
+# .NET build artifacts
+bin/
+obj/
+*.user
+
+# Android build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+
+# Xcode / Swift build artifacts
+ios/**/build/
+macos/**/build/
+*.xcuserstate
+DerivedData/

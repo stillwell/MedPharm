@@ -97,7 +97,7 @@ public class ApiClient
         try
         {
             var error = JsonConvert.DeserializeObject<dynamic>(json);
-            throw new ApiException((string)error?.error ?? "Server error", (int)response.StatusCode);
+            throw new ApiException((string?)error?.error ?? "Server error", (int)response.StatusCode);
         }
         catch (JsonException)
         {
