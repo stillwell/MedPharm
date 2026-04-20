@@ -1844,8 +1844,8 @@ def build_document():
 
     story.append(code_block(textwrap.dedent("""\
     # Trigger a release build
-    git tag v1.2.0
-    git push origin v1.2.0
+    git tag v1.7.0
+    git push origin v1.7.0
 
     # Pre-built images on Docker Hub (https://hub.docker.com/u/enlightec):
     docker pull enlightec/medpharm-server:latest   # Full stack

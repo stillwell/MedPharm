@@ -520,8 +520,8 @@ Docker images are automatically built and pushed to Docker Hub on every tagged r
 **To trigger a release:**
 
 ```bash
-git tag v1.2.0
-git push origin v1.2.0   # Triggers the pipeline
+git tag v1.7.0
+git push origin v1.7.0   # Triggers the pipeline
 ```
 
 **Required GitHub Secrets** (set in Settings > Secrets and variables > Actions):
