@@ -44,7 +44,7 @@ public partial class PaymentDialog : Window
             DialogResult = true;
             Close();
         }
-        catch (ApiException ex)
+        catch (System.Exception ex)
         {
             StatusText.Text = ex.Message;
             SubmitBtn.IsEnabled = true;

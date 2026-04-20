@@ -29,7 +29,7 @@ public partial class BillingPage : UserControl
             InvoicesGrid.ItemsSource = data.Invoices;
             PaymentsGrid.ItemsSource = data.Payments;
         }
-        catch (ApiException) { }
+        catch (System.Exception) { }
     }
 
     private async void PayButton_Click(object sender, RoutedEventArgs e)

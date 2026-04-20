@@ -31,7 +31,7 @@ public partial class PrescriptionsPage : UserControl
             var resp = await App.Api.GetAsync<PrescriptionListResponse>(endpoint);
             RxGrid.ItemsSource = resp.Prescriptions;
         }
-        catch (ApiException) { }
+        catch (System.Exception) { }
     }
 
     private async void FilterCombo_Changed(object sender, SelectionChangedEventArgs e)

@@ -6,6 +6,7 @@
  */
 
 using System.Windows;
+using System.Windows.Threading;
 using MedPharm.Services;
 
 namespace MedPharm;
@@ -29,5 +30,16 @@ public partial class App : Application
         base.OnStartup(e);
         Api.BaseUrl = Settings.ApiBaseUrl;
         Api.LoadTokens();
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        MessageBox.Show(
+            $"An unexpected error occurred:\n\n{e.Exception.Message}",
+            "MedPharm ERP",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+        e.Handled = true;
     }
 }

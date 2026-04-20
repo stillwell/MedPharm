@@ -26,6 +26,6 @@ public partial class AppointmentsPage : UserControl
             var resp = await App.Api.GetAsync<AppointmentsResponse>("patient/appointments");
             AppointmentsGrid.ItemsSource = resp.Appointments;
         }
-        catch (ApiException) { }
+        catch (System.Exception) { }
     }
 }

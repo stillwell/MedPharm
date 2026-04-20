@@ -30,9 +30,9 @@ public partial class DashboardPage : UserControl
             RecentRxList.ItemsSource = data.RecentPrescriptions;
             UpcomingList.ItemsSource = data.NextAppointments;
         }
-        catch (ApiException)
+        catch (System.Exception)
         {
-            // Could show a status bar error
+            // Dashboard fetch failures are non-fatal; surface nothing.
         }
     }
 }

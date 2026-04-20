@@ -54,7 +54,7 @@ public partial class InsuranceClaimDialog : Window
             if (insurances.Count > 0) InsuranceCombo.SelectedIndex = 0;
             else StatusText.Text = "No insurance records on file";
         }
-        catch (ApiException ex)
+        catch (System.Exception ex)
         {
             StatusText.Text = ex.Message;
         }
@@ -80,7 +80,7 @@ public partial class InsuranceClaimDialog : Window
             DialogResult = true;
             Close();
         }
-        catch (ApiException ex)
+        catch (System.Exception ex)
         {
             StatusText.Text = ex.Message;
             SubmitBtn.IsEnabled = true;

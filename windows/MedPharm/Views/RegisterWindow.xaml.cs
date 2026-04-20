@@ -41,7 +41,7 @@ public partial class RegisterWindow : Window
                 "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             Close();
         }
-        catch (ApiException ex)
+        catch (System.Exception ex)
         {
             StatusText.Foreground = (System.Windows.Media.Brush)Application.Current.Resources["ErrorBrush"];
             StatusText.Text = ex.Message;
