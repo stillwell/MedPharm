@@ -55,7 +55,7 @@ class ProfileFragment : Fragment() {
                     val insurance = result.data.insurance
                     if (insurance.isNotEmpty()) {
                         val ins = insurance.first()
-                        binding.tvInsurance.text = "${ins["provider_name"]} - ${ins["policy_number"]}"
+                        binding.tvInsurance.text = "${ins.providerName} - ${ins.policyNumber}"
                     } else {
                         binding.tvInsurance.text = "No insurance on file"
                     }

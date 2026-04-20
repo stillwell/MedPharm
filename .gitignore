@@ -8,7 +8,7 @@ __pycache__/
 
 # Database files
 *.db
-data/
+/data/
 
 # Logs
 *.log
@@ -20,3 +20,8 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env
+.env.local
+*.env
