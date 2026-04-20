@@ -229,8 +229,8 @@ Schema changes are applied automatically by `DatabaseManager.init_db()` on conta
 **Rollback:**
 
 ```bash
-docker pull enlightec/medpharm-server:1.1.0     # previous tag
-MEDPHARM_TAG=1.1.0 docker compose up -d
+docker pull enlightec/medpharm-server:1.5.1     # previous tag
+MEDPHARM_TAG=1.5.1 docker compose up -d
 ```
 
 ---
