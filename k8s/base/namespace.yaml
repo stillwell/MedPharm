@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: medpharm
+  labels:
+    app.kubernetes.io/name: medpharm
+    app.kubernetes.io/part-of: medpharm-erp

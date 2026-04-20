@@ -65,7 +65,20 @@ Point your existing Nginx / Caddy / Traefik at `http://127.0.0.1:8080` and `http
 
 SQLite is single-writer. For larger installations migrate the DB to PostgreSQL by changing the `DATABASE_URL` in `DatabaseManager.__init__` (SQLAlchemy handles the driver swap) and run the API behind a load balancer with `N` workers.
 
-### 4. Bare-metal systemd (no Docker)
+### 4. Kubernetes (GKE, EKS, Linode, bare-metal)
+
+```bash
+kubectl create namespace medpharm
+kubectl -n medpharm create secret generic medpharm-secrets \
+  --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
+kubectl apply -k k8s/overlays/gcp        # or aws / generic
+```
+
+Kustomize bases + cloud overlays live in `k8s/`. Full walkthrough, including
+GKE ManagedCertificate and EKS ALB setup, is in [KUBERNETES.md](KUBERNETES.md).
+
+### 5. Bare-metal systemd (no Docker)
 
 ```ini
 # /etc/systemd/system/medpharm-api.service

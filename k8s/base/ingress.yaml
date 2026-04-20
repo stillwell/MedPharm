@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: medpharm-server
+  namespace: medpharm
+  labels:
+    app.kubernetes.io/name: medpharm
+    app.kubernetes.io/component: server
+  annotations:
+    # Cloud-specific annotations and ingressClassName are applied via
+    # the overlays in k8s/overlays/{gcp,aws,generic}.
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: medpharm.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: medpharm-server
+                port:
+                  name: http

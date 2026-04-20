@@ -26,8 +26,8 @@ This document provides in-depth installation instructions for every MedPharm com
 
 | Component | Host OS | Runtime | Install Method |
 |-----------|---------|---------|----------------|
-| Cloud REST API | Linux, macOS, Windows, Docker | Python 3.10+ / Gunicorn | `pip` or `enlightec/medpharm-api` |
-| Web Portal | Linux, macOS, Windows, Docker | Python 3.10+ / Flask | `pip` or `enlightec/medpharm-server` |
+| Cloud REST API | Linux, macOS, Windows, Docker, Kubernetes | Python 3.10+ / Gunicorn | `pip`, `enlightec/medpharm-api`, or `kubectl apply -k k8s/` |
+| Web Portal | Linux, macOS, Windows, Docker, Kubernetes | Python 3.10+ / Flask | `pip`, `enlightec/medpharm-server`, or `kubectl apply -k k8s/` |
 | Qt Desktop App | Linux (X11/Wayland), macOS, Windows | Python 3.10+ / PyQt6 | `pip` |
 | Android Client | Android 8.0+ (API 26) | ART / Kotlin | APK install |
 | iOS Client | iOS 16+ | Swift runtime | TestFlight / Xcode |

@@ -1,0 +1,25 @@
+# EKS (Amazon Elastic Kubernetes Service) overlay
+#
+# Requirements:
+#   - AWS Load Balancer Controller installed in the cluster
+#     https://kubernetes-sigs.github.io/aws-load-balancer-controller/
+#   - An ACM TLS certificate in the cluster's region; set its ARN in
+#     ingress-patch.yaml (alb.ingress.kubernetes.io/certificate-arn).
+#   - EBS CSI driver installed for the gp3 StorageClass.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: medpharm
+
+resources:
+  - ../../base
+
+patches:
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: medpharm-server
+  - path: pvc-patch.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: medpharm-data

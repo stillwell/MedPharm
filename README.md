@@ -315,6 +315,20 @@ The repository ships with `uninstall.sh`, which reverses every artifact `install
 
 Docker teardown is **opt-in** — nothing Docker-related runs unless you pass `--docker`, `--docker-server`, `--docker-volumes`, `--docker-images`, or `--all`. See [docs/INSTALLATION.md](docs/INSTALLATION.md#uninstallation) for the full flag matrix.
 
+### Kubernetes (GKE, EKS, Linode, bare-metal)
+
+Manifests live under [`k8s/`](k8s/) as a kustomize base with cloud-specific overlays:
+
+```bash
+kubectl create namespace medpharm
+kubectl -n medpharm create secret generic medpharm-secrets \
+  --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
+kubectl apply -k k8s/overlays/gcp        # or aws / generic
+```
+
+Full walkthrough (GKE ManagedCertificate, EKS ALB Controller, ingress-nginx + cert-manager) is in [docs/KUBERNETES.md](docs/KUBERNETES.md).
+
 To reinstall after uninstalling:
 
 ```bash

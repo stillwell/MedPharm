@@ -1,0 +1,20 @@
+# Generic overlay for Linode (LKE), DigitalOcean, bare-metal, or any
+# cluster running ingress-nginx + cert-manager.
+#
+# Requirements:
+#   - ingress-nginx installed: https://kubernetes.github.io/ingress-nginx/
+#   - cert-manager + a ClusterIssuer named "letsencrypt-prod" (optional,
+#     remove the cert-manager annotations if you terminate TLS elsewhere).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: medpharm
+
+resources:
+  - ../../base
+
+patches:
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: medpharm-server

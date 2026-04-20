@@ -1,0 +1,18 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: medpharm-cert
+  namespace: medpharm
+spec:
+  domains:
+    - medpharm.example.com
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: medpharm-frontend
+  namespace: medpharm
+spec:
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT
