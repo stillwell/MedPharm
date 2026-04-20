@@ -7,6 +7,7 @@ Manifests are organized as **kustomize** bases and overlays and ship in the
 
 ```
 k8s/
+├── medpharm-k8s.sh          # installer / deployer / manager CLI
 ├── base/                    # cloud-agnostic manifests
 │   ├── namespace.yaml
 │   ├── configmap.yaml
@@ -88,6 +89,29 @@ cd MedPharm
 > **Applies to any vanilla cluster with a default `StorageClass` and any
 > ingress controller.** For a production-ready deploy, skip to the
 > cloud-specific section below.
+
+### Option A — wrapper script (`medpharm-k8s.sh`)
+
+The repo ships an installer/deployer/manager that wraps the kustomize
+overlays. It auto-detects the cloud from the current kube-context and
+handles namespace, secret generation, rollout, and lifecycle operations.
+
+```bash
+./k8s/medpharm-k8s.sh install --hostname=erp.example.com
+./k8s/medpharm-k8s.sh status
+./k8s/medpharm-k8s.sh health            # port-forwarded smoke check
+./k8s/medpharm-k8s.sh logs -f           # tail pod logs
+./k8s/medpharm-k8s.sh backup            # SQLite hot backup off-cluster
+./k8s/medpharm-k8s.sh deploy --tag=1.7.0
+./k8s/medpharm-k8s.sh rollback          # or --tag=1.5.1 to pin
+./k8s/medpharm-k8s.sh uninstall --keep-data
+./k8s/medpharm-k8s.sh --help            # full command reference
+```
+
+Set `--cloud=gcp|aws|generic` to force an overlay if auto-detection
+picks the wrong one.
+
+### Option B — raw kubectl
 
 1. **Create the namespace and secret** (once per cluster):
 

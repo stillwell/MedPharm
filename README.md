@@ -317,7 +317,17 @@ Docker teardown is **opt-in** — nothing Docker-related runs unless you pass `-
 
 ### Kubernetes (GKE, EKS, Linode, bare-metal)
 
-Manifests live under [`k8s/`](k8s/) as a kustomize base with cloud-specific overlays:
+Manifests live under [`k8s/`](k8s/) as a kustomize base with cloud-specific overlays. Use the wrapper script for the shortest path:
+
+```bash
+./k8s/medpharm-k8s.sh install --hostname=erp.example.com     # auto-detects GKE/EKS/generic
+./k8s/medpharm-k8s.sh status
+./k8s/medpharm-k8s.sh deploy --tag=1.7.0                     # rolling upgrade
+./k8s/medpharm-k8s.sh backup pre-upgrade.db                  # SQLite hot backup
+./k8s/medpharm-k8s.sh --help                                 # full command reference
+```
+
+Or go through `kubectl` directly:
 
 ```bash
 kubectl create namespace medpharm
