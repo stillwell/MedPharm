@@ -65,6 +65,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Copy application code
 COPY database/ /opt/medpharm/database/
+COPY security/ /opt/medpharm/security/
 COPY api/ /opt/medpharm/api/
 COPY run_cloud.py /opt/medpharm/
 COPY __init__.py /opt/medpharm/
@@ -95,6 +96,7 @@ USER medpharm
 
 # Run with gunicorn in production
 CMD ["gunicorn", "run_cloud:app", \
+     "--preload", \
      "--bind", "0.0.0.0:8080", \
      "--workers", "4", \
      "--threads", "2", \

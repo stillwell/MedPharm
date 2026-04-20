@@ -70,6 +70,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Copy application source code
 COPY database/ /opt/medpharm/database/
+COPY security/ /opt/medpharm/security/
 COPY api/ /opt/medpharm/api/
 COPY web/ /opt/medpharm/web/
 COPY run_cloud.py /opt/medpharm/
