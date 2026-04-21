@@ -32,10 +32,16 @@
 #   docker compose -f docker-compose.hub.yml down    # Stop
 #
 # Test:
-#   curl http://localhost:8080/api/v1/health
+#   curl -k https://localhost:8080/api/v1/health
 #
 # Override the image tag with:
 #   MEDPHARM_IMAGE_TAG=1.7.3 docker compose -f docker-compose.hub.yml up -d
+#
+# TLS:
+#   Gunicorn serves HTTPS directly. A self-signed cert is generated on first
+#   boot (dev default). For production, mount a CA-issued cert into the
+#   medpharm-tls volume at {fullchain.pem,privkey.pem} and set
+#   MEDPHARM_TLS_MODE=require. To disable TLS entirely, set MEDPHARM_TLS_MODE=disable.
 # ==============================================================================
 
 services:
@@ -52,11 +58,15 @@ services:
       - MEDPHARM_CORS_ORIGINS=${MEDPHARM_CORS_ORIGINS:-*}
       - MEDPHARM_TOKEN_EXPIRY=${MEDPHARM_TOKEN_EXPIRY:-86400}
       - MEDPHARM_REFRESH_EXPIRY=${MEDPHARM_REFRESH_EXPIRY:-604800}
+      - MEDPHARM_TLS_MODE=${MEDPHARM_TLS_MODE:-auto}
+      - MEDPHARM_TLS_HOSTNAME=${MEDPHARM_TLS_HOSTNAME:-localhost}
+      - MEDPHARM_TLS_DAYS=${MEDPHARM_TLS_DAYS:-825}
     volumes:
       - medpharm-data:/data
+      - medpharm-tls:/etc/ssl/medpharm
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/health"]
+      test: ["CMD-SHELL", "curl -skf https://localhost:8080/api/v1/health || curl -sf http://localhost:8080/api/v1/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -64,4 +74,6 @@ services:
 
 volumes:
   medpharm-data:
+    driver: local
+  medpharm-tls:
     driver: local

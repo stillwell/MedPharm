@@ -66,17 +66,39 @@ if __name__ == "__main__":
     port = int(os.environ.get("MEDPHARM_PORT", 8080))
     debug = os.environ.get("MEDPHARM_DEBUG", "false").lower() in ("true", "1", "yes")
 
+    # ── TLS wiring ────────────────────────────────────────────────────────
+    # HIPAA § 164.312(e)(1) — in-transit PHI must be encrypted. Development
+    # mode will serve HTTPS using a cert from $MEDPHARM_TLS_DIR (fullchain.pem
+    # + privkey.pem). Set MEDPHARM_TLS_MODE=disable to fall back to plaintext
+    # for local testing without certs.
+    tls_mode = os.environ.get("MEDPHARM_TLS_MODE", "auto").lower()
+    tls_dir = os.environ.get("MEDPHARM_TLS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tls"))
+    ssl_context = None
+    scheme = "http"
+    if tls_mode != "disable":
+        cert_path = os.path.join(tls_dir, "fullchain.pem")
+        key_path = os.path.join(tls_dir, "privkey.pem")
+        if os.path.isfile(cert_path) and os.path.isfile(key_path):
+            ssl_context = (cert_path, key_path)
+            scheme = "https"
+        elif tls_mode == "require":
+            raise SystemExit(f"MEDPHARM_TLS_MODE=require but no cert at {tls_dir}")
+        else:
+            print(f"  [TLS] No cert at {tls_dir}; generate one with server/nginx/generate-cert.sh")
+            print(f"  [TLS] Falling back to plain HTTP (set MEDPHARM_TLS_MODE=require to fail fast).")
+
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║                MedPharm ERP - Cloud API Server                ║
 ║                                                               ║
 ║  REST API for Android & Mobile Clients                        ║
-║  Server: http://{host}:{port:<5}                                  ║
-║  API Base: http://{host}:{port:<5}/api/v1                         ║
-║  Health: http://{host}:{port:<5}/api/v1/health                    ║
+║  Server:   {scheme}://{host}:{port:<5}                            ║
+║  API Base: {scheme}://{host}:{port:<5}/api/v1                     ║
+║  Health:   {scheme}://{host}:{port:<5}/api/v1/health              ║
 ║                                                               ║
+║  TLS:        {'ON (cert at ' + tls_dir + ')' if ssl_context else 'OFF'}
 ║  Debug Mode: {'ON ' if debug else 'OFF'}                                            ║
 ╚═══════════════════════════════════════════════════════════════╝
     """)
 
-    app.run(host=host, port=port, debug=debug)
+    app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)

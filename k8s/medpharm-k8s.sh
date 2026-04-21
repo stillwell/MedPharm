@@ -33,6 +33,7 @@ DEPLOYMENT="medpharm-server"
 SERVICE="medpharm-server"
 INGRESS="medpharm-server"
 SECRET_NAME="medpharm-secrets"
+TLS_SECRET_NAME="medpharm-tls"
 IMAGE_REPO="enlightec/medpharm-server"
 DEFAULT_TAG="1.7.3"
 
@@ -167,6 +168,41 @@ rotate_secrets() {
     ok "Secrets rotated"
 }
 
+ensure_tls_secret() {
+    if kn get secret "$TLS_SECRET_NAME" >/dev/null 2>&1; then
+        ok "TLS secret ${BOLD}${TLS_SECRET_NAME}${NC} exists (use 'rotate-tls' to replace)"
+        return
+    fi
+    local host="${HOSTNAME_OVERRIDE:-medpharm.example.com}"
+    log "Generating self-signed TLS cert for ${BOLD}${host}${NC} (825 days, RSA-4096)"
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' RETURN
+    openssl req -x509 -nodes -newkey rsa:4096 \
+        -keyout "$tmp_dir/tls.key" -out "$tmp_dir/tls.crt" \
+        -days 825 -sha256 \
+        -subj "/CN=${host}/O=MedPharm ERP (self-signed)" \
+        -addext "subjectAltName=DNS:${host},DNS:localhost,IP:127.0.0.1" \
+        -addext "keyUsage=digitalSignature,keyEncipherment" \
+        -addext "extendedKeyUsage=serverAuth" 2>/dev/null
+    kn create secret tls "$TLS_SECRET_NAME" \
+        --cert="$tmp_dir/tls.crt" --key="$tmp_dir/tls.key"
+    ok "TLS secret created (self-signed). Replace with a CA-issued cert for production."
+}
+
+rotate_tls() {
+    preflight
+    ensure_namespace
+    warn "This will REPLACE ${TLS_SECRET_NAME} in namespace ${NAMESPACE}."
+    confirm "Active TLS sessions will be dropped on next pod restart. Proceed?"
+    kn delete secret "$TLS_SECRET_NAME" --ignore-not-found
+    ensure_tls_secret
+    log "Restarting deployment to pick up the new TLS cert"
+    kn rollout restart "deploy/$DEPLOYMENT"
+    kn rollout status "deploy/$DEPLOYMENT"
+    ok "TLS rotated"
+}
+
 confirm() {
     $CONFIRM_YES && return 0
     local prompt="$1"
@@ -198,6 +234,7 @@ cmd_install() {
 
     ensure_namespace
     ensure_secret
+    ensure_tls_secret
 
     log "Applying manifests"
     render "$cloud" | k apply -f -
@@ -419,6 +456,7 @@ ${BOLD}Commands:${NC}
   ${CYAN}restore${NC} <file>    Restore a backup into the live pod (destructive)
   ${CYAN}rollback${NC}          Roll back to previous revision (or --tag=X to pin)
   ${CYAN}rotate-secrets${NC}    Regenerate JWT + session keys and restart the pod
+  ${CYAN}rotate-tls${NC}        Regenerate the self-signed TLS cert and restart the pod
   ${CYAN}manifests${NC}         Print rendered kustomize output to stdout
   ${CYAN}uninstall${NC}         Delete all resources (use --keep-data to preserve PVC)
   ${CYAN}preflight${NC}         Check kubectl, cluster, and detected cloud overlay
@@ -504,6 +542,7 @@ case "$COMMAND" in
     restore)        cmd_restore "${ARGS[@]}" ;;
     rollback)       cmd_rollback ;;
     rotate-secrets) rotate_secrets ;;
+    rotate-tls)     rotate_tls ;;
     manifests)      cmd_manifests ;;
     uninstall)      cmd_uninstall ;;
     preflight)      cmd_preflight ;;

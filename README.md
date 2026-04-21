@@ -409,7 +409,7 @@ Both `--docker` and `--docker-server` can be combined in a single invocation. Wh
 ```bash
 docker compose -f docker-compose.hub.yml pull
 docker compose -f docker-compose.hub.yml up -d
-curl http://localhost:8080/api/v1/health
+curl -k https://localhost:8080/api/v1/health        # TLS on (self-signed by default)
 ```
 
 **Manual docker compose (Full stack)** — uses `server/docker-compose.hub.yml`:
@@ -419,7 +419,7 @@ cd server
 cp .env.example .env                              # Edit secrets before production
 docker compose -f docker-compose.hub.yml pull
 docker compose -f docker-compose.hub.yml up -d
-curl http://localhost/api/v1/health
+curl -k https://localhost/api/v1/health             # TLS via Nginx (self-signed by default)
 ```
 
 **Pull without docker compose:**
@@ -435,23 +435,27 @@ docker pull enlightec/medpharm-api:1.7.3
 **Run directly with `docker run`:**
 
 ```bash
-# API only
+# API only (TLS on port 8080 — self-signed cert auto-generated)
 docker run -d --name medpharm-api \
   -p 8080:8080 \
   -v medpharm-data:/data \
+  -v medpharm-tls:/etc/ssl/medpharm \
   -e MEDPHARM_JWT_SECRET=your-secret-here \
   -e MEDPHARM_SECRET_KEY=your-other-secret \
   enlightec/medpharm-api:latest
 
-# Full stack
+# Full stack (Nginx TLS on 443, HTTP on 80 redirects to 443)
 docker run -d --name medpharm-server \
-  -p 80:80 -p 8080:8080 -p 5000:5000 \
+  -p 80:80 -p 443:443 -p 8080:8080 -p 5000:5000 \
   -v medpharm-data:/data \
   -v medpharm-logs:/var/log/medpharm \
+  -v medpharm-tls:/etc/ssl/medpharm \
   -e MEDPHARM_JWT_SECRET=your-secret-here \
   -e MEDPHARM_SECRET_KEY=your-other-secret \
   enlightec/medpharm-server:latest
 ```
+
+> **TLS by default** — both images terminate TLS out of the box. On first boot they auto-generate a self-signed cert into the `medpharm-tls` volume (or `/etc/ssl/medpharm` on a host bind-mount). For production, drop a CA-issued `fullchain.pem` + `privkey.pem` into that volume and set `MEDPHARM_TLS_MODE=require`. To fall back to plaintext (never in production), set `MEDPHARM_TLS_MODE=disable`.
 
 #### Option B — Build from Source
 
@@ -476,10 +480,11 @@ Services available (either option):
 
 | Endpoint | Description |
 |----------|-------------|
-| `http://localhost/api/v1/health` | REST API via Nginx (full stack only) |
-| `http://localhost/portal/` | Web Portal via Nginx (full stack only) |
-| `http://localhost:8080/` | API direct access |
-| `http://localhost:5000/` | Web Portal direct access (full stack only) |
+| `https://localhost/api/v1/health` | REST API via Nginx TLS (full stack only) |
+| `https://localhost/portal/` | Web Portal via Nginx TLS (full stack only) |
+| `http://localhost/` | 301 → `https://localhost/` (full stack only) |
+| `https://localhost:8080/` | API direct access (gunicorn TLS) |
+| `http://localhost:5000/` | Web Portal direct access — plaintext, localhost-only (full stack only) |
 
 #### Option C — Combined Deployment (API + Full Stack Simultaneously)
 
@@ -495,12 +500,12 @@ Resulting endpoints when both deployments are active:
 
 | Endpoint | Container | Description |
 |----------|-----------|-------------|
-| `http://localhost:8080/api/v1` | `enlightec/medpharm-api` | Standalone REST API (default) |
-| `http://localhost/` | `enlightec/medpharm-server` | Full-stack Nginx entry point |
-| `http://localhost/api/v1/health` | `enlightec/medpharm-server` | Full-stack API via Nginx |
-| `http://localhost/portal/` | `enlightec/medpharm-server` | Patient Portal via Nginx |
-| `http://localhost:8081/` | `enlightec/medpharm-server` | Full-stack API direct (remapped from 8080) |
-| `http://localhost:5000/` | `enlightec/medpharm-server` | Patient Portal direct |
+| `https://localhost:8080/api/v1` | `enlightec/medpharm-api` | Standalone REST API (gunicorn TLS) |
+| `https://localhost/` | `enlightec/medpharm-server` | Full-stack Nginx TLS entry point |
+| `https://localhost/api/v1/health` | `enlightec/medpharm-server` | Full-stack API via Nginx TLS |
+| `https://localhost/portal/` | `enlightec/medpharm-server` | Patient Portal via Nginx TLS |
+| `http://localhost:8081/` | `enlightec/medpharm-server` | Full-stack API direct — plaintext (remapped from 8080) |
+| `http://localhost:5000/` | `enlightec/medpharm-server` | Patient Portal direct — plaintext |
 
 Stop both deployments:
 
@@ -643,8 +648,8 @@ Docker images are automatically rebuilt and published to Docker Hub by the [GitH
 Skip the Python build entirely and run the official images directly:
 
 ```bash
-./start_docker_hub.sh server     # Full stack at http://localhost
-./start_docker_hub.sh api        # API only at http://localhost:8080
+./start_docker_hub.sh server     # Full stack at https://localhost (HTTP on :80 redirects to :443)
+./start_docker_hub.sh api        # API only at https://localhost:8080
 ```
 
 See [Docker Hub Images](#docker-hub-images) for more options.
@@ -661,7 +666,7 @@ source venv/bin/activate
 python3 run_cloud.py
 ```
 
-The API server starts at **http://localhost:8080/api/v1**. All Android, iOS, macOS, and Windows clients connect to this endpoint.
+The API server starts at **https://localhost:8080/api/v1** (self-signed cert auto-generated into `./data/tls/` on first run). All Android, iOS, macOS, and Windows clients connect to this endpoint. Set `MEDPHARM_TLS_MODE=disable` to force plaintext `http://localhost:8080` for local dev without certs.
 
 ### Start the Web Portal (Patient Interface)
 
@@ -675,7 +680,7 @@ source venv/bin/activate
 python3 run_web.py
 ```
 
-Open your browser to **http://localhost:5000** and log in with one of the patient accounts listed in [Default Credentials](#default-credentials).
+Open your browser to **http://localhost:5000** and log in with one of the patient accounts listed in [Default Credentials](#default-credentials). Behind the full server stack this is served as **https://localhost/portal/** via the Nginx TLS reverse proxy.
 
 ### Start the Desktop Application (Clinical Staff)
 
@@ -844,6 +849,53 @@ The cloud API server and Docker deployment can be configured via environment var
 | `MEDPHARM_WEB_PORT` | `5000` | Gunicorn Web Portal port (Docker full stack) |
 | `MEDPHARM_WORKERS` | `4` | Gunicorn worker processes |
 | `MEDPHARM_THREADS` | `2` | Gunicorn threads per worker |
+| `MEDPHARM_HTTPS_PORT` | `443` | Nginx TLS listen port (Docker full stack) |
+| `MEDPHARM_TLS_MODE` | `auto` | `auto` \| `require` \| `disable` — see TLS section below |
+| `MEDPHARM_TLS_DIR` | `/etc/ssl/medpharm` | Directory holding `fullchain.pem` + `privkey.pem` |
+| `MEDPHARM_TLS_HOSTNAME` | `localhost` | CN / SAN for self-signed cert generation |
+| `MEDPHARM_TLS_DAYS` | `825` | Validity (days) for auto-generated self-signed certs |
+
+---
+
+## TLS / HTTPS
+
+Every install path — source Python, `docker-compose`, `docker run`, Kubernetes — terminates TLS by default. This satisfies the HIPAA transmission-security rule (§ 164.312(e)(1)) and removes the failure mode where a new deployment silently serves PHI over plain HTTP.
+
+**How certs are provisioned**
+
+| Install path | Cert location | Auto-generated? |
+|---|---|---|
+| API-only Docker (`enlightec/medpharm-api`) | `medpharm-tls` volume → `/etc/ssl/medpharm` | Yes (gunicorn entrypoint) |
+| Server stack Docker (`enlightec/medpharm-server`) | `medpharm-tls` volume → `/etc/ssl/medpharm` | Yes (nginx + gunicorn) |
+| Source Python (`./start_cloud.sh`) | `./data/tls/` | Yes (`server/nginx/generate-cert.sh`) |
+| Kubernetes | `Secret` named `medpharm-tls` in the `medpharm` namespace | Yes, via `./k8s/medpharm-k8s.sh install` |
+
+**Modes** (`MEDPHARM_TLS_MODE`):
+
+- `auto` (default): if no cert is found at `MEDPHARM_TLS_DIR`, a self-signed RSA-4096 cert is generated on first boot. If one is already present (you mounted a CA-issued cert), it is used as-is.
+- `require`: the container fails to start unless a cert is mounted. Use this in production to guarantee no fallback path.
+- `disable`: plaintext HTTP. Local dev only.
+
+**Rotating the self-signed cert**
+
+```bash
+# Docker
+docker compose -f docker-compose.hub.yml exec api rm /etc/ssl/medpharm/*.pem
+docker compose -f docker-compose.hub.yml restart api
+
+# Kubernetes
+./k8s/medpharm-k8s.sh rotate-tls
+```
+
+**Using a CA-issued cert (production)**
+
+Drop `fullchain.pem` and `privkey.pem` into the `medpharm-tls` volume (or the K8s `medpharm-tls` Secret) and set `MEDPHARM_TLS_MODE=require`. Never ship production with a self-signed cert — browsers and mobile clients will refuse the connection, and training users to click past warnings is itself a compliance failure.
+
+**Clients & self-signed certs (dev only)**
+
+- **Android** (`android/app/src/main/res/xml/network_security_config.xml`) — the `localhost` / `10.0.2.2` domain-config trusts user-installed CAs in addition to the system store. Export the server's `fullchain.pem` and install it on the device as a user CA to dismiss the self-signed warning.
+- **iOS / macOS** — add the self-signed cert to the iOS Simulator trust store (drag into the running simulator) or the macOS keychain and mark it as trusted. `URLSession` otherwise refuses the connection.
+- **Windows (.NET)** — `HttpClient` uses the Windows certificate store. Import `fullchain.pem` into **Trusted Root Certification Authorities** for the current user.
 
 ---
 

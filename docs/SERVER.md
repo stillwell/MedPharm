@@ -124,19 +124,24 @@ docker exec medpharm-server supervisorctl restart medpharm-api
 
 ## Nginx Reverse Proxy
 
-The bundled config is at [`server/nginx/medpharm.conf`](../server/nginx/medpharm.conf). Key routes:
+The server image ships two Nginx configs:
+
+* [`server/nginx/medpharm-tls.conf`](../server/nginx/medpharm-tls.conf) — **default.** Listens on 443 with TLSv1.2+, redirects port 80 to 443, applies HSTS, login rate-limiting, and structured JSON access logs.
+* [`server/nginx/medpharm.conf`](../server/nginx/medpharm.conf) — plaintext fallback on port 80 (enabled only when `MEDPHARM_TLS_MODE=disable`).
+
+Key routes (TLS config):
 
 ```nginx
-location /api/v1/   { proxy_pass http://127.0.0.1:8080; }
-location /portal/   { proxy_pass http://127.0.0.1:5000; }
-location /          { return 301 /portal/; }
+location /api/    { proxy_pass http://medpharm_api; }     # 127.0.0.1:8080
+location /portal/ { proxy_pass http://medpharm_web/; }    # 127.0.0.1:5000
+location = /      { proxy_pass http://medpharm_api; }
 ```
 
 Customisations:
 
-* **TLS termination** — mount certs into `/etc/nginx/certs` and uncomment the TLS `server` block.
-* **Client max body size** — add `client_max_body_size 25m;` if uploading scan attachments.
-* **Rate limiting** — add `limit_req_zone $binary_remote_addr zone=medpharm:10m rate=20r/s;` at the `http` block.
+* **Cert override** — mount a CA-issued `fullchain.pem` + `privkey.pem` at `/etc/ssl/medpharm/` (Docker volume `medpharm-tls`) and set `MEDPHARM_TLS_MODE=require` to fail fast if the mount is missing.
+* **Client max body size** — already set to 25M (document uploads). Override per `location` if needed.
+* **Rate limiting** — `limit_req_zone ... zone=login:10m rate=5r/m` is pre-wired at the `http{}` context; apply with `limit_req zone=login burst=10 nodelay;` in any new `location` block.
 
 ---
 
@@ -158,6 +163,11 @@ Customisations:
 | `MEDPHARM_WEB_PORT` | `5000` | Gunicorn Web port |
 | `MEDPHARM_WORKERS` | `4` | Gunicorn workers |
 | `MEDPHARM_THREADS` | `2` | Gunicorn threads/worker |
+| `MEDPHARM_HTTPS_PORT` | `443` | Nginx TLS listen port |
+| `MEDPHARM_TLS_MODE` | `auto` | `auto` \| `require` \| `disable` |
+| `MEDPHARM_TLS_DIR` | `/etc/ssl/medpharm` | Cert directory (`fullchain.pem`, `privkey.pem`) |
+| `MEDPHARM_TLS_HOSTNAME` | `localhost` | CN/SAN for self-signed generation |
+| `MEDPHARM_TLS_DAYS` | `825` | Validity for auto-generated certs |
 
 Copy `server/.env.example` → `server/.env` and edit for production. Never commit `.env`.
 
@@ -165,18 +175,50 @@ Copy `server/.env.example` → `server/.env` and edit for production. Never comm
 
 ## TLS / HTTPS
 
-Use Let's Encrypt via the `certbot` sidecar pattern or Caddy in front of the container.
+**TLS is on by default** in every install path. On first boot the container auto-generates a self-signed RSA-4096 cert into `/etc/ssl/medpharm/` (persisted via the `medpharm-tls` Docker volume) and serves HTTPS on port 443. HTTP on port 80 returns 301 to HTTPS.
 
-**Caddy one-liner front end:**
+### Self-signed (development / staging)
+
+Nothing to do — just `docker compose up -d`. The log banner announces `TLS ... port 443`. Verify with:
+
+```bash
+curl -sk https://localhost/api/v1/health | jq .
+curl -sI http://localhost/api/v1/health | head -1   # expect: HTTP/1.1 301 Moved Permanently
+```
+
+### CA-issued certs (production)
+
+Drop `fullchain.pem` and `privkey.pem` onto the host and mount them into the container:
+
+```bash
+docker compose -f server/docker-compose.hub.yml down
+docker volume rm medpharm_medpharm-tls            # or edit the mount
+docker run --rm -v "$PWD/tls:/src" -v medpharm-tls:/dst alpine \
+    sh -c 'cp /src/fullchain.pem /src/privkey.pem /dst/ && chmod 600 /dst/privkey.pem'
+MEDPHARM_TLS_MODE=require docker compose -f server/docker-compose.hub.yml up -d
+```
+
+### Let's Encrypt
+
+Use `certbot` with the `/var/www/certbot` webroot (already wired in `medpharm-tls.conf`):
+
+```bash
+docker run --rm -v medpharm-tls:/etc/letsencrypt \
+    -v /var/www/certbot:/var/www/certbot certbot/certbot certonly \
+    --webroot -w /var/www/certbot -d medpharm.example.com
+```
+
+### Caddy alternative
+
+Terminate TLS at Caddy in front of a container running with `MEDPHARM_TLS_MODE=disable`:
 
 ```caddyfile
 medpharm.example.com {
-  reverse_proxy /api/v1/* 127.0.0.1:8080
-  reverse_proxy /portal/* 127.0.0.1:5000
+  reverse_proxy 127.0.0.1:80
 }
 ```
 
-Caddy auto-provisions and renews certificates.
+Caddy auto-provisions and renews certificates. Acceptable only if the hop from Caddy to MedPharm is on a trusted network segment (same host loopback, private VPC, etc.) — otherwise keep TLS on at both legs.
 
 ---
 
@@ -194,10 +236,10 @@ Structured log forwarding: add a `logging` sidecar (Vector, Filebeat, Fluent Bit
 Health check:
 
 ```bash
-curl -fsS http://localhost:8080/api/v1/health
+curl -fsSk https://localhost/api/v1/health
 ```
 
-Health endpoint returns `{"status":"ok"}` with HTTP 200. Docker's `HEALTHCHECK` invokes [`server/healthcheck.sh`](../server/healthcheck.sh).
+Health endpoint returns `{"status":"ok"}` with HTTP 200. Docker's `HEALTHCHECK` invokes [`server/healthcheck.sh`](../server/healthcheck.sh), which tries HTTPS first (`-k` for self-signed) and falls back to HTTP for the `MEDPHARM_TLS_MODE=disable` variant.
 
 ---
 

@@ -24,12 +24,24 @@ export MEDPHARM_DB_PATH="${SCRIPT_DIR}/data/medpharm.db"
 export MEDPHARM_DEBUG=${MEDPHARM_DEBUG:-true}
 export MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-dev-secret-do-not-use-in-production}
 export MEDPHARM_PORT=${MEDPHARM_PORT:-8080}
+export MEDPHARM_TLS_DIR="${MEDPHARM_TLS_DIR:-${SCRIPT_DIR}/data/tls}"
+export MEDPHARM_TLS_MODE="${MEDPHARM_TLS_MODE:-auto}"
+
+# Auto-provision a self-signed cert for dev if one isn't already present.
+if [[ "${MEDPHARM_TLS_MODE}" != "disable" ]] \
+     && [[ ! -f "${MEDPHARM_TLS_DIR}/fullchain.pem" || ! -f "${MEDPHARM_TLS_DIR}/privkey.pem" ]]; then
+    echo "  [TLS] Generating self-signed cert at ${MEDPHARM_TLS_DIR}..."
+    bash "${SCRIPT_DIR}/server/nginx/generate-cert.sh" "${MEDPHARM_TLS_DIR}" "localhost" 825 <<< "y" >/dev/null 2>&1 || true
+fi
+
+scheme="https"
+[[ -f "${MEDPHARM_TLS_DIR}/fullchain.pem" ]] || scheme="http"
 
 echo ""
 echo "  ╔═══════════════════════════════════════════════════════╗"
 echo "  ║  MedPharm ERP - Cloud API Server                     ║"
-echo "  ║  Running at: http://localhost:${MEDPHARM_PORT}                 ║"
-echo "  ║  API Base: http://localhost:${MEDPHARM_PORT}/api/v1            ║"
+echo "  ║  Running at: ${scheme}://localhost:${MEDPHARM_PORT}                ║"
+echo "  ║  API Base: ${scheme}://localhost:${MEDPHARM_PORT}/api/v1           ║"
 echo "  ║                                                       ║"
 echo "  ║  Patient Login: jsmith_portal / patient123            ║"
 echo "  ║  Staff Login:   dr.carter / doctor123                 ║"

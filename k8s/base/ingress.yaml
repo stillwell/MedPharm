@@ -28,7 +28,18 @@ metadata:
     # Cloud-specific annotations and ingressClassName are applied via
     # the overlays in k8s/overlays/{gcp,aws,generic}.
     kubernetes.io/ingress.class: nginx
+    # Force HTTPS — HIPAA § 164.312(e)(1) transmission security
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Backend speaks TLS (container terminates HTTPS inside nginx)
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
+  tls:
+    - hosts:
+        - medpharm.example.com
+      # Created by medpharm-k8s.sh (self-signed by default). Replace with
+      # a CA-issued cert or cert-manager-managed Certificate for production.
+      secretName: medpharm-tls
   rules:
     - host: medpharm.example.com
       http:
@@ -39,4 +50,4 @@ spec:
               service:
                 name: medpharm-server
                 port:
-                  name: http
+                  name: https

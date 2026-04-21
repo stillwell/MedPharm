@@ -113,14 +113,27 @@ picks the wrong one.
 
 ### Option B — raw kubectl
 
-1. **Create the namespace and secret** (once per cluster):
+1. **Create the namespace and secrets** (once per cluster):
 
    ```bash
    kubectl create namespace medpharm
+
+   # App secrets
    kubectl -n medpharm create secret generic medpharm-secrets \
      --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
      --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
+
+   # TLS cert (self-signed for dev — use a CA-issued cert or cert-manager in prod)
+   openssl req -x509 -nodes -newkey rsa:4096 -days 825 -sha256 \
+     -keyout /tmp/tls.key -out /tmp/tls.crt \
+     -subj "/CN=medpharm.example.com/O=MedPharm ERP (self-signed)" \
+     -addext "subjectAltName=DNS:medpharm.example.com"
+   kubectl -n medpharm create secret tls medpharm-tls \
+     --cert=/tmp/tls.crt --key=/tmp/tls.key
+   rm /tmp/tls.key /tmp/tls.crt
    ```
+
+   > `medpharm-k8s.sh install` does all of the above automatically — use raw kubectl only if you have a reason.
 
 2. **Edit the hostname** in `k8s/base/ingress.yaml` (replace
    `medpharm.example.com`) or use an overlay.
@@ -135,8 +148,8 @@ picks the wrong one.
 
    ```bash
    kubectl -n medpharm rollout status deploy/medpharm-server
-   kubectl -n medpharm port-forward svc/medpharm-server 8080:80
-   curl http://localhost:8080/api/v1/health
+   kubectl -n medpharm port-forward svc/medpharm-server 8443:443
+   curl -sk https://localhost:8443/api/v1/health
    ```
 
 ---

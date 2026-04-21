@@ -163,6 +163,13 @@ lets the user point the app at any compatible MedPharm API host.
 * At runtime, submitting a different URL calls `ApiClient.reconfigure()` so the
   new base URL takes effect without restarting the app.
 
+### TLS / self-signed certs
+
+The app talks HTTPS by default. `res/xml/network_security_config.xml` enforces:
+
+* Production (base-config): HTTPS only, system CA trust anchors only.
+* Localhost / `10.0.2.2` (emulator host loopback): cleartext permitted and **user-installed** CAs trusted — so an engineer running the self-signed dev server can import the MedPharm `fullchain.pem` into Android's user credential store and dismiss the warning. OkHttp honors the user CA automatically when the domain-config trust-anchors list includes `user`.
+
 ### Build
 
 See [COMPILATION.md § Android](COMPILATION.md#android-kotlin--gradle).
@@ -205,6 +212,15 @@ The login screen exposes a **Server URL** field (with a "Reset to default" butto
 * `APIClient.saveBaseURL(_:)` persists the value and hot-swaps it on the shared
   client actor — no app relaunch required.
 
+### TLS / self-signed certs
+
+`URLSession` enforces full chain validation against the iOS trust store. For a self-signed dev cert, either:
+
+* Drag the `fullchain.pem` onto a running iOS Simulator, then enable it under **Settings → General → About → Certificate Trust Settings**, or
+* Email / AirDrop the `.pem` to a physical device, then enable trust in the same settings path.
+
+Never ship a custom `URLSessionDelegate` that blindly accepts invalid certs — that circumvents App Transport Security and is a HIPAA transmission-security violation.
+
 ---
 
 ## macOS
@@ -222,6 +238,10 @@ Shares `Models/` and `Services/` source with iOS. Uses `NavigationSplitView` for
 Identical UX to iOS: a **Server URL** field on the login view with an inline
 "Reset" link. Persisted in `UserDefaults` (`medpharm.apiBaseURL`) and
 hot-applied via `APIClient.saveBaseURL(_:)`.
+
+### TLS / self-signed certs
+
+Import `fullchain.pem` into the macOS **Keychain Access → login** keychain and set it to **Always Trust**. `URLSession` then accepts the cert on the next request — no app restart required.
 
 ---
 
@@ -259,6 +279,17 @@ The login window has a **Server URL** field with a "Reset to Default" button.
   `%APPDATA%\MedPharm\settings.json` by `SettingsStore`.
 * On submit, `App.SaveSettings(...)` updates the on-disk config and
   `ApiClient.BaseUrl` picks up the new value before the login request fires.
+
+### TLS / self-signed certs
+
+`System.Net.Http.HttpClient` uses the Windows certificate store. For a self-signed dev cert:
+
+```powershell
+# PowerShell — import fullchain.pem into the current user's trusted roots
+Import-Certificate -FilePath fullchain.pem -CertStoreLocation Cert:\CurrentUser\Root
+```
+
+After import, `HttpClient` accepts the cert without code changes. Do not disable `ServerCertificateCustomValidationCallback` in production — that bypasses Windows trust validation and is a HIPAA transmission-security violation.
 
 ---
 

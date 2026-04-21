@@ -237,23 +237,29 @@ DONE
     echo -e "${NC}"
 
     if [[ "$mode" == "api" ]]; then
-        echo -e "${BOLD}Endpoints:${NC}"
-        echo -e "  API base:   http://localhost:8080/api/v1"
-        echo -e "  Health:     http://localhost:8080/api/v1/health\n"
+        echo -e "${BOLD}Endpoints (TLS enabled — self-signed by default):${NC}"
+        echo -e "  API base:   https://localhost:8080/api/v1"
+        echo -e "  Health:     https://localhost:8080/api/v1/health  ${DIM}(curl -k)${NC}\n"
         echo -e "${BOLD}Manage:${NC}"
         echo -e "  Logs:  docker compose -f docker-compose.hub.yml logs -f"
         echo -e "  Stop:  docker compose -f docker-compose.hub.yml down"
     else
         local api_direct_port="${SERVER_API_PORT:-8080}"
-        echo -e "${BOLD}Endpoints (via Nginx):${NC}"
-        echo -e "  API:           http://localhost/api/v1/health"
-        echo -e "  Patient Portal: http://localhost/portal/"
-        echo -e "  API direct:    http://localhost:${api_direct_port}/"
-        echo -e "  Portal direct: http://localhost:5000/\n"
+        echo -e "${BOLD}Endpoints (TLS enabled — self-signed by default):${NC}"
+        echo -e "  API:            https://localhost/api/v1/health   ${DIM}(curl -k)${NC}"
+        echo -e "  Patient Portal: https://localhost/portal/"
+        echo -e "  HTTP -> HTTPS:  http://localhost/  (301 redirect)"
+        echo -e "  API direct:     http://localhost:${api_direct_port}/  ${DIM}(plain, container-internal port 8080)${NC}"
+        echo -e "  Portal direct:  http://localhost:5000/  ${DIM}(plain, container-internal port 5000)${NC}\n"
         echo -e "${BOLD}Manage:${NC}"
         echo -e "  Logs:  docker compose -f server/docker-compose.hub.yml logs -f"
         echo -e "  Stop:  docker compose -f server/docker-compose.hub.yml down"
     fi
+    echo
+    echo -e "${BOLD}TLS:${NC}"
+    echo -e "  Self-signed cert auto-generated on first boot into the 'medpharm-tls' volume."
+    echo -e "  Production: mount a CA-issued cert at /etc/ssl/medpharm/{fullchain,privkey}.pem"
+    echo -e "  and set MEDPHARM_TLS_MODE=require in your .env."
     echo
     echo -e "${BOLD}Default Credentials:${NC}"
     echo -e "  Staff:   dr.carter / doctor123"
@@ -825,11 +831,11 @@ main() {
             install_docker_server
         fi
         if [[ "$INSTALL_DOCKER_API" == "true" && "$INSTALL_DOCKER_SERVER" == "true" ]]; then
-            echo -e "${BOLD}Combined deployment summary:${NC}"
-            echo -e "  API-only:    http://localhost:8080/api/v1   ${DIM}(enlightec/medpharm-api)${NC}"
-            echo -e "  Full stack:  http://localhost/              ${DIM}(enlightec/medpharm-server via Nginx)${NC}"
-            echo -e "  Full-stack direct API:    http://localhost:${SERVER_API_PORT:-8081}/"
-            echo -e "  Full-stack direct Portal: http://localhost:5000/\n"
+            echo -e "${BOLD}Combined deployment summary (TLS enabled, self-signed):${NC}"
+            echo -e "  API-only:    https://localhost:8080/api/v1   ${DIM}(enlightec/medpharm-api, curl -k)${NC}"
+            echo -e "  Full stack:  https://localhost/              ${DIM}(enlightec/medpharm-server via Nginx, curl -k)${NC}"
+            echo -e "  Full-stack direct API:    http://localhost:${SERVER_API_PORT:-8081}/ ${DIM}(plain)${NC}"
+            echo -e "  Full-stack direct Portal: http://localhost:5000/ ${DIM}(plain)${NC}\n"
         fi
         return
     fi

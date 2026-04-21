@@ -17,5 +17,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-# Docker / Kubernetes health probe — returns 0 iff Nginx serves /api/v1/health.
-curl -sf http://localhost:80/api/v1/health > /dev/null 2>&1 || exit 1
+# Docker / Kubernetes health probe — returns 0 iff /api/v1/health responds.
+# Tries HTTPS first (TLS-enabled image default). Falls back to HTTP for
+# plaintext variants. -k tolerates self-signed certs in dev installs.
+set -e
+
+if curl -skf https://localhost:443/api/v1/health > /dev/null 2>&1; then
+    exit 0
+fi
+
+if curl -sf http://localhost:80/api/v1/health > /dev/null 2>&1; then
+    exit 0
+fi
+
+exit 1

@@ -269,26 +269,46 @@ Install via the generated MSI or self-contained exe. Requires .NET 8 Desktop Run
 
 ## Post-Installation Verification
 
+All installs terminate TLS by default (HIPAA § 164.312(e)(1)). Use `-k` while you are running against the dev-generated self-signed cert; drop `-k` once a CA-issued cert is mounted.
+
 ```bash
-# API health
-curl -s http://localhost:8080/api/v1/health | jq .
+# API health (API-only container, gunicorn TLS)
+curl -sk https://localhost:8080/api/v1/health | jq .
+
+# API health (full server stack, Nginx TLS)
+curl -sk https://localhost/api/v1/health | jq .
+
+# HTTP -> HTTPS redirect (full server stack only)
+curl -sI http://localhost/api/v1/health | head -1     # expect 301
 
 # Staff login smoke test
-curl -s -X POST http://localhost:8080/api/v1/auth/login/staff \
+curl -sk -X POST https://localhost:8080/api/v1/auth/login/staff \
   -H 'Content-Type: application/json' \
   -d '{"username":"dr.carter","password":"doctor123"}' | jq .
 
 # Web portal reachability
-curl -sI http://localhost:5000/ | head -1
+curl -skI https://localhost/portal/ | head -1
 ```
 
 Expected responses:
 
 | Check | Expected |
 |-------|----------|
-| `/api/v1/health` | `{"status":"ok"}` |
+| `https://…/api/v1/health` | `{"status":"ok"}` |
+| `http://localhost/` (server stack) | `HTTP/1.1 301 Moved Permanently` → `https://localhost/` |
 | Staff login | JSON with `access_token`, `refresh_token` |
-| Web portal | `HTTP/1.1 200 OK` (login page) |
+| Web portal | `HTTP/1.1 200 OK` or `302` (login page redirect) |
+
+### TLS configuration knobs
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `MEDPHARM_TLS_MODE` | `auto` | `auto` (generate self-signed if none present), `require` (fail if no cert mounted), `disable` (plaintext — dev only) |
+| `MEDPHARM_TLS_DIR` | `/etc/ssl/medpharm` | Directory containing `fullchain.pem` + `privkey.pem` |
+| `MEDPHARM_TLS_HOSTNAME` | `localhost` | CN / SAN for self-signed generation |
+| `MEDPHARM_TLS_DAYS` | `825` | Validity for auto-generated self-signed certs |
+
+For **production** always use a CA-issued cert (Let's Encrypt, ACM, corporate PKI). Never ship a production deployment with a self-signed cert — browsers and mobile clients will refuse the connection and training users to click past warnings is itself a compliance failure.
 
 ---
 

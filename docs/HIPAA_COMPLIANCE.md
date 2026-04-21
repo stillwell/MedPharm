@@ -28,9 +28,9 @@ production install must complete.
 | (c)(1) Integrity                          | `AuditChain`, `verify_audit_chain()`                 |
 | (c)(2) Mechanism to authenticate PHI      | `security/audit.verify_audit_chain`                  |
 | (d) Person or entity authentication       | `security/passwords.py`, `security/totp.py` (TOTP MFA) |
-| (e)(1) Transmission security              | `server/nginx/medpharm-tls.conf` (TLS 1.2+, HSTS)    |
+| (e)(1) Transmission security              | TLS by default: `server/nginx/medpharm-tls.conf` (server stack), gunicorn `--certfile`/`--keyfile` (API-only), Flask `ssl_context=` (source). HTTP 80 → 301 redirect to HTTPS. HSTS preload. |
 | (e)(2)(i) Integrity controls in transit   | TLS integrity + JWT HMAC in `api/auth.py`            |
-| (e)(2)(ii) Encryption in transit          | TLS 1.2+ enforced by nginx                           |
+| (e)(2)(ii) Encryption in transit          | TLSv1.2 / TLSv1.3, ECDHE ciphers, `ssl_prefer_server_ciphers on`; HTTP disabled unless `MEDPHARM_TLS_MODE=disable` |
 
 ## 2. Accounting of Disclosures — § 164.528
 
@@ -63,10 +63,15 @@ must be documented in the incident register.
 - [ ] `MEDPHARM_CORS_ORIGINS` pinned to the real portal / mobile origins.
       `*` is rejected by the production validator.
 - [ ] `MEDPHARM_REQUIRE_TLS=1`.
+- [ ] `MEDPHARM_TLS_MODE=require` (or an upstream proxy enforcing TLS).
+      `auto` is acceptable only when a CA-issued cert is pre-staged in
+      `/etc/ssl/medpharm/`; `disable` is **never** acceptable in production.
 - [ ] `MEDPHARM_REQUIRE_MFA=1` if your policy requires MFA for all staff.
 - [ ] `nginx` loaded from `server/nginx/medpharm-tls.conf` with a valid
       CA-issued certificate (Let's Encrypt, ACM, or corporate PKI).
-      Self-signed certificates are for development only.
+      Self-signed certificates are for development only — the container
+      auto-generates one on first boot **purely to prevent accidental
+      plaintext shipping**, not as a production-grade TLS posture.
 - [ ] Database backups encrypted at rest and tested monthly.
 - [ ] Workforce security-awareness training on file (§ 164.308(a)(5)).
 - [ ] Contingency plan (backup, disaster recovery, emergency mode, testing)

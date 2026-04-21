@@ -44,6 +44,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     curl \
     sqlite3 \
+    openssl \
+    ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -69,9 +71,13 @@ COPY security/ /opt/medpharm/security/
 COPY api/ /opt/medpharm/api/
 COPY run_cloud.py /opt/medpharm/
 COPY __init__.py /opt/medpharm/
+COPY api-entrypoint.sh /opt/medpharm/entrypoint.sh
 
-# Create data directory for SQLite database
-RUN mkdir -p /data && chown medpharm:medpharm /data
+# Create data and TLS cert directories
+RUN mkdir -p /data /etc/ssl/medpharm \
+    && chmod 700 /etc/ssl/medpharm \
+    && chown medpharm:medpharm /data /etc/ssl/medpharm \
+    && chmod +x /opt/medpharm/entrypoint.sh
 
 # Set ownership
 RUN chown -R medpharm:medpharm /opt/medpharm
@@ -82,24 +88,20 @@ ENV PYTHONPATH=/opt/medpharm \
     PYTHONUNBUFFERED=1 \
     MEDPHARM_HOST=0.0.0.0 \
     MEDPHARM_PORT=8080 \
-    MEDPHARM_DB_PATH=/data/medpharm_erp.db
+    MEDPHARM_DB_PATH=/data/medpharm_erp.db \
+    MEDPHARM_TLS_DIR=/etc/ssl/medpharm \
+    MEDPHARM_TLS_HOSTNAME=localhost \
+    MEDPHARM_TLS_DAYS=825 \
+    MEDPHARM_TLS_MODE=auto
 
 EXPOSE 8080
 
-VOLUME ["/data"]
+VOLUME ["/data", "/etc/ssl/medpharm"]
 
-# Health check
+# Health check — HTTPS by default (-k to tolerate self-signed). Falls back to HTTP for legacy MEDPHARM_TLS_MODE=disable.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -sf http://localhost:8080/api/v1/health || exit 1
+    CMD curl -skf https://localhost:8080/api/v1/health || curl -sf http://localhost:8080/api/v1/health || exit 1
 
 USER medpharm
 
-# Run with gunicorn in production
-CMD ["gunicorn", "run_cloud:app", \
-     "--preload", \
-     "--bind", "0.0.0.0:8080", \
-     "--workers", "4", \
-     "--threads", "2", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+ENTRYPOINT ["/opt/medpharm/entrypoint.sh"]

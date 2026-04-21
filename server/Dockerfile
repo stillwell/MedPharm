@@ -48,6 +48,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     curl \
     sqlite3 \
+    openssl \
+    ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -78,23 +80,26 @@ COPY run_web.py /opt/medpharm/
 COPY __init__.py /opt/medpharm/
 COPY LICENSE /opt/medpharm/
 
-# Copy server configuration files
-COPY server/nginx/medpharm.conf /etc/nginx/sites-available/medpharm
+# Copy server configuration files (TLS-enabled nginx by default)
+COPY server/nginx/medpharm-tls.conf /etc/nginx/sites-available/medpharm
+COPY server/nginx/medpharm.conf /etc/nginx/sites-available/medpharm-plain
+COPY server/nginx/generate-cert.sh /opt/medpharm/generate-cert.sh
 COPY server/supervisord.conf /etc/supervisor/conf.d/medpharm.conf
 COPY server/entrypoint.sh /opt/medpharm/entrypoint.sh
 COPY server/healthcheck.sh /opt/medpharm/healthcheck.sh
 
-# Configure Nginx
+# Configure Nginx and TLS directories
 RUN rm -f /etc/nginx/sites-enabled/default \
     && ln -s /etc/nginx/sites-available/medpharm /etc/nginx/sites-enabled/medpharm \
-    && mkdir -p /var/log/medpharm
+    && mkdir -p /var/log/medpharm /etc/ssl/medpharm /var/www/certbot \
+    && chmod 700 /etc/ssl/medpharm
 
 # Create data directory for SQLite database
 RUN mkdir -p /data \
     && chown medpharm:medpharm /data
 
 # Make scripts executable
-RUN chmod +x /opt/medpharm/entrypoint.sh /opt/medpharm/healthcheck.sh
+RUN chmod +x /opt/medpharm/entrypoint.sh /opt/medpharm/healthcheck.sh /opt/medpharm/generate-cert.sh
 
 # Set ownership
 RUN chown -R medpharm:medpharm /opt/medpharm /var/log/medpharm
@@ -108,17 +113,21 @@ ENV PYTHONPATH=/opt/medpharm \
     MEDPHARM_API_PORT=8080 \
     MEDPHARM_WEB_PORT=5000 \
     MEDPHARM_WORKERS=4 \
-    MEDPHARM_THREADS=2
+    MEDPHARM_THREADS=2 \
+    MEDPHARM_TLS_DIR=/etc/ssl/medpharm \
+    MEDPHARM_TLS_HOSTNAME=localhost \
+    MEDPHARM_TLS_DAYS=825 \
+    MEDPHARM_TLS_MODE=auto
 
-# Expose ports: Nginx (80), API direct (8080), Web Portal direct (5000)
-EXPOSE 80 8080 5000
+# Expose ports: HTTP redirect (80), HTTPS (443), API direct (8080), Web Portal direct (5000)
+EXPOSE 80 443 8080 5000
 
 # Health check via Nginx
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD /opt/medpharm/healthcheck.sh
 
-# Volumes for persistent data and logs
-VOLUME ["/data", "/var/log/medpharm"]
+# Volumes for persistent data, logs, and TLS certificates
+VOLUME ["/data", "/var/log/medpharm", "/etc/ssl/medpharm"]
 
 ENTRYPOINT ["/opt/medpharm/entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

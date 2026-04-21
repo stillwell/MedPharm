@@ -51,6 +51,8 @@ spec:
           ports:
             - name: http
               containerPort: 80
+            - name: https
+              containerPort: 443
             - name: api
               containerPort: 8080
             - name: web
@@ -65,23 +67,29 @@ spec:
               mountPath: /data
             - name: logs
               mountPath: /var/log/medpharm
+            - name: tls
+              mountPath: /etc/ssl/medpharm
+              readOnly: true
           startupProbe:
             httpGet:
               path: /api/v1/health
-              port: http
+              port: https
+              scheme: HTTPS
             failureThreshold: 30
             periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /api/v1/health
-              port: http
+              port: https
+              scheme: HTTPS
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /api/v1/health
-              port: http
+              port: https
+              scheme: HTTPS
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 5
@@ -98,3 +106,14 @@ spec:
             claimName: medpharm-data
         - name: logs
           emptyDir: {}
+        - name: tls
+          secret:
+            # The medpharm-k8s.sh installer creates this secret automatically
+            # (self-signed by default). Replace with a CA-issued cert for prod.
+            secretName: medpharm-tls
+            optional: true
+            items:
+              - key: tls.crt
+                path: fullchain.pem
+              - key: tls.key
+                path: privkey.pem
