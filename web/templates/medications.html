@@ -22,7 +22,10 @@
 {% block title %}My Medications - MedPharm Portal{% endblock %}
 {% block content %}
 <div class="py-4">
-    <h2 class="mb-4"><i class="fas fa-pills me-2"></i>My Current Medications</h2>
+    <div class="mb-4">
+        <h1 class="page-title"><i class="fas fa-pills"></i>My Current Medications</h1>
+        <p class="page-subtitle">What you're taking, dosages, and the safety notes that go with them.</p>
+    </div>
 
     {% if medications %}
         <div class="row g-4">

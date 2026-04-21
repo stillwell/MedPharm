@@ -22,7 +22,10 @@
 {% block title %}Appointments - MedPharm Portal{% endblock %}
 {% block content %}
 <div class="py-4">
-    <h2 class="mb-4"><i class="fas fa-calendar-check me-2"></i>My Appointments</h2>
+    <div class="mb-4">
+        <h1 class="page-title"><i class="fas fa-calendar-check"></i>My Appointments</h1>
+        <p class="page-subtitle">Upcoming care, historical visits, and reminder details.</p>
+    </div>
 
     <h5 class="text-primary mb-3"><i class="fas fa-clock me-2"></i>Upcoming Appointments</h5>
     {% if upcoming %}

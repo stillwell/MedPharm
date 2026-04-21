@@ -14,77 +14,114 @@ struct LoginView: View {
     @State private var password = ""
     @State private var loginType = "Patient"
     @State private var serverURL: String = APIClient.storedBaseURL
+    @State private var pulse = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            VStack(spacing: 8) {
-                Image(systemName: "cross.case.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.teal)
+        ZStack {
+            MPBackground()
+
+            VStack(spacing: 0) {
+                Spacer().frame(height: 40)
+
+                // Brand
+                ZStack {
+                    Circle()
+                        .fill(MPGradient.primary)
+                        .frame(width: 140, height: 140)
+                        .blur(radius: 48)
+                        .opacity(0.5)
+                        .scaleEffect(pulse ? 1.12 : 0.94)
+                        .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: pulse)
+
+                    Image(systemName: "cross.case.fill")
+                        .font(.system(size: 72, weight: .semibold))
+                        .foregroundStyle(MPGradient.primary)
+                        .shadow(color: MPColor.primary.opacity(0.55), radius: 18)
+                }
+                .frame(height: 120)
+
                 Text("MedPharm ERP")
-                    .font(.largeTitle).bold()
-                    .foregroundColor(.teal)
-                Text("Medical & Pharmaceutical Management")
-                    .font(.caption).foregroundColor(.secondary)
-            }
-            .padding(.top, 20)
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(MPGradient.primary)
+                    .padding(.top, 14)
 
-            VStack(alignment: .leading, spacing: 16) {
-                Picker("Login As", selection: $loginType) {
-                    Text("Patient").tag("Patient")
-                    Text("Staff").tag("Staff")
-                }.pickerStyle(.segmented)
+                Text("MEDICAL · PHARMACEUTICAL · SECURE")
+                    .font(.system(size: 11, weight: .semibold))
+                    .kerning(2.0)
+                    .foregroundColor(MPColor.textMuted)
+                    .padding(.top, 4)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Server URL").font(.caption).foregroundColor(.secondary)
-                        Spacer()
-                        Button("Reset") {
-                            serverURL = APIClient.defaultBaseURL
-                        }.font(.caption).buttonStyle(.link)
+                // Form
+                VStack(alignment: .leading, spacing: 16) {
+                    Picker("Login As", selection: $loginType) {
+                        Text("Patient").tag("Patient")
+                        Text("Staff").tag("Staff")
+                    }.pickerStyle(.segmented)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("SERVER URL").font(.caption).kerning(1.2).foregroundColor(MPColor.textMuted)
+                            Spacer()
+                            Button("Reset") {
+                                serverURL = APIClient.defaultBaseURL
+                            }
+                            .font(.caption)
+                            .buttonStyle(.link)
+                            .foregroundColor(MPColor.primary)
+                        }
+                        TextField("https://medpharm-erp.enlightec.com:8080/api/v1",
+                                  text: $serverURL)
+                            .textFieldStyle(MPTextFieldStyle())
+                            .disableAutocorrection(true)
                     }
-                    TextField("https://medpharm-erp.enlightec.com:8080/api/v1",
-                              text: $serverURL)
-                        .textFieldStyle(.roundedBorder)
-                        .disableAutocorrection(true)
-                }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Username").font(.caption).foregroundColor(.secondary)
-                    TextField("", text: $username)
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Password").font(.caption).foregroundColor(.secondary)
-                    SecureField("", text: $password)
-                        .textFieldStyle(.roundedBorder)
-                }
-
-                if let error = authManager.errorMessage {
-                    Text(error).foregroundColor(.red).font(.caption)
-                }
-
-                Button(action: login) {
-                    if authManager.isLoading {
-                        ProgressView().scaleEffect(0.7)
-                    } else {
-                        Text("Log In").frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("USERNAME").font(.caption).kerning(1.2).foregroundColor(MPColor.textMuted)
+                        TextField("", text: $username).textFieldStyle(MPTextFieldStyle())
                     }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("PASSWORD").font(.caption).kerning(1.2).foregroundColor(MPColor.textMuted)
+                        SecureField("", text: $password).textFieldStyle(MPTextFieldStyle())
+                    }
+
+                    if let error = authManager.errorMessage {
+                        Text(error)
+                            .foregroundColor(MPColor.danger)
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10).fill(MPColor.danger.opacity(0.12))
+                            )
+                    }
+
+                    Button(action: login) {
+                        if authManager.isLoading {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Label("Log In", systemImage: "arrow.right.circle.fill")
+                        }
+                    }
+                    .buttonStyle(MPPrimaryButtonStyle())
+                    .disabled(authManager.isLoading || username.isEmpty || password.isEmpty)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.teal)
-                .controlSize(.large)
-                .disabled(authManager.isLoading || username.isEmpty || password.isEmpty)
+                .mpCard(padding: 24)
+                .frame(maxWidth: 420)
+                .padding(.top, 28)
+
+                Spacer()
+
+                Text("© 2026 Enlightec Ltd. · HIPAA · TLS")
+                    .font(.caption2)
+                    .foregroundColor(MPColor.textDim)
+                    .padding(.bottom, 20)
             }
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            Text("Copyright © 2026 Enlightec Ltd.")
-                .font(.caption2).foregroundColor(.secondary)
+            .padding(.horizontal, 40)
         }
-        .padding()
+        .frame(minWidth: 500, minHeight: 640)
+        .onAppear { pulse = true }
+        .preferredColorScheme(.dark)
     }
 
     private func login() {
@@ -96,5 +133,23 @@ struct LoginView: View {
                 await authManager.staffLogin(username: username, password: password)
             }
         }
+    }
+}
+
+struct MPTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(MPColor.bg.opacity(0.75))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(MPColor.border, lineWidth: 1)
+                    )
+            )
+            .foregroundColor(MPColor.text)
     }
 }

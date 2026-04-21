@@ -22,69 +22,120 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel>
-            <TextBlock Text="Dashboard" FontSize="28" FontWeight="Bold"
-                       Foreground="{StaticResource TextPrimaryBrush}"
-                       Margin="0,0,0,16" />
+        <StackPanel Margin="0,0,0,16">
+
+            <!-- Hero banner -->
+            <Border Style="{StaticResource MPHeroBanner}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="DASHBOARD · LIVE"
+                                   FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource MPPrimary}" />
+                        <TextBlock Text="Your health at a glance"
+                                   FontSize="28" FontWeight="Bold"
+                                   Foreground="{StaticResource MPText}"
+                                   Margin="0,6,0,0" />
+                        <TextBlock Text="REAL-TIME · HIPAA-SECURE · TLS ENCRYPTED"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource MPTextMuted}"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Width="72" Height="72" CornerRadius="18"
+                            Background="{StaticResource MPGradientPrimary}"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="♥" FontSize="42" FontWeight="Bold"
+                                   Foreground="#FF04121A"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="0,-4,0,0" />
+                    </Border>
+                </Grid>
+            </Border>
 
             <!-- KPI Cards -->
-            <UniformGrid Rows="1" Columns="3">
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Active Prescriptions"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="12" />
-                        <TextBlock x:Name="ActiveRxText" Text="—"
-                                   FontSize="32" FontWeight="Bold"
-                                   Foreground="{StaticResource TealBrush}"
-                                   Margin="0,8,0,0" />
-                    </StackPanel>
+            <UniformGrid Rows="1" Columns="3" Margin="0,4,0,0">
+                <Border Style="{StaticResource MPKpiCard}">
+                    <Grid>
+                        <Rectangle HorizontalAlignment="Left" Width="3" RadiusX="2" RadiusY="2"
+                                   Fill="{StaticResource MPGradientPrimary}" />
+                        <StackPanel Margin="14,0,0,0">
+                            <TextBlock Text="ACTIVE PRESCRIPTIONS"
+                                       Style="{StaticResource MPKpiLabel}" />
+                            <TextBlock x:Name="ActiveRxText" Text="—"
+                                       Style="{StaticResource MPKpiValue}" />
+                            <TextBlock Text="Currently dispensed"
+                                       FontSize="11"
+                                       Foreground="{StaticResource MPTextDim}"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Upcoming Appointments"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="12" />
-                        <TextBlock x:Name="AppointmentsText" Text="—"
-                                   FontSize="32" FontWeight="Bold"
-                                   Foreground="{StaticResource TealBrush}"
-                                   Margin="0,8,0,0" />
-                    </StackPanel>
+                <Border Style="{StaticResource MPKpiCard}">
+                    <Grid>
+                        <Rectangle HorizontalAlignment="Left" Width="3" RadiusX="2" RadiusY="2"
+                                   Fill="{StaticResource MPGradientSuccess}" />
+                        <StackPanel Margin="14,0,0,0">
+                            <TextBlock Text="UPCOMING APPOINTMENTS"
+                                       Style="{StaticResource MPKpiLabel}" />
+                            <TextBlock x:Name="AppointmentsText" Text="—"
+                                       Style="{StaticResource MPKpiValue}"
+                                       Foreground="{StaticResource MPSuccess}" />
+                            <TextBlock Text="Scheduled visits"
+                                       FontSize="11"
+                                       Foreground="{StaticResource MPTextDim}"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Outstanding Balance"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   FontSize="12" />
-                        <TextBlock x:Name="BalanceText" Text="—"
-                                   FontSize="32" FontWeight="Bold"
-                                   Foreground="{StaticResource AccentBrush}"
-                                   Margin="0,8,0,0" />
-                    </StackPanel>
+                <Border Style="{StaticResource MPKpiCard}">
+                    <Grid>
+                        <Rectangle HorizontalAlignment="Left" Width="3" RadiusX="2" RadiusY="2"
+                                   Fill="{StaticResource MPGradientDanger}" />
+                        <StackPanel Margin="14,0,0,0">
+                            <TextBlock Text="OUTSTANDING BALANCE"
+                                       Style="{StaticResource MPKpiLabel}" />
+                            <TextBlock x:Name="BalanceText" Text="—"
+                                       Style="{StaticResource MPKpiValue}"
+                                       Foreground="{StaticResource MPAccent}" />
+                            <TextBlock Text="Payable to provider"
+                                       FontSize="11"
+                                       Foreground="{StaticResource MPTextDim}"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </UniformGrid>
 
             <!-- Recent Prescriptions -->
-            <Border Style="{StaticResource Card}" Margin="8,16,8,8">
+            <Border Style="{StaticResource MPCard}" Margin="8,16,8,8">
                 <StackPanel>
-                    <TextBlock Text="Recent Prescriptions" FontSize="18" FontWeight="SemiBold"
-                               Margin="0,0,0,12" />
-                    <ListView x:Name="RecentRxList" BorderThickness="0">
+                    <TextBlock Text="Recent Prescriptions" Style="{StaticResource MPSectionHeader}" />
+                    <ListView x:Name="RecentRxList" BorderThickness="0" Background="Transparent">
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,4">
+                                <Grid Margin="0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding RxNumber}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding RxNumber}"
+                                                   FontWeight="Bold" FontSize="14"
+                                                   Foreground="{StaticResource MPPrimary}" />
                                         <TextBlock Text="{Binding PrescriberName}" FontSize="11"
-                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                                   Foreground="{StaticResource MPTextMuted}"
+                                                   Margin="0,2,0,0" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding Status}"
-                                               Foreground="{StaticResource TealBrush}"
-                                               FontWeight="SemiBold" />
+                                    <Border Grid.Column="1" Style="{StaticResource MPBadgeSuccess}"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Status}"
+                                                   Foreground="{StaticResource MPSuccess}"
+                                                   FontSize="10" FontWeight="Bold" />
+                                    </Border>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -93,26 +144,29 @@
             </Border>
 
             <!-- Upcoming Appointments -->
-            <Border Style="{StaticResource Card}">
+            <Border Style="{StaticResource MPCard}">
                 <StackPanel>
-                    <TextBlock Text="Upcoming Appointments" FontSize="18" FontWeight="SemiBold"
-                               Margin="0,0,0,12" />
-                    <ListView x:Name="UpcomingList" BorderThickness="0">
+                    <TextBlock Text="Upcoming Appointments" Style="{StaticResource MPSectionHeader}" />
+                    <ListView x:Name="UpcomingList" BorderThickness="0" Background="Transparent">
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="0,4">
+                                <Grid Margin="0,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding AppointmentType}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding AppointmentType}"
+                                                   FontWeight="Bold" FontSize="14"
+                                                   Foreground="{StaticResource MPText}" />
                                         <TextBlock Text="{Binding ProviderName}" FontSize="11"
-                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                                   Foreground="{StaticResource MPTextMuted}"
+                                                   Margin="0,2,0,0" />
                                     </StackPanel>
                                     <TextBlock Grid.Column="1" Text="{Binding ScheduledDatetime}"
-                                               FontSize="11"
-                                               Foreground="{StaticResource TextSecondaryBrush}" />
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource MPInfo}"
+                                               VerticalAlignment="Center" />
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

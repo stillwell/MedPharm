@@ -23,161 +23,208 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
+    android:background="@drawable/bg_hero_gradient"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
+        android:gravity="center_horizontal"
         android:orientation="vertical"
         android:padding="32dp">
 
-        <!-- Logo / Title Area -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
-            android:text="@string/login_title"
-            android:textColor="@color/primary"
-            android:textSize="32sp"
-            android:textStyle="bold" />
+        <!-- Brand logo -->
+        <ImageView
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginTop="56dp"
+            android:src="@drawable/ic_heartbeat"
+            android:contentDescription="@string/app_name" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="20dp"
+            android:text="@string/login_title"
+            android:textColor="@color/primary_light"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:letterSpacing="-0.03" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
             android:text="@string/login_subtitle"
             android:textColor="@color/text_secondary"
-            android:textSize="16sp" />
+            android:textSize="13sp"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true" />
 
-        <!-- Server URL -->
-        <com.google.android.material.textfield.TextInputLayout
+        <!-- Glass card frame -->
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:hint="@string/hint_server_url"
-            app:boxStrokeColor="@color/primary"
-            app:helperText="@string/hint_server_url_helper"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:layout_marginTop="36dp"
+            app:cardBackgroundColor="#CC121A2B"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etServerUrl"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textUri"
-                android:imeOptions="actionNext" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:orientation="vertical"
+                android:padding="24dp">
 
-        <TextView
-            android:id="@+id/tvResetServerUrl"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_gravity="start"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:text="@string/btn_reset_server_url"
-            android:textColor="@color/primary"
-            android:textSize="12sp" />
+                <!-- Server URL -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/hint_server_url"
+                    app:boxStrokeColor="@color/primary"
+                    app:hintTextColor="@color/primary"
+                    app:helperText="@string/hint_server_url_helper"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        <!-- Login Type Toggle -->
-        <RadioGroup
-            android:id="@+id/rgLoginType"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:orientation="horizontal">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etServerUrl"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri"
+                        android:textColor="@color/text_primary"
+                        android:imeOptions="actionNext" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-            <RadioButton
-                android:id="@+id/rbPatient"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                android:text="@string/login_type_patient"
-                android:paddingEnd="16dp" />
+                <TextView
+                    android:id="@+id/tvResetServerUrl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:layout_gravity="start"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:text="@string/btn_reset_server_url"
+                    android:textColor="@color/primary_light"
+                    android:textSize="12sp" />
 
-            <RadioButton
-                android:id="@+id/rbStaff"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/login_type_staff" />
-        </RadioGroup>
+                <!-- Login Type Toggle -->
+                <RadioGroup
+                    android:id="@+id/rgLoginType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:orientation="horizontal">
 
-        <!-- Username -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            app:boxStrokeColor="@color/primary"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    <RadioButton
+                        android:id="@+id/rbPatient"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="@color/primary"
+                        android:checked="true"
+                        android:text="@string/login_type_patient"
+                        android:textColor="@color/text_primary"
+                        android:paddingEnd="16dp" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etUsername"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/hint_username"
-                android:inputType="text"
-                android:imeOptions="actionNext" />
-        </com.google.android.material.textfield.TextInputLayout>
+                    <RadioButton
+                        android:id="@+id/rbStaff"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="@color/primary"
+                        android:textColor="@color/text_primary"
+                        android:text="@string/login_type_staff" />
+                </RadioGroup>
 
-        <!-- Password -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:passwordToggleEnabled="true"
-            app:boxStrokeColor="@color/primary"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                <!-- Username -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    app:boxStrokeColor="@color/primary"
+                    app:hintTextColor="@color/primary"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etPassword"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/hint_password"
-                android:inputType="textPassword"
-                android:imeOptions="actionDone" />
-        </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etUsername"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/hint_username"
+                        android:inputType="text"
+                        android:textColor="@color/text_primary"
+                        android:imeOptions="actionNext" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Login Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnLogin"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="24dp"
-            android:text="@string/btn_login"
-            android:textSize="16sp"
-            app:backgroundTint="@color/primary" />
+                <!-- Password -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    app:passwordToggleEnabled="true"
+                    app:passwordToggleTint="@color/primary"
+                    app:boxStrokeColor="@color/primary"
+                    app:hintTextColor="@color/primary"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        <!-- Progress -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:visibility="gone"
-            android:indeterminateTint="@color/primary" />
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPassword"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="@string/hint_password"
+                        android:inputType="textPassword"
+                        android:textColor="@color/text_primary"
+                        android:imeOptions="actionDone" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Register Link -->
-        <TextView
-            android:id="@+id/tvRegister"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/register_link"
-            android:textColor="@color/primary"
-            android:textSize="14sp" />
+                <!-- Login Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnLogin"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="22dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:text="@string/btn_login"
+                    android:textColor="@color/text_on_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:letterSpacing="0.02"
+                    app:backgroundTint="@null"
+                    app:cornerRadius="14dp"
+                    app:rippleColor="#26FFFFFF" />
+
+                <!-- Progress -->
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="16dp"
+                    android:visibility="gone"
+                    android:indeterminateTint="@color/primary" />
+
+                <!-- Register Link -->
+                <TextView
+                    android:id="@+id/tvRegister"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="20dp"
+                    android:text="@string/register_link"
+                    android:textColor="@color/primary_light"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <!-- Copyright -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="16dp"
+            android:layout_marginTop="28dp"
+            android:layout_marginBottom="20dp"
             android:text="@string/copyright"
-            android:textColor="@color/text_secondary"
+            android:textColor="@color/text_tertiary"
             android:textSize="11sp" />
 
     </LinearLayout>

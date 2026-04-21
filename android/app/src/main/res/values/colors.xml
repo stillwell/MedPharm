@@ -20,42 +20,63 @@
 -->
 
 <resources>
-    <!-- Primary Colors - Medical Teal -->
-    <color name="primary">#00BCD4</color>
-    <color name="primary_dark">#00838F</color>
-    <color name="primary_light">#4DD0E1</color>
-    <color name="primary_variant">#0097A7</color>
+    <!-- ═══ Primary accents ═══ -->
+    <color name="primary">#00E5D0</color>
+    <color name="primary_dark">#009B8B</color>
+    <color name="primary_light">#6CFFEE</color>
+    <color name="primary_variant">#18B7FF</color>
 
-    <!-- Secondary / Accent -->
-    <color name="secondary">#26A69A</color>
-    <color name="secondary_variant">#00897B</color>
+    <!-- ═══ Secondary / Accent ═══ -->
+    <color name="secondary">#FF3D8B</color>
+    <color name="secondary_variant">#B14BFF</color>
+    <color name="gold">#FFB800</color>
 
-    <!-- Background -->
-    <color name="background">#FAFAFA</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="card_background">#FFFFFF</color>
+    <!-- ═══ Background surfaces (dark) ═══ -->
+    <color name="background">#070B14</color>
+    <color name="background_elevated">#0B1220</color>
+    <color name="surface">#121A2B</color>
+    <color name="surface_variant">#182136</color>
+    <color name="card_background">#121A2B</color>
+    <color name="scrim">#CC000000</color>
 
-    <!-- Text -->
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="text_on_primary">#FFFFFF</color>
+    <!-- ═══ Text ═══ -->
+    <color name="text_primary">#E9EEF7</color>
+    <color name="text_secondary">#8695B0</color>
+    <color name="text_tertiary">#5A6782</color>
+    <color name="text_on_primary">#06111C</color>
     <color name="text_on_secondary">#FFFFFF</color>
 
-    <!-- Status Colors -->
-    <color name="status_active">#4CAF50</color>
-    <color name="status_pending">#FF9800</color>
-    <color name="status_expired">#9E9E9E</color>
-    <color name="status_overdue">#F44336</color>
-    <color name="status_cancelled">#9E9E9E</color>
-    <color name="status_completed">#2196F3</color>
+    <!-- ═══ Status ═══ -->
+    <color name="status_active">#00D97E</color>
+    <color name="status_pending">#FF9F43</color>
+    <color name="status_expired">#5A6782</color>
+    <color name="status_overdue">#FF4757</color>
+    <color name="status_cancelled">#5A6782</color>
+    <color name="status_completed">#30C1FF</color>
 
-    <!-- Severity -->
-    <color name="severity_mild">#8BC34A</color>
-    <color name="severity_moderate">#FFC107</color>
-    <color name="severity_severe">#FF5722</color>
-    <color name="severity_critical">#D32F2F</color>
+    <!-- ═══ Severity ═══ -->
+    <color name="severity_mild">#00D97E</color>
+    <color name="severity_moderate">#FFB800</color>
+    <color name="severity_severe">#FF9F43</color>
+    <color name="severity_critical">#FF4757</color>
 
-    <!-- Misc -->
-    <color name="divider">#E0E0E0</color>
-    <color name="error">#B00020</color>
+    <!-- ═══ Misc ═══ -->
+    <color name="divider">#1F2A40</color>
+    <color name="border">#2A3A5A</color>
+    <color name="error">#FF4757</color>
+    <color name="success">#00D97E</color>
+    <color name="warning">#FFB800</color>
+    <color name="info">#30C1FF</color>
+
+    <!-- Gradient stops -->
+    <color name="grad_primary_start">#00E5D0</color>
+    <color name="grad_primary_mid">#18B7FF</color>
+    <color name="grad_primary_end">#B14BFF</color>
+
+    <color name="grad_accent_start">#FF3D8B</color>
+    <color name="grad_accent_end">#B14BFF</color>
+
+    <color name="grad_hero_start">#0A1028</color>
+    <color name="grad_hero_mid">#1E0D36</color>
+    <color name="grad_hero_end">#120A28</color>
 </resources>

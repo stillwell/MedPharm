@@ -23,8 +23,26 @@
 {% block content %}
 <div class="py-4">
     <div class="welcome-banner mb-4">
-        <h2><i class="fas fa-hand-holding-medical me-2"></i>Welcome, {{ patient_name }}</h2>
-        <p class="text-muted mb-0">Your health dashboard at a glance</p>
+        <div class="d-flex align-items-center justify-content-between flex-wrap">
+            <div>
+                <h2><i class="fas fa-hand-holding-medical me-2"></i>Welcome, {{ patient_name }}</h2>
+                <p class="mb-0">Your health dashboard at a glance &mdash; <span class="text-gradient" style="font-weight:600;">real-time &middot; HIPAA-secure &middot; TLS encrypted</span></p>
+            </div>
+            <svg class="welcome-pulse d-none d-md-block" viewBox="0 0 260 60" width="260" height="60" aria-hidden="true" style="opacity:.9;filter:drop-shadow(0 0 14px rgba(0,229,208,0.55));">
+                <defs>
+                    <linearGradient id="pulseGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%"  stop-color="#00e5d0" stop-opacity="0"/>
+                        <stop offset="40%" stop-color="#00e5d0"/>
+                        <stop offset="70%" stop-color="#ff3d8b"/>
+                        <stop offset="100%" stop-color="#b14bff" stop-opacity="0"/>
+                    </linearGradient>
+                </defs>
+                <path d="M0 30 L40 30 L55 30 L62 10 L72 50 L82 20 L92 30 L140 30 L150 15 L158 45 L168 25 L260 30"
+                      fill="none" stroke="url(#pulseGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <animate attributeName="stroke-dasharray" from="0,520" to="520,0" dur="2.6s" repeatCount="indefinite"/>
+                </path>
+            </svg>
+        </div>
     </div>
 
     <!-- KPI Cards -->

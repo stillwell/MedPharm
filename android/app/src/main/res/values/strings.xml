@@ -57,6 +57,8 @@
     <string name="nav_profile">Profile</string>
 
     <!-- Dashboard -->
+    <string name="dashboard_title">Your health at a glance</string>
+    <string name="dashboard_subtitle">REAL-TIME · HIPAA-SECURE · TLS ENCRYPTED</string>
     <string name="dashboard_active_rx">Active Prescriptions</string>
     <string name="dashboard_upcoming_appts">Upcoming Appointments</string>
     <string name="dashboard_outstanding">Outstanding Balance</string>

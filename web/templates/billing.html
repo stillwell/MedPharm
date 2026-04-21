@@ -22,7 +22,10 @@
 {% block title %}Billing - MedPharm Portal{% endblock %}
 {% block content %}
 <div class="py-4">
-    <h2 class="mb-4"><i class="fas fa-file-invoice-dollar me-2"></i>Billing & Payments</h2>
+    <div class="mb-4">
+        <h1 class="page-title"><i class="fas fa-file-invoice-dollar"></i>Billing &amp; Payments</h1>
+        <p class="page-subtitle">Invoices, balances, and a transparent history of every transaction.</p>
+    </div>
 
     {% if outstanding_balance > 0 %}
     <div class="alert alert-warning d-flex align-items-center mb-4">

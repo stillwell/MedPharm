@@ -45,38 +45,50 @@ struct MainView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(NavigationDestination.allCases, id: \.self, selection: $selection) { dest in
-                Label(dest.label, systemImage: dest.icon).tag(dest)
-            }
-            .navigationTitle("MedPharm")
-            .listStyle(.sidebar)
-            .safeAreaInset(edge: .bottom) {
-                VStack {
-                    Divider()
-                    Button(role: .destructive) {
-                        Task { await authManager.logout() }
-                    } label: {
-                        Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
-                            .frame(maxWidth: .infinity)
+            ZStack {
+                MPColor.bg.ignoresSafeArea()
+                List(NavigationDestination.allCases, id: \.self, selection: $selection) { dest in
+                    Label(dest.label, systemImage: dest.icon).tag(dest)
+                        .foregroundColor(selection == dest ? MPColor.primary : MPColor.textMuted)
+                }
+                .scrollContentBackground(.hidden)
+                .navigationTitle("MedPharm")
+                .listStyle(.sidebar)
+                .safeAreaInset(edge: .bottom) {
+                    VStack(spacing: 0) {
+                        Divider().overlay(MPColor.border)
+                        Button {
+                            Task { await authManager.logout() }
+                        } label: {
+                            Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(MPColor.danger)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(12)
                     }
-                    .buttonStyle(.borderless)
-                    .padding()
                 }
             }
         } detail: {
-            Group {
-                switch selection ?? .dashboard {
-                case .dashboard: DashboardView()
-                case .prescriptions: PrescriptionsView()
-                case .billing: BillingView()
-                case .appointments: AppointmentsView()
-                case .records: RecordsView()
-                case .medications: MedicationsView()
-                case .insurance: InsuranceClaimsView()
-                case .profile: ProfileView()
+            ZStack {
+                MPBackground()
+                Group {
+                    switch selection ?? .dashboard {
+                    case .dashboard: DashboardView()
+                    case .prescriptions: PrescriptionsView()
+                    case .billing: BillingView()
+                    case .appointments: AppointmentsView()
+                    case .records: RecordsView()
+                    case .medications: MedicationsView()
+                    case .insurance: InsuranceClaimsView()
+                    case .profile: ProfileView()
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .preferredColorScheme(.dark)
     }
 }
