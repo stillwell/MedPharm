@@ -21,12 +21,12 @@
 {% extends "base.html" %}
 {% block title %}404 - Not Found{% endblock %}
 {% block content %}
-<div class="text-center py-5">
-    <h1 class="display-1 text-muted">404</h1>
-    <h3>Page Not Found</h3>
-    <p class="text-muted">The page you're looking for doesn't exist.</p>
-    <a href="{{ url_for('portal.dashboard') if user_logged_in else url_for('portal.login') }}" class="btn btn-primary mt-3">
-        <i class="fas fa-home me-2"></i>Go Home
+<div class="error-page">
+    <div class="error-glyph error-404">404</div>
+    <h2 class="error-title"><i class="fas fa-compass me-2"></i>Page Not Found</h2>
+    <p class="error-sub">The page you're looking for has wandered off into the ether.</p>
+    <a href="{{ url_for('portal.dashboard') if user_logged_in else url_for('portal.login') }}" class="btn btn-primary btn-lg mt-3">
+        <i class="fas fa-home me-2"></i>Back to Safety
     </a>
 </div>
 {% endblock %}

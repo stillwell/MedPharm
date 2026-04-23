@@ -21,12 +21,12 @@
 {% extends "base.html" %}
 {% block title %}500 - Server Error{% endblock %}
 {% block content %}
-<div class="text-center py-5">
-    <h1 class="display-1 text-muted">500</h1>
-    <h3>Internal Server Error</h3>
-    <p class="text-muted">Something went wrong. Please try again later.</p>
-    <a href="{{ url_for('portal.dashboard') if user_logged_in else url_for('portal.login') }}" class="btn btn-primary mt-3">
-        <i class="fas fa-home me-2"></i>Go Home
+<div class="error-page">
+    <div class="error-glyph error-500">500</div>
+    <h2 class="error-title"><i class="fas fa-triangle-exclamation me-2"></i>Internal Server Error</h2>
+    <p class="error-sub">Something went wrong on our side. Our team has been notified &mdash; please try again shortly.</p>
+    <a href="{{ url_for('portal.dashboard') if user_logged_in else url_for('portal.login') }}" class="btn btn-primary btn-lg mt-3">
+        <i class="fas fa-home me-2"></i>Back to Safety
     </a>
 </div>
 {% endblock %}

@@ -22,7 +22,7 @@
    Dark-first, glass, gradient, kinetic
    ══════════════════════════════════════════════════════════════ */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("../vendor/fonts/google_fonts.css");
 
 :root {
     /* ─── Palette ─── */
@@ -886,6 +886,50 @@ hr { border-color: var(--mp-border); opacity: 1; }
 
 .fw-bold { font-weight: 700 !important; }
 .text-danger.fw-bold { text-shadow: 0 0 20px rgba(255,71,87,0.35); }
+
+/* ══════════════════════════════════════════════════════════════
+   Error pages · Giant gradient glyph with aura
+   ══════════════════════════════════════════════════════════════ */
+
+.error-page {
+    min-height: calc(100vh - 180px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+    position: relative;
+}
+.error-glyph {
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-size: clamp(7rem, 22vw, 16rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.06em;
+    background: var(--grad-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 40px rgba(0,229,208,0.45));
+    position: relative;
+    animation: card-rise 700ms var(--ease-out) both, error-float 6s var(--ease-in-out) infinite;
+}
+.error-500 { background: var(--grad-danger); filter: drop-shadow(0 0 40px rgba(255,71,87,0.5)); }
+@keyframes error-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-10px); }
+}
+.error-title {
+    font-size: 1.5rem;
+    color: var(--mp-text);
+    margin-top: 8px;
+}
+.error-sub {
+    color: var(--mp-text-muted);
+    max-width: 540px;
+    margin: 8px auto 8px;
+}
 
 /* ══════════════════════════════════════════════════════════════
    Responsive
