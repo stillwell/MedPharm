@@ -95,6 +95,8 @@
                                 Click="Nav_Click" Style="{StaticResource MPNavButton}" />
                         <Button x:Name="NavInsurance" Content="  ✓   Insurance Claims" Tag="insurance"
                                 Click="Nav_Click" Style="{StaticResource MPNavButton}" />
+                        <Button x:Name="NavMessages" Content="  ✉   Messages" Tag="messages"
+                                Click="Nav_Click" Style="{StaticResource MPNavButton}" />
                     </StackPanel>
                 </DockPanel>
             </Border>

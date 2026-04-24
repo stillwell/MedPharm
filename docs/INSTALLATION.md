@@ -164,7 +164,7 @@ All Docker images are based on **Ubuntu 24.04 LTS**. Two images are published on
 ./install.sh --docker                     # API only
 ./install.sh --docker-server              # Full stack
 ./install.sh --docker --docker-server     # Both (auto-remaps ports)
-./install.sh --docker --tag=1.7.4         # Pin version
+./install.sh --docker --tag=1.7.5         # Pin version
 ```
 
 ### Compose (pre-built images)
@@ -198,7 +198,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: enlightec/medpharm-api:1.7.4
+          image: enlightec/medpharm-api:1.7.5
           ports: [{ containerPort: 8080 }]
           env:
             - { name: MEDPHARM_JWT_SECRET, valueFrom: { secretKeyRef: { name: medpharm, key: jwt } } }

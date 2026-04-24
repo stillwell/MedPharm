@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.4-A")
+                        f"Issued {self.build_date}  //  Revision 1.7.5-A")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.4-A &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.5-A &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,11 +484,11 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.4-A"],
+            ["Revision", "1.7.5-A"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
-            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.4)"],
+            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.5)"],
             ["Supersedes", "No previous edition"],
             ["Classification", "CONFIDENTIAL — Authorised Operators"],
             ["Licence", "GNU General Public License v3.0 (content redistributable)"],
@@ -1497,7 +1497,7 @@ def chapter_06_commissioning(styles):
         code_block(
             """git clone https://github.com/stillwell/MedPharm.git
 cd MedPharm
-git checkout v1.7.4    # pin to a tagged release for production""", styles),
+git checkout v1.7.5    # pin to a tagged release for production""", styles),
         h2("Step 2 — Generate secrets", styles),
         p(
             "Before running the installer, generate two independent "
@@ -1909,7 +1909,7 @@ docker compose -f docker-compose.hub.yml stop -t 30""", styles),
             "start cleanly even if the container appears Up.",
             styles),
         code_block(
-            """MedPharm ERP API Server v1.7.4
+            """MedPharm ERP API Server v1.7.5
 Binding 0.0.0.0:8080  (TLS: require)
 Database: /data/medpharm_erp.db (connected, WAL mode)
 Seeded: 23 models, 75 medications, 30 symptoms, 25 conditions
@@ -4597,14 +4597,14 @@ def appendix_f_revision(styles):
             "numbered against the MedPharm release with which "
             "they are current, followed by a letter designating "
             "the revision of the manual itself within that "
-            "release (e.g. 1.7.4-A, 1.7.4-B). A revision-history "
+            "release (e.g. 1.7.5-A, 1.7.5-B). A revision-history "
             "table must accompany the manual; operators are "
             "asked to add to it when they contribute changes.",
             styles),
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.4-A", datetime.now().strftime("%d %b %Y"),
+                ["1.7.5-A", datetime.now().strftime("%d %b %Y"),
                  "R. Stillwell",
                  "Initial issue of the operator-facing service manual."],
             ],
@@ -4662,7 +4662,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.4-A.</i>",
+            "Volume II, Revision 1.7.5-A.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),

@@ -118,3 +118,80 @@ public class MessageResponse
     [JsonProperty("message")] public string? Message { get; set; }
     [JsonProperty("error")] public string? Error { get; set; }
 }
+
+// ── Secure Messaging ───────────────────────────────────────────────────
+
+public class MessageThread
+{
+    [JsonProperty("id")] public int Id { get; set; }
+    [JsonProperty("patient_id")] public int PatientId { get; set; }
+    [JsonProperty("patient_name")] public string? PatientName { get; set; }
+    [JsonProperty("provider_id")] public int? ProviderId { get; set; }
+    [JsonProperty("provider_name")] public string? ProviderName { get; set; }
+    [JsonProperty("subject")] public string Subject { get; set; } = "";
+    [JsonProperty("is_closed")] public bool IsClosed { get; set; }
+    [JsonProperty("created_at")] public string? CreatedAt { get; set; }
+    [JsonProperty("last_message_at")] public string? LastMessageAt { get; set; }
+    [JsonProperty("message_count")] public int MessageCount { get; set; }
+    [JsonProperty("unread_count")] public int UnreadCount { get; set; }
+
+    public string Display =>
+        (UnreadCount > 0 ? $"● ({UnreadCount}) " : "")
+        + Subject
+        + (IsClosed ? "  (closed)" : "");
+
+    public string WithLine => $"With {ProviderName ?? "your care team"}";
+}
+
+public class MessageThreadsResponse
+{
+    [JsonProperty("threads")] public List<MessageThread> Threads { get; set; } = new();
+}
+
+public class SecureMessage
+{
+    [JsonProperty("id")] public int Id { get; set; }
+    [JsonProperty("sender_type")] public string SenderType { get; set; } = "";
+    [JsonProperty("sender_id")] public int SenderId { get; set; }
+    [JsonProperty("body")] public string Body { get; set; } = "";
+    [JsonProperty("sent_at")] public string? SentAt { get; set; }
+    [JsonProperty("read_at")] public string? ReadAt { get; set; }
+
+    public bool IsFromPatient => SenderType == "patient";
+    public string SenderLabel => IsFromPatient ? "You" : "Care Team";
+}
+
+public class MessageThreadDetailResponse
+{
+    [JsonProperty("thread")] public MessageThread Thread { get; set; } = new();
+    [JsonProperty("messages")] public List<SecureMessage> Messages { get; set; } = new();
+}
+
+public class ProviderSummary
+{
+    [JsonProperty("id")] public int Id { get; set; }
+    [JsonProperty("full_name")] public string? FullName { get; set; }
+    [JsonProperty("display_title")] public string? DisplayTitle { get; set; }
+    [JsonProperty("role")] public string? Role { get; set; }
+    [JsonProperty("specialization")] public string? Specialization { get; set; }
+
+    public string DisplayLabel
+    {
+        get
+        {
+            var name = DisplayTitle ?? FullName ?? "Unknown";
+            var suffix = !string.IsNullOrWhiteSpace(Specialization) ? $" — {Specialization}" : "";
+            return name + suffix;
+        }
+    }
+}
+
+public class ProvidersResponse
+{
+    [JsonProperty("providers")] public List<ProviderSummary> Providers { get; set; } = new();
+}
+
+public class NewThreadResponse
+{
+    [JsonProperty("thread_id")] public int ThreadId { get; set; }
+}

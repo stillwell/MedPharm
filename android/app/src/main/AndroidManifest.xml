@@ -39,6 +39,18 @@
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
 
+        <!-- Secure Messaging -->
+        <activity
+            android:name=".ui.messages.MessageThreadActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.dashboard.MainActivity"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.messages.ComposeMessageActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.dashboard.MainActivity"
+            android:windowSoftInputMode="adjustResize" />
+
     </application>
 
 </manifest>

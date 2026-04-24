@@ -325,7 +325,7 @@ def cover_page(canvas_obj, doc):
     canvas_obj.roundRect(w / 2 - 40, h - 3.2 * inch, 80, 22, 11, fill=1, stroke=0)
     canvas_obj.setFillColor(TEAL_DARK)
     canvas_obj.setFont("Helvetica-Bold", 10)
-    canvas_obj.drawCentredString(w / 2, h - 3.12 * inch, "v1.7.4")
+    canvas_obj.drawCentredString(w / 2, h - 3.12 * inch, "v1.7.5")
 
     # Description box
     canvas_obj.setFillColor(colors.white)
@@ -1763,7 +1763,7 @@ def build_document():
     ./install.sh --docker                     # API only on port 8080
     ./install.sh --docker-server              # Full stack on port 80
     ./install.sh --docker --docker-server     # Both at once (API on 8080 + Full stack on 80)
-    ./install.sh --docker --tag=1.7.4         # Pin to a specific release
+    ./install.sh --docker --tag=1.7.5         # Pin to a specific release
 
     # Interactive launcher
     ./start_docker_hub.sh              # Menu
@@ -1844,16 +1844,16 @@ def build_document():
 
     story.append(code_block(textwrap.dedent("""\
     # Trigger a release build
-    git tag v1.7.4
-    git push origin v1.7.4
+    git tag v1.7.5
+    git push origin v1.7.5
 
     # Pre-built images on Docker Hub (https://hub.docker.com/u/enlightec):
     docker pull enlightec/medpharm-server:latest   # Full stack
     docker pull enlightec/medpharm-api:latest      # API only
 
     # Or pin to a specific release
-    docker pull enlightec/medpharm-server:1.7.4
-    docker pull enlightec/medpharm-api:1.7.4"""), styles))
+    docker pull enlightec/medpharm-server:1.7.5
+    docker pull enlightec/medpharm-api:1.7.5"""), styles))
 
     cicd_data = [
         ["Image", "Docker Hub URL", "Contents"],

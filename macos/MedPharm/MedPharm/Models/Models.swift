@@ -289,6 +289,66 @@ struct ConditionRef: Decodable, Identifiable {
     let is_chronic: Bool?
 }
 
+// MARK: - Secure Messaging
+
+struct MessageThread: Decodable, Identifiable, Hashable {
+    let id: Int
+    let patient_id: Int
+    let patient_name: String?
+    let provider_id: Int?
+    let provider_name: String?
+    let subject: String
+    let is_closed: Bool
+    let created_at: String?
+    let last_message_at: String?
+    let message_count: Int
+    let unread_count: Int
+}
+
+struct MessageThreadsResponse: Decodable {
+    let threads: [MessageThread]
+}
+
+struct SecureMessage: Decodable, Identifiable, Hashable {
+    let id: Int
+    let sender_type: String
+    let sender_id: Int
+    let body: String
+    let sent_at: String?
+    let read_at: String?
+}
+
+struct MessageThreadDetail: Decodable {
+    let thread: MessageThread
+    let messages: [SecureMessage]
+}
+
+struct ProviderSummary: Decodable, Identifiable, Hashable {
+    let id: Int
+    let full_name: String?
+    let display_title: String?
+    let role: String?
+    let specialization: String?
+}
+
+struct ProvidersResponse: Decodable {
+    let providers: [ProviderSummary]
+}
+
+struct NewThreadRequest: Encodable {
+    let subject: String
+    let body: String
+    let provider_id: Int?
+}
+
+struct ReplyRequest: Encodable {
+    let body: String
+}
+
+struct NewThreadResponse: Decodable {
+    let thread_id: Int
+}
+
 // MARK: - AnyCodable Helper
 
 struct AnyCodable: Decodable {

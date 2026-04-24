@@ -179,3 +179,61 @@ data class Appointment(
 data class AppointmentsResponse(
     val appointments: List<Appointment> = emptyList(),
 )
+
+// ── Secure Messaging ─────────────────────────────────────────────────────────
+
+data class MessageThread(
+    val id: Int,
+    @SerializedName("patient_id") val patientId: Int,
+    @SerializedName("patient_name") val patientName: String = "",
+    @SerializedName("provider_id") val providerId: Int? = null,
+    @SerializedName("provider_name") val providerName: String = "",
+    val subject: String = "",
+    @SerializedName("is_closed") val isClosed: Boolean = false,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("last_message_at") val lastMessageAt: String? = null,
+    @SerializedName("message_count") val messageCount: Int = 0,
+    @SerializedName("unread_count") val unreadCount: Int = 0,
+)
+
+data class MessageThreadsResponse(
+    val threads: List<MessageThread> = emptyList(),
+)
+
+data class SecureMessage(
+    val id: Int,
+    @SerializedName("sender_type") val senderType: String = "",
+    @SerializedName("sender_id") val senderId: Int = 0,
+    val body: String = "",
+    @SerializedName("sent_at") val sentAt: String? = null,
+    @SerializedName("read_at") val readAt: String? = null,
+)
+
+data class MessageThreadDetailResponse(
+    val thread: MessageThread,
+    val messages: List<SecureMessage> = emptyList(),
+)
+
+data class ProviderSummary(
+    val id: Int,
+    @SerializedName("full_name") val fullName: String = "",
+    @SerializedName("display_title") val displayTitle: String = "",
+    val role: String = "",
+    val specialization: String? = null,
+)
+
+data class ProvidersResponse(
+    val providers: List<ProviderSummary> = emptyList(),
+)
+
+data class NewThreadRequest(
+    val subject: String,
+    val body: String,
+    @SerializedName("provider_id") val providerId: Int? = null,
+)
+
+data class ReplyRequest(val body: String)
+
+data class NewThreadResponse(
+    @SerializedName("thread_id") val threadId: Int = 0,
+)

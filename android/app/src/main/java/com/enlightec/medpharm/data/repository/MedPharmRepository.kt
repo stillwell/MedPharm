@@ -16,7 +16,13 @@ import com.enlightec.medpharm.data.model.InsuranceClaimsResponse
 import com.enlightec.medpharm.data.model.LoginResponse
 import com.enlightec.medpharm.data.model.MedicationsResponse
 import com.enlightec.medpharm.data.model.MessageResponse
+import com.enlightec.medpharm.data.model.MessageThreadDetailResponse
+import com.enlightec.medpharm.data.model.MessageThreadsResponse
+import com.enlightec.medpharm.data.model.NewThreadRequest
+import com.enlightec.medpharm.data.model.NewThreadResponse
 import com.enlightec.medpharm.data.model.PatientProfile
+import com.enlightec.medpharm.data.model.ProvidersResponse
+import com.enlightec.medpharm.data.model.ReplyRequest
 import com.enlightec.medpharm.data.model.PrescriptionListResponse
 import com.enlightec.medpharm.data.model.ProfileUpdateRequest
 import com.enlightec.medpharm.data.model.RecordsResponse
@@ -91,6 +97,27 @@ class MedPharmRepository {
         if (notes != null) body["notes"] = notes
         api.submitInsuranceClaim(body)
     }
+
+    // ── Secure Messaging ──
+
+    suspend fun getMessageThreads(): Resource<MessageThreadsResponse> =
+        safeCall { api.getMessageThreads() }
+
+    suspend fun getMessageThread(threadId: Int): Resource<MessageThreadDetailResponse> =
+        safeCall { api.getMessageThread(threadId) }
+
+    suspend fun createMessageThread(
+        subject: String,
+        body: String,
+        providerId: Int?,
+    ): Resource<NewThreadResponse> =
+        safeCall { api.createMessageThread(NewThreadRequest(subject, body, providerId)) }
+
+    suspend fun replyToThread(threadId: Int, body: String): Resource<MessageResponse> =
+        safeCall { api.replyToThread(threadId, ReplyRequest(body)) }
+
+    suspend fun getAvailableProviders(): Resource<ProvidersResponse> =
+        safeCall { api.getAvailableProviders() }
 
     private suspend inline fun <T : Any> safeCall(
         crossinline block: suspend () -> Response<T>,

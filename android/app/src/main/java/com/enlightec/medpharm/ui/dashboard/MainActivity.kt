@@ -43,7 +43,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_prescriptions,
                 R.id.nav_billing,
                 R.id.nav_appointments,
-                R.id.nav_records
+                R.id.nav_records,
+                R.id.nav_messages
             )
         )
 

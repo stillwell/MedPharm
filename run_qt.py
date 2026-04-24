@@ -47,7 +47,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("MedPharm ERP")
     app.setOrganizationName("MedPharm")
-    app.setApplicationVersion("1.7.4")
+    app.setApplicationVersion("1.7.5")
 
     font = QFont("Segoe UI", 10)
     font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)

@@ -182,6 +182,9 @@ class PatientWidget(QWidget):
         self.billing_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabs.addTab(self.billing_table, "Billing")
 
+        # Notes tab — private, author-only
+        self._build_notes_tab()
+
         right_layout.addWidget(self.tabs)
         splitter.addWidget(right)
 
@@ -316,8 +319,187 @@ class PatientWidget(QWidget):
                 self.billing_table.setItem(i, 3, QTableWidgetItem(f"${inv.get('amount_paid', 0):.2f}"))
                 self.billing_table.setItem(i, 4, QTableWidgetItem(inv.get("status", "").title()))
 
+            self.load_notes(patient_id)
+
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to load patient details: {e}")
+
+    # ── Private notes tab ────────────────────────────────────────────────
+
+    def _build_notes_tab(self):
+        tab = QWidget()
+        tl = QVBoxLayout(tab)
+        tl.setContentsMargins(8, 8, 8, 8)
+
+        hint = QLabel(
+            "Private notes are visible only to you. They are encrypted at "
+            "rest and are not shared with other clinicians or the patient.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #90A4AE; font-size: 11px; padding: 4px 0;")
+        tl.addWidget(hint)
+
+        action_row = QHBoxLayout()
+        add_btn = QPushButton("+ New Note")
+        add_btn.setObjectName("primary_button")
+        add_btn.clicked.connect(self.new_note_dialog)
+        action_row.addWidget(add_btn)
+        action_row.addStretch()
+        tl.addLayout(action_row)
+
+        self.notes_scroll = QScrollArea()
+        self.notes_scroll.setWidgetResizable(True)
+        self.notes_container = QWidget()
+        self.notes_layout = QVBoxLayout(self.notes_container)
+        self.notes_layout.setSpacing(8)
+        self.notes_layout.addStretch()
+        self.notes_scroll.setWidget(self.notes_container)
+        tl.addWidget(self.notes_scroll, 1)
+
+        self.tabs.addTab(tab, "Notes")
+
+    def load_notes(self, patient_id: int):
+        author_id = self.current_user.get("id") if self.current_user else None
+        if not author_id:
+            return
+        while self.notes_layout.count() > 1:
+            item = self.notes_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        try:
+            notes = self.db_manager.list_provider_notes(
+                patient_id=patient_id, author_id=author_id)
+        except Exception as e:
+            print(f"notes load error: {e}")
+            return
+        if not notes:
+            empty = QLabel("No private notes yet.")
+            empty.setStyleSheet("color: #808080; padding: 16px;")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.notes_layout.insertWidget(0, empty)
+            return
+        for n in notes:
+            self.notes_layout.insertWidget(
+                self.notes_layout.count() - 1, self._note_card(n))
+
+    def _note_card(self, note: dict) -> QFrame:
+        from datetime import datetime as _dt
+        frame = QFrame()
+        border = "#E65100" if note.get("is_pinned") else "#455A64"
+        frame.setStyleSheet(
+            f"background-color: #2A2D35; border-radius: 8px; "
+            f"border-left: 3px solid {border};")
+        lay = QVBoxLayout(frame)
+        lay.setContentsMargins(12, 10, 12, 10)
+
+        head = QHBoxLayout()
+        updated = note.get("updated_at") or note.get("created_at") or ""
+        try:
+            updated = _dt.fromisoformat(updated).strftime("%Y-%m-%d %H:%M")
+        except (TypeError, ValueError):
+            pass
+        label = QLabel(
+            f"{'📌 ' if note.get('is_pinned') else ''}Updated {updated}")
+        label.setStyleSheet("color: #90A4AE; font-size: 11px;")
+        head.addWidget(label)
+        head.addStretch()
+        edit_btn = QPushButton("Edit")
+        edit_btn.setFixedWidth(60)
+        edit_btn.clicked.connect(lambda: self.edit_note_dialog(note))
+        head.addWidget(edit_btn)
+        del_btn = QPushButton("Delete")
+        del_btn.setFixedWidth(70)
+        del_btn.clicked.connect(lambda: self.delete_note(note))
+        head.addWidget(del_btn)
+        lay.addLayout(head)
+
+        body = QLabel(note.get("body") or "")
+        body.setWordWrap(True)
+        body.setStyleSheet("color: #e0e0e0; font-size: 13px;")
+        lay.addWidget(body)
+        return frame
+
+    def new_note_dialog(self):
+        if not self.selected_patient_id:
+            QMessageBox.warning(self, "Error", "Please select a patient first.")
+            return
+        self._note_dialog(note=None)
+
+    def edit_note_dialog(self, note: dict):
+        self._note_dialog(note=note)
+
+    def _note_dialog(self, note: dict | None):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Private Note" if note else "New Private Note")
+        dialog.setMinimumSize(520, 380)
+        lay = QVBoxLayout(dialog)
+
+        hint = QLabel(
+            "Only you will see this note. Do not use for information that "
+            "must appear in the patient's chart.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #90A4AE; font-size: 11px;")
+        lay.addWidget(hint)
+
+        body = QTextEdit()
+        body.setPlainText(note.get("body", "") if note else "")
+        body.setMinimumHeight(220)
+        lay.addWidget(body)
+
+        pin_row = QHBoxLayout()
+        pin_btn = QPushButton(
+            "📌 Pinned" if (note and note.get("is_pinned")) else "Pin to top")
+        pin_btn.setCheckable(True)
+        pin_btn.setChecked(bool(note and note.get("is_pinned")))
+        pin_row.addWidget(pin_btn)
+        pin_row.addStretch()
+        lay.addLayout(pin_row)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(dialog.reject)
+        btn_row.addWidget(cancel)
+        save = QPushButton("Save")
+        save.setObjectName("primary_button")
+        btn_row.addWidget(save)
+        lay.addLayout(btn_row)
+
+        def _save():
+            text = body.toPlainText().strip()
+            if not text:
+                QMessageBox.warning(dialog, "Error", "Note cannot be empty.")
+                return
+            try:
+                if note:
+                    self.db_manager.update_provider_note(
+                        note["id"],
+                        author_id=self.current_user.get("id"),
+                        body_plain=text, is_pinned=pin_btn.isChecked())
+                else:
+                    self.db_manager.create_provider_note(
+                        patient_id=self.selected_patient_id,
+                        author_id=self.current_user.get("id"),
+                        body_plain=text, is_pinned=pin_btn.isChecked())
+                dialog.accept()
+                self.load_notes(self.selected_patient_id)
+            except Exception as e:
+                QMessageBox.warning(dialog, "Error", str(e))
+
+        save.clicked.connect(_save)
+        dialog.exec()
+
+    def delete_note(self, note: dict):
+        reply = QMessageBox.question(
+            self, "Delete Note", "Delete this private note? This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.db_manager.delete_provider_note(
+                note["id"], author_id=self.current_user.get("id"))
+            self.load_notes(self.selected_patient_id)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
 
     def add_patient_dialog(self):
         dialog = QDialog(self)

@@ -379,6 +379,74 @@ def api_outstanding():
     return jsonify(outstanding)
 
 
+# ── Secure Messages ──────────────────────────────────────────────────────
+
+@portal_bp.route("/messages")
+@login_required
+def messages():
+    patient_id = session["patient_id"]
+    threads = g.db_manager.get_message_threads(
+        patient_id=patient_id, reader_type="patient")
+    return render_template("messages.html",
+                           threads=threads, patient_name=session.get("patient_name", ""))
+
+
+@portal_bp.route("/messages/new", methods=["GET", "POST"])
+@login_required
+@csrf_required
+def new_message():
+    patient_id = session["patient_id"]
+    providers = g.db_manager.get_providers()
+    if request.method == "POST":
+        subject = (request.form.get("subject") or "").strip()
+        body = (request.form.get("body") or "").strip()
+        provider_id = request.form.get("provider_id", type=int)
+        if not subject or not body:
+            flash("Subject and message are required.", "danger")
+            return render_template("message_new.html", providers=providers,
+                                   subject=subject, body=body,
+                                   patient_name=session.get("patient_name", ""))
+        thread_id = g.db_manager.create_message_thread(
+            patient_id=patient_id,
+            provider_id=provider_id if provider_id else None,
+            subject=subject)
+        g.db_manager.post_secure_message(
+            thread_id=thread_id, sender_type="patient",
+            sender_id=session["user_id"], body_plain=body)
+        flash("Message sent.", "success")
+        return redirect(url_for("portal.message_thread", thread_id=thread_id))
+    return render_template("message_new.html", providers=providers,
+                           patient_name=session.get("patient_name", ""))
+
+
+@portal_bp.route("/messages/<int:thread_id>", methods=["GET", "POST"])
+@login_required
+@csrf_required
+def message_thread(thread_id):
+    patient_id = session["patient_id"]
+    thread = g.db_manager.get_message_thread(thread_id)
+    if not thread or thread["patient_id"] != patient_id:
+        flash("Message not found.", "danger")
+        return redirect(url_for("portal.messages"))
+    if request.method == "POST":
+        if thread.get("is_closed"):
+            flash("This thread is closed.", "warning")
+            return redirect(url_for("portal.message_thread", thread_id=thread_id))
+        body = (request.form.get("body") or "").strip()
+        if not body:
+            flash("Message body cannot be empty.", "danger")
+            return redirect(url_for("portal.message_thread", thread_id=thread_id))
+        g.db_manager.post_secure_message(
+            thread_id=thread_id, sender_type="patient",
+            sender_id=session["user_id"], body_plain=body)
+        return redirect(url_for("portal.message_thread", thread_id=thread_id))
+    messages_list = g.db_manager.get_thread_messages(thread_id)
+    g.db_manager.mark_messages_read(thread_id, reader_type="patient")
+    return render_template("message_thread.html",
+                           thread=thread, messages=messages_list,
+                           patient_name=session.get("patient_name", ""))
+
+
 @portal_bp.route("/api/notifications")
 @login_required
 def api_notifications():

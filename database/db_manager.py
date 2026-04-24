@@ -42,7 +42,8 @@ from database.models import (
     InsuranceClaimStatus,
     PHIAccessLog, FailedLogin, PasswordHistory, MFASecret,
     EmergencyAccessGrantRec, PatientConsent, ConsentType, ConsentStatus,
-    MessageThread, SecureMessage, LabOrder, LabResult, LabOrderStatus,
+    MessageThread, SecureMessage, ProviderNote,
+    LabOrder, LabResult, LabOrderStatus,
     LabResultFlag, CarePlan, CarePlanStatus, Immunization, Referral,
     ReferralStatus, PatientDocument,
 )
@@ -1346,7 +1347,14 @@ class DatabaseManager:
             return msg.id
 
     def get_message_threads(self, *, patient_id: int | None = None,
-                            provider_id: int | None = None) -> list[dict]:
+                            provider_id: int | None = None,
+                            reader_type: str | None = None) -> list[dict]:
+        """List threads with participant names and unread counts.
+
+        `reader_type` ("staff" | "patient") controls whose perspective the
+        unread count reflects: for a staff reader, unread = messages sent
+        by patients that the reader has not yet seen, and vice versa.
+        """
         with self.get_session() as session:
             q = session.query(MessageThread)
             if patient_id is not None:
@@ -1354,12 +1362,61 @@ class DatabaseManager:
             if provider_id is not None:
                 q = q.filter(MessageThread.provider_id == provider_id)
             rows = q.order_by(desc(MessageThread.last_message_at)).all()
-            return [{
-                "id": t.id, "patient_id": t.patient_id, "provider_id": t.provider_id,
-                "subject": t.subject, "is_closed": t.is_closed,
+            out = []
+            for t in rows:
+                if reader_type == "staff":
+                    unread = sum(1 for m in t.messages
+                                 if m.sender_type == "patient" and m.read_at is None)
+                elif reader_type == "patient":
+                    unread = sum(1 for m in t.messages
+                                 if m.sender_type == "staff" and m.read_at is None)
+                else:
+                    unread = sum(1 for m in t.messages if m.read_at is None)
+                patient_name = (f"{t.patient.first_name} {t.patient.last_name}"
+                                if t.patient else "")
+                provider_name = t.provider.display_title if t.provider else ""
+                out.append({
+                    "id": t.id,
+                    "patient_id": t.patient_id,
+                    "patient_name": patient_name,
+                    "provider_id": t.provider_id,
+                    "provider_name": provider_name,
+                    "subject": t.subject,
+                    "is_closed": t.is_closed,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    "last_message_at": t.last_message_at.isoformat() if t.last_message_at else None,
+                    "message_count": len(t.messages),
+                    "unread_count": unread,
+                })
+            return out
+
+    def get_message_thread(self, thread_id: int) -> dict | None:
+        with self.get_session() as session:
+            t = session.get(MessageThread, thread_id)
+            if not t:
+                return None
+            patient_name = (f"{t.patient.first_name} {t.patient.last_name}"
+                            if t.patient else "")
+            provider_name = t.provider.display_title if t.provider else ""
+            return {
+                "id": t.id,
+                "patient_id": t.patient_id,
+                "patient_name": patient_name,
+                "provider_id": t.provider_id,
+                "provider_name": provider_name,
+                "subject": t.subject,
+                "is_closed": t.is_closed,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
                 "last_message_at": t.last_message_at.isoformat() if t.last_message_at else None,
-                "message_count": len(t.messages),
-            } for t in rows]
+            }
+
+    def close_message_thread(self, thread_id: int) -> bool:
+        with self.get_session() as session:
+            t = session.get(MessageThread, thread_id)
+            if not t:
+                return False
+            t.is_closed = True
+            return True
 
     def get_thread_messages(self, thread_id: int) -> list[dict]:
         from security.encryption import decrypt_field
@@ -1393,6 +1450,89 @@ class DatabaseManager:
                 msg.read_at = now
                 count += 1
             return count
+
+    # ── Private provider notes (author-only) ─────────────────────────────
+
+    def create_provider_note(self, *, patient_id: int, author_id: int,
+                             body_plain: str, is_pinned: bool = False) -> int:
+        from security.encryption import encrypt_field
+        cipher = encrypt_field(body_plain)
+        with self.get_session() as session:
+            row = ProviderNote(
+                patient_id=patient_id, author_id=author_id,
+                body_encrypted=cipher, is_pinned=is_pinned,
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def list_provider_notes(self, *, patient_id: int, author_id: int) -> list[dict]:
+        """Return notes authored by `author_id` for this patient only.
+        Enforces author-only visibility at the query level.
+        """
+        from security.encryption import decrypt_field
+        with self.get_session() as session:
+            rows = (session.query(ProviderNote)
+                           .filter(ProviderNote.patient_id == patient_id,
+                                   ProviderNote.author_id == author_id)
+                           .order_by(desc(ProviderNote.is_pinned),
+                                     desc(ProviderNote.updated_at))
+                           .all())
+            out = []
+            for n in rows:
+                try:
+                    body = decrypt_field(n.body_encrypted)
+                except Exception:
+                    body = "[decryption error]"
+                out.append({
+                    "id": n.id,
+                    "patient_id": n.patient_id,
+                    "author_id": n.author_id,
+                    "body": body,
+                    "is_pinned": n.is_pinned,
+                    "created_at": n.created_at.isoformat() if n.created_at else None,
+                    "updated_at": n.updated_at.isoformat() if n.updated_at else None,
+                })
+            return out
+
+    def get_provider_note(self, note_id: int, *, author_id: int) -> dict | None:
+        from security.encryption import decrypt_field
+        with self.get_session() as session:
+            n = session.get(ProviderNote, note_id)
+            if not n or n.author_id != author_id:
+                return None
+            try:
+                body = decrypt_field(n.body_encrypted)
+            except Exception:
+                body = "[decryption error]"
+            return {
+                "id": n.id, "patient_id": n.patient_id, "author_id": n.author_id,
+                "body": body, "is_pinned": n.is_pinned,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+                "updated_at": n.updated_at.isoformat() if n.updated_at else None,
+            }
+
+    def update_provider_note(self, note_id: int, *, author_id: int,
+                             body_plain: str | None = None,
+                             is_pinned: bool | None = None) -> bool:
+        from security.encryption import encrypt_field
+        with self.get_session() as session:
+            n = session.get(ProviderNote, note_id)
+            if not n or n.author_id != author_id:
+                return False
+            if body_plain is not None:
+                n.body_encrypted = encrypt_field(body_plain)
+            if is_pinned is not None:
+                n.is_pinned = is_pinned
+            return True
+
+    def delete_provider_note(self, note_id: int, *, author_id: int) -> bool:
+        with self.get_session() as session:
+            n = session.get(ProviderNote, note_id)
+            if not n or n.author_id != author_id:
+                return False
+            session.delete(n)
+            return True
 
     # ── Lab orders / results ─────────────────────────────────────────────
 

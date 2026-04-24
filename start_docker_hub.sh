@@ -27,7 +27,7 @@
 #   ./start_docker_hub.sh stop         # Stop running MedPharm containers
 #
 # Override the image tag:
-#   MEDPHARM_IMAGE_TAG=1.7.4 ./start_docker_hub.sh api
+#   MEDPHARM_IMAGE_TAG=1.7.5 ./start_docker_hub.sh api
 # ==============================================================================
 
 set -euo pipefail

@@ -69,7 +69,7 @@ def _record_login_attempt(username: str, *, account_type: str,
 
 @api_bp.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.7.4", "copyright": "\u00a9 2026 Enlightec Ltd."})
+    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.7.5", "copyright": "\u00a9 2026 Enlightec Ltd."})
 
 
 # ── Authentication ────────────────────────────────────────────────────────────
@@ -680,3 +680,178 @@ def search_conditions():
 def get_condition_categories():
     categories = g.db_manager.get_all_condition_categories()
     return jsonify({"categories": categories})
+
+
+# ── Secure Messaging ─────────────────────────────────────────────────────
+#
+# Patients and clinical staff correspond through encrypted threads. The
+# thread-level resource is shared; perspective (who is "me") is resolved
+# from the bearer token. Message bodies are Fernet-encrypted at rest.
+
+@api_bp.route("/patient/messages", methods=["GET"])
+@patient_required
+def patient_list_threads():
+    threads = g.db_manager.get_message_threads(
+        patient_id=g.current_patient_id, reader_type="patient")
+    return jsonify({"threads": threads})
+
+
+@api_bp.route("/patient/messages", methods=["POST"])
+@patient_required
+def patient_create_thread():
+    data = request.get_json(silent=True) or {}
+    subject = (data.get("subject") or "").strip()
+    body = (data.get("body") or "").strip()
+    provider_id = data.get("provider_id")
+    if not subject or not body:
+        return jsonify({"error": "Subject and body required"}), 400
+    thread_id = g.db_manager.create_message_thread(
+        patient_id=g.current_patient_id,
+        provider_id=provider_id if provider_id else None,
+        subject=subject)
+    g.db_manager.post_secure_message(
+        thread_id=thread_id, sender_type="patient",
+        sender_id=g.current_user_id, body_plain=body)
+    return jsonify({"thread_id": thread_id}), 201
+
+
+@api_bp.route("/patient/messages/<int:thread_id>", methods=["GET"])
+@patient_required
+def patient_get_thread(thread_id):
+    thread = g.db_manager.get_message_thread(thread_id)
+    if not thread or thread["patient_id"] != g.current_patient_id:
+        return jsonify({"error": "Thread not found"}), 404
+    messages = g.db_manager.get_thread_messages(thread_id)
+    g.db_manager.mark_messages_read(thread_id, reader_type="patient")
+    return jsonify({"thread": thread, "messages": messages})
+
+
+@api_bp.route("/patient/messages/<int:thread_id>/reply", methods=["POST"])
+@patient_required
+def patient_reply_thread(thread_id):
+    thread = g.db_manager.get_message_thread(thread_id)
+    if not thread or thread["patient_id"] != g.current_patient_id:
+        return jsonify({"error": "Thread not found"}), 404
+    if thread["is_closed"]:
+        return jsonify({"error": "Thread is closed"}), 400
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Body required"}), 400
+    msg_id = g.db_manager.post_secure_message(
+        thread_id=thread_id, sender_type="patient",
+        sender_id=g.current_user_id, body_plain=body)
+    return jsonify({"message_id": msg_id}), 201
+
+
+@api_bp.route("/patient/messages/providers", methods=["GET"])
+@patient_required
+def patient_available_providers():
+    return jsonify({"providers": g.db_manager.get_providers()})
+
+
+@api_bp.route("/staff/messages", methods=["GET"])
+@staff_required
+def staff_list_threads():
+    patient_id = request.args.get("patient_id", type=int)
+    threads = g.db_manager.get_message_threads(
+        patient_id=patient_id, reader_type="staff")
+    return jsonify({"threads": threads})
+
+
+@api_bp.route("/staff/messages/<int:thread_id>", methods=["GET"])
+@staff_required
+def staff_get_thread(thread_id):
+    thread = g.db_manager.get_message_thread(thread_id)
+    if not thread:
+        return jsonify({"error": "Thread not found"}), 404
+    messages = g.db_manager.get_thread_messages(thread_id)
+    g.db_manager.mark_messages_read(thread_id, reader_type="staff")
+    return jsonify({"thread": thread, "messages": messages})
+
+
+@api_bp.route("/staff/messages/<int:thread_id>/reply", methods=["POST"])
+@staff_required
+def staff_reply_thread(thread_id):
+    thread = g.db_manager.get_message_thread(thread_id)
+    if not thread:
+        return jsonify({"error": "Thread not found"}), 404
+    if thread["is_closed"]:
+        return jsonify({"error": "Thread is closed"}), 400
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Body required"}), 400
+    msg_id = g.db_manager.post_secure_message(
+        thread_id=thread_id, sender_type="staff",
+        sender_id=g.current_user_id, body_plain=body)
+    return jsonify({"message_id": msg_id}), 201
+
+
+@api_bp.route("/staff/messages/<int:thread_id>/close", methods=["POST"])
+@staff_required
+def staff_close_thread(thread_id):
+    if not g.db_manager.close_message_thread(thread_id):
+        return jsonify({"error": "Thread not found"}), 404
+    return jsonify({"status": "closed"})
+
+
+# ── Private provider notes ───────────────────────────────────────────────
+#
+# Only the authoring staff member can read, modify, or delete their own
+# notes. No route here returns another provider's notes, and the DB layer
+# enforces author_id match as a second line of defence.
+
+@api_bp.route("/staff/patients/<int:patient_id>/notes", methods=["GET"])
+@staff_required
+def staff_list_notes(patient_id):
+    notes = g.db_manager.list_provider_notes(
+        patient_id=patient_id, author_id=g.current_user_id)
+    return jsonify({"notes": notes})
+
+
+@api_bp.route("/staff/patients/<int:patient_id>/notes", methods=["POST"])
+@staff_required
+def staff_create_note(patient_id):
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Body required"}), 400
+    note_id = g.db_manager.create_provider_note(
+        patient_id=patient_id, author_id=g.current_user_id,
+        body_plain=body, is_pinned=bool(data.get("is_pinned")))
+    return jsonify({"note_id": note_id}), 201
+
+
+@api_bp.route("/staff/notes/<int:note_id>", methods=["GET"])
+@staff_required
+def staff_get_note(note_id):
+    note = g.db_manager.get_provider_note(note_id, author_id=g.current_user_id)
+    if not note:
+        return jsonify({"error": "Note not found"}), 404
+    return jsonify({"note": note})
+
+
+@api_bp.route("/staff/notes/<int:note_id>", methods=["PUT"])
+@staff_required
+def staff_update_note(note_id):
+    data = request.get_json(silent=True) or {}
+    body = data.get("body")
+    if body is not None:
+        body = body.strip()
+        if not body:
+            return jsonify({"error": "Body cannot be empty"}), 400
+    ok = g.db_manager.update_provider_note(
+        note_id, author_id=g.current_user_id,
+        body_plain=body, is_pinned=data.get("is_pinned"))
+    if not ok:
+        return jsonify({"error": "Note not found"}), 404
+    return jsonify({"status": "updated"})
+
+
+@api_bp.route("/staff/notes/<int:note_id>", methods=["DELETE"])
+@staff_required
+def staff_delete_note(note_id):
+    if not g.db_manager.delete_provider_note(note_id, author_id=g.current_user_id):
+        return jsonify({"error": "Note not found"}), 404
+    return jsonify({"status": "deleted"})

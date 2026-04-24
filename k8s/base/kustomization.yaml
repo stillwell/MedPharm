@@ -38,4 +38,4 @@ resources:
 
 images:
   - name: enlightec/medpharm-server
-    newTag: "1.7.4"
+    newTag: "1.7.5"

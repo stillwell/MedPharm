@@ -39,6 +39,7 @@ from qt_app.widgets.records_widget import RecordsWidget
 from qt_app.widgets.billing_widget import BillingWidget
 from qt_app.widgets.symptoms_widget import SymptomsWidget
 from qt_app.widgets.analytics_widget import AnalyticsWidget
+from qt_app.widgets.messages_widget import MessagesWidget
 
 
 class MainWindow(QMainWindow):
@@ -50,6 +51,7 @@ class MainWindow(QMainWindow):
         ("Appointments", "appointments"),
         ("Records", "records"),
         ("Billing", "billing"),
+        ("Messages", "messages"),
         ("Symptoms", "symptoms"),
         ("Analytics", "analytics"),
     ]
@@ -159,6 +161,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(AppointmentWidget(self.db_manager, user_dict))
         self.stack.addWidget(RecordsWidget(self.db_manager, user_dict))
         self.stack.addWidget(BillingWidget(self.db_manager, user_dict))
+        self.stack.addWidget(MessagesWidget(self.db_manager, user_dict))
         self.stack.addWidget(SymptomsWidget(self.db_manager, user_dict))
         self.stack.addWidget(AnalyticsWidget(self.db_manager, user_dict))
 

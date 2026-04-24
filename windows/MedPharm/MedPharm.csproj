@@ -15,7 +15,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RootNamespace>MedPharm</RootNamespace>
     <AssemblyName>MedPharm</AssemblyName>
-    <Version>1.7.3</Version>
+    <Version>1.7.5</Version>
     <Company>Enlightec Ltd.</Company>
     <Product>MedPharm ERP</Product>
     <Copyright>Copyright (C) 2026 Enlightec Ltd.</Copyright>

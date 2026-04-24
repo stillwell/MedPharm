@@ -34,6 +34,7 @@ public partial class MainWindow : Window
             "billing" => new BillingPage(),
             "appointments" => new AppointmentsPage(),
             "insurance" => new InsuranceClaimsPage(),
+            "messages" => new MessagesPage(),
             _ => ContentArea.Content
         };
     }

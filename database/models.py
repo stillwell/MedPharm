@@ -768,6 +768,28 @@ class SecureMessage(Base):
     thread = relationship("MessageThread", back_populates="messages")
 
 
+# ── Private provider notes (author-only visibility) ─────────────────────────
+#
+# Unlike MedicalRecord, which is shared across providers and surfaced to the
+# patient, a ProviderNote is visible only to the staff member who authored
+# it. Intended for personal working notes — differentials to chase, soft
+# observations, reminders for next visit — that do not belong in the chart.
+
+class ProviderNote(Base):
+    __tablename__ = "provider_notes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    body_encrypted = Column(Text, nullable=False)      # Fernet ciphertext
+    is_pinned = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    patient = relationship("Patient")
+    author = relationship("User")
+
+
 # ── Labs (orders & results) ──────────────────────────────────────────────────
 
 class LabOrderStatus(enum.Enum):

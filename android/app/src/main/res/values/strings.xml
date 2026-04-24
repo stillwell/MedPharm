@@ -55,6 +55,18 @@
     <string name="nav_records">Records</string>
     <string name="nav_medications">Medications</string>
     <string name="nav_profile">Profile</string>
+    <string name="nav_messages">Messages</string>
+
+    <!-- Messaging -->
+    <string name="messages_empty">No messages yet. Start a conversation with your care team.</string>
+    <string name="messages_compose">New Message</string>
+    <string name="messages_subject_hint">Subject</string>
+    <string name="messages_body_hint">Type your message…</string>
+    <string name="messages_reply_hint">Type your reply…</string>
+    <string name="messages_send">Send</string>
+    <string name="messages_cancel">Cancel</string>
+    <string name="messages_to">To</string>
+    <string name="messages_closed">This thread is closed.</string>
 
     <!-- Dashboard -->
     <string name="dashboard_title">Your health at a glance</string>

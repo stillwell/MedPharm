@@ -15,7 +15,13 @@ import com.enlightec.medpharm.data.model.InsuranceClaimsResponse
 import com.enlightec.medpharm.data.model.LoginResponse
 import com.enlightec.medpharm.data.model.MedicationsResponse
 import com.enlightec.medpharm.data.model.MessageResponse
+import com.enlightec.medpharm.data.model.MessageThreadDetailResponse
+import com.enlightec.medpharm.data.model.MessageThreadsResponse
+import com.enlightec.medpharm.data.model.NewThreadRequest
+import com.enlightec.medpharm.data.model.NewThreadResponse
 import com.enlightec.medpharm.data.model.PatientProfile
+import com.enlightec.medpharm.data.model.ProvidersResponse
+import com.enlightec.medpharm.data.model.ReplyRequest
 import com.enlightec.medpharm.data.model.PrescriptionListResponse
 import com.enlightec.medpharm.data.model.ProfileUpdateRequest
 import com.enlightec.medpharm.data.model.RecordsResponse
@@ -82,4 +88,24 @@ interface ApiService {
     suspend fun submitInsuranceClaim(
         @Body body: Map<String, @JvmSuppressWildcards Any?>,
     ): Response<MessageResponse>
+
+    // ── Secure Messaging (patient-facing) ──
+
+    @GET("api/v1/patient/messages")
+    suspend fun getMessageThreads(): Response<MessageThreadsResponse>
+
+    @POST("api/v1/patient/messages")
+    suspend fun createMessageThread(@Body body: NewThreadRequest): Response<NewThreadResponse>
+
+    @GET("api/v1/patient/messages/{threadId}")
+    suspend fun getMessageThread(@Path("threadId") threadId: Int): Response<MessageThreadDetailResponse>
+
+    @POST("api/v1/patient/messages/{threadId}/reply")
+    suspend fun replyToThread(
+        @Path("threadId") threadId: Int,
+        @Body body: ReplyRequest,
+    ): Response<MessageResponse>
+
+    @GET("api/v1/patient/messages/providers")
+    suspend fun getAvailableProviders(): Response<ProvidersResponse>
 }

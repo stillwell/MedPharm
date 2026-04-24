@@ -10,7 +10,7 @@ import SwiftUI
 
 enum NavigationDestination: Hashable, CaseIterable {
     case dashboard, prescriptions, billing, appointments, records,
-         medications, insurance, profile
+         medications, messages, insurance, profile
 
     var label: String {
         switch self {
@@ -20,6 +20,7 @@ enum NavigationDestination: Hashable, CaseIterable {
         case .appointments: return "Appointments"
         case .records: return "Medical Records"
         case .medications: return "Medications"
+        case .messages: return "Messages"
         case .insurance: return "Insurance Claims"
         case .profile: return "Profile"
         }
@@ -33,6 +34,7 @@ enum NavigationDestination: Hashable, CaseIterable {
         case .appointments: return "calendar"
         case .records: return "doc.text"
         case .medications: return "pills"
+        case .messages: return "bubble.left.and.bubble.right"
         case .insurance: return "shield.checkered"
         case .profile: return "person.crop.circle"
         }
@@ -82,6 +84,7 @@ struct MainView: View {
                     case .appointments: AppointmentsView()
                     case .records: RecordsView()
                     case .medications: MedicationsView()
+                    case .messages: MessagesView()
                     case .insurance: InsuranceClaimsView()
                     case .profile: ProfileView()
                     }
