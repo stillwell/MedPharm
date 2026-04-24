@@ -31,7 +31,7 @@ FROM ubuntu:24.04
 LABEL maintainer="Andrew Stillwell <Andrew.Stillwell@enlightec.com>"
 LABEL org.opencontainers.image.title="MedPharm ERP Cloud API"
 LABEL org.opencontainers.image.description="MedPharm ERP REST API on Ubuntu Server"
-LABEL org.opencontainers.image.version="1.7.3"
+LABEL org.opencontainers.image.version="1.7.4"
 LABEL org.opencontainers.image.vendor="Enlightec Ltd."
 LABEL org.opencontainers.image.licenses="GPL-3.0-or-later"
 

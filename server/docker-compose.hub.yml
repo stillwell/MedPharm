@@ -41,7 +41,7 @@
 #   curl -k https://localhost/portal/
 #
 # Override the image tag with:
-#   MEDPHARM_IMAGE_TAG=1.7.3 docker compose -f docker-compose.hub.yml up -d
+#   MEDPHARM_IMAGE_TAG=1.7.4 docker compose -f docker-compose.hub.yml up -d
 #
 # TLS:
 #   The container auto-generates a self-signed cert on first boot (dev default).

@@ -292,7 +292,7 @@ docker run --rm -p 80:80 -p 8080:8080 -p 5000:5000 enlightec/medpharm-server:dev
 ```bash
 docker buildx create --use --name medpharm-builder
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t enlightec/medpharm-api:1.7.3 --push .
+  -t enlightec/medpharm-api:1.7.4 --push .
 ```
 
 ---
@@ -303,8 +303,8 @@ To build a release for all platforms in order:
 
 ```bash
 # 1. Tag the release
-git tag -a v1.7.3 -m "MedPharm 1.7.3"
-git push origin v1.7.3                 # triggers docker-publish.yml
+git tag -a v1.7.4 -m "MedPharm 1.7.4"
+git push origin v1.7.4                 # triggers docker-publish.yml
 
 # 2. Android
 (cd android && ./gradlew bundleRelease)

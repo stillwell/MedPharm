@@ -43,7 +43,7 @@ struct MoreView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("MedPharm ERP").font(.caption).bold()
-                        Text("Version 1.7.3").font(.caption2).foregroundColor(.secondary)
+                        Text("Version 1.7.4").font(.caption2).foregroundColor(.secondary)
                         Text("© 2026 Enlightec Ltd.").font(.caption2).foregroundColor(.secondary)
                     }
                 }
