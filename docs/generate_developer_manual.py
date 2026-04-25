@@ -60,6 +60,7 @@ from reportlab.platypus import (
     KeepTogether,
     ListFlowable,
     ListItem,
+    NextPageTemplate,
     PageBreak,
     PageTemplate,
     Paragraph,
@@ -357,7 +358,15 @@ class _PartMarker(Flowable):
 
 
 class PartBanner(Flowable):
-    """Large decorative part heading displayed on the part divider page."""
+    """Large decorative part heading displayed on the part divider page.
+
+    Paints a full-page navy backdrop directly via the canvas so it does
+    not depend on which page template is active. The rect is sized
+    generously to cover any letter page; PDF viewers clip to the
+    MediaBox, so the over-draw is harmless and avoids needing a
+    dedicated page template (whose template-switch dance was producing
+    blank pages and bleeding the cover backdrop into body chapters).
+    """
     def __init__(self, roman, title):
         Flowable.__init__(self)
         self.roman = roman
@@ -367,6 +376,18 @@ class PartBanner(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
+        c.setFillColor(NAVY)
+        c.rect(-12 * inch, -12 * inch, 24 * inch, 24 * inch, fill=1, stroke=0)
+        c.setFillColor(INDIGO)
+        p = c.beginPath()
+        p.moveTo(-2 * inch, self.height + 0.5 * inch)
+        p.lineTo(10 * inch, self.height - 1.0 * inch)
+        p.lineTo(10 * inch, self.height - 0.7 * inch)
+        p.lineTo(-2 * inch, self.height + 0.8 * inch)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+        c.restoreState()
         c.setFont("Helvetica", 18)
         c.setFillColor(INDIGO_PALE)
         c.drawString(0, self.height - 30, "PART")
@@ -873,6 +894,7 @@ def build_cover(styles):
         ParagraphStyle("CovAuth", parent=styles["Normal"],
                        fontName="Helvetica-Oblique", fontSize=10,
                        textColor=INDIGO_PALE, alignment=TA_CENTER)))
+    story.append(NextPageTemplate("content"))
     story.append(PageBreak())
     return story
 
@@ -5350,7 +5372,9 @@ def appendix_f_support(styles):
 def assemble_story(styles):
     story = []
 
-    # Title page (uses "title" template)
+    # Title page (uses "title" template). build_cover() switches to the
+    # plain "content" template before its trailing PageBreak so the navy
+    # backdrop does not bleed past the cover.
     story.append(Paragraph("<!--title-->", ParagraphStyle("tx", parent=styles["Normal"])))  # placeholder
     story += build_cover(styles)
 
@@ -5459,18 +5483,58 @@ def assemble_story(styles):
     return story
 
 
+def _optimize_pdf_for_web(path):
+    """Linearize the PDF and rewrite as v1.5 via Ghostscript. Linearized
+    ("Fast Web View") files render reliably in pdf.js — the viewer
+    GitHub embeds for in-browser preview — and stream the first page
+    before the full file has loaded. No-op if Ghostscript isn't on PATH.
+    """
+    import shutil, subprocess, tempfile
+    gs = shutil.which("gs")
+    if not gs:
+        return False
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf",
+                                   dir=os.path.dirname(path) or None)
+    os.close(fd)
+    try:
+        result = subprocess.run([
+            gs, "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.5",
+            "-dPDFSETTINGS=/default",
+            "-dNOPAUSE", "-dQUIET", "-dBATCH",
+            "-dEmbedAllFonts=true",
+            "-dSubsetFonts=true",
+            "-dFastWebView=true",
+            f"-sOutputFile={tmp_path}",
+            path,
+        ], check=False, capture_output=True)
+        if result.returncode == 0 and os.path.getsize(tmp_path) > 1024:
+            os.replace(tmp_path, path)
+            return True
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return False
+
+
 def build():
     styles = build_styles()
     doc = DevManualDoc(OUTPUT_PATH)
     story = assemble_story(styles)
 
-    # Use the explicit 'content' template for body; 'partdiv' is not
-    # wired with NextPageTemplate dynamically in this version — the
-    # part dividers simply have full-page colour from the divider
-    # flowable itself. The 'title' template drives only the cover.
+    # The 'title' template drives only the cover; the body uses
+    # 'content' (a NextPageTemplate at the end of build_cover handles the
+    # transition). Part divider pages paint their own navy backdrop from
+    # within the PartBanner flowable, so the per-template approach is
+    # not used for them.
     doc.build(story)
+    web_opt = _optimize_pdf_for_web(OUTPUT_PATH)
     size = os.path.getsize(OUTPUT_PATH)
-    print(f"Wrote {OUTPUT_PATH} ({size:,} bytes)")
+    suffix = " (linearized)" if web_opt else ""
+    print(f"Wrote {OUTPUT_PATH} ({size:,} bytes){suffix}")
 
 
 if __name__ == "__main__":

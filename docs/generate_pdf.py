@@ -2028,11 +2028,52 @@ def main():
 
     doc.build(story)
 
+    web_opt = _optimize_pdf_for_web(OUTPUT_PATH)
+
     file_size = os.path.getsize(OUTPUT_PATH)
     print(f"\nGenerated: {OUTPUT_PATH}")
     print(f"File size: {file_size / 1024:.1f} KB")
     print(f"Pages: ~25-30 (estimated)")
+    if web_opt:
+        print("Linearized for Fast Web View via Ghostscript.")
     print("Done.")
+
+
+def _optimize_pdf_for_web(path):
+    """Linearize the PDF and rewrite as v1.5 via Ghostscript. Linearized
+    ("Fast Web View") files render reliably in pdf.js — the viewer
+    GitHub embeds for in-browser preview — and stream the first page
+    before the full file has loaded. No-op if Ghostscript isn't on PATH.
+    """
+    import shutil, subprocess, tempfile
+    gs = shutil.which("gs")
+    if not gs:
+        return False
+    fd, tmp_path = tempfile.mkstemp(suffix=".pdf",
+                                   dir=os.path.dirname(path) or None)
+    os.close(fd)
+    try:
+        result = subprocess.run([
+            gs, "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.5",
+            "-dPDFSETTINGS=/default",
+            "-dNOPAUSE", "-dQUIET", "-dBATCH",
+            "-dEmbedAllFonts=true",
+            "-dSubsetFonts=true",
+            "-dFastWebView=true",
+            f"-sOutputFile={tmp_path}",
+            path,
+        ], check=False, capture_output=True)
+        if result.returncode == 0 and os.path.getsize(tmp_path) > 1024:
+            os.replace(tmp_path, path)
+            return True
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return False
 
 
 if __name__ == "__main__":
