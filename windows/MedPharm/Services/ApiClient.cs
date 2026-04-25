@@ -42,6 +42,10 @@ public class ApiClient
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
+        // Bypass the ngrok free-tier HTML interstitial so JSON deserialization
+        // does not blow up on the very first request through a tunnel. Harmless
+        // when the API is reached directly without ngrok in front of it.
+        _http.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "true");
     }
 
     public void LoadTokens()
