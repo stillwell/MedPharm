@@ -60,12 +60,32 @@ for arg in "$@"; do
         --docker|--docker-api) INSTALL_DOCKER_API=true ;;
         --docker-server|--docker-full) INSTALL_DOCKER_SERVER=true ;;
         --tag=*) DOCKER_IMAGE_TAG="${arg#--tag=}" ;;
+        --update|--check-update)
+            # Delegate to the standalone updater. Strip the --update flag so
+            # update.sh doesn't see it; everything else (--yes, --check-only,
+            # --no-backup, --branch=...) is forwarded verbatim.
+            updater="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/update.sh"
+            [[ -x "$updater" ]] || { echo "update.sh not found at $updater" >&2; exit 1; }
+            forwarded=()
+            for a in "$@"; do
+                [[ "$a" == "--update" || "$a" == "--check-update" ]] && continue
+                forwarded+=("$a")
+            done
+            exec "$updater" "${forwarded[@]}"
+            ;;
         --help|-h)
             cat <<HELP
 Usage: ./install.sh [OPTIONS]
 
 Source install (default):
   --fresh             Recreate virtual environment and reinitialize database
+
+Update existing install (delegates to ./update.sh):
+  --update            Check github.com/stillwell/MedPharm for new commits and,
+                      if any are found, prompt to back up the database and
+                      fast-forward the local source tree
+  --check-update      Same as --update (additional flags --yes, --check-only,
+                      --no-backup, --branch=<ref> are forwarded to update.sh)
 
 Pre-built Docker Hub images (no Python build required):
   --docker            Pull enlightec/medpharm-api and start the API-only
