@@ -488,7 +488,7 @@ def build_colophon(styles):
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
-            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.5)"],
+            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.6)"],
             ["Supersedes", "No previous edition"],
             ["Classification", "CONFIDENTIAL — Authorised Operators"],
             ["Licence", "GNU General Public License v3.0 (content redistributable)"],
@@ -1497,7 +1497,7 @@ def chapter_06_commissioning(styles):
         code_block(
             """git clone https://github.com/stillwell/MedPharm.git
 cd MedPharm
-git checkout v1.7.5    # pin to a tagged release for production""", styles),
+git checkout v1.7.6    # pin to a tagged release for production""", styles),
         h2("Step 2 — Generate secrets", styles),
         p(
             "Before running the installer, generate two independent "
@@ -1909,7 +1909,7 @@ docker compose -f docker-compose.hub.yml stop -t 30""", styles),
             "start cleanly even if the container appears Up.",
             styles),
         code_block(
-            """MedPharm ERP API Server v1.7.5
+            """MedPharm ERP API Server v1.7.6
 Binding 0.0.0.0:8080  (TLS: require)
 Database: /data/medpharm_erp.db (connected, WAL mode)
 Seeded: 23 models, 75 medications, 30 symptoms, 25 conditions

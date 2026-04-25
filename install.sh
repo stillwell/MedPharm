@@ -147,7 +147,7 @@ Examples:
   ./install.sh --docker                     # API-only via Docker Hub
   ./install.sh --docker-server              # Full stack via Docker Hub
   ./install.sh --docker --docker-server     # Both (API + full stack) at once
-  ./install.sh --docker --tag=1.7.5         # Pin to a specific released version
+  ./install.sh --docker --tag=1.7.6         # Pin to a specific released version
   ./install.sh --docker --ngrok --ngrok-authtoken=2abc...
                                             # API-only + immediate public tunnel
   ./install.sh --install-ngrok              # Just put ngrok on PATH
@@ -204,7 +204,7 @@ banner() {
     ║  ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ║
     ║                                                                          ║
     ║                           E R P   S Y S T E M                            ║
-    ║                Medical & Pharmaceutical Management v1.7.5                ║
+    ║                Medical & Pharmaceutical Management v1.7.6                ║
     ║                                                                          ║
     ╚══════════════════════════════════════════════════════════════════════════╝
 BANNER

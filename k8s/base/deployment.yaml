@@ -24,7 +24,7 @@ metadata:
   labels:
     app.kubernetes.io/name: medpharm
     app.kubernetes.io/component: server
-    app.kubernetes.io/version: "1.7.5"
+    app.kubernetes.io/version: "1.7.6"
 spec:
   # SQLite-backed: must stay at 1 replica. To scale horizontally,
   # migrate MEDPHARM_DB_PATH to a networked database first.
@@ -40,13 +40,13 @@ spec:
       labels:
         app.kubernetes.io/name: medpharm
         app.kubernetes.io/component: server
-        app.kubernetes.io/version: "1.7.5"
+        app.kubernetes.io/version: "1.7.6"
     spec:
       securityContext:
         fsGroup: 1000
       containers:
         - name: medpharm
-          image: enlightec/medpharm-server:1.7.5
+          image: enlightec/medpharm-server:1.7.6
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

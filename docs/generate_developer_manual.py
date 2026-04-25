@@ -911,7 +911,7 @@ def build_colophon(styles):
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
-            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.5)"],
+            ["Applies To", "MedPharm ERP versions 1.7.x (latest 1.7.6)"],
             ["Classification", "CONFIDENTIAL — Engineering Internal"],
             ["Licence", "GNU General Public License v3.0"],
             ["Companion Volumes",
@@ -4117,12 +4117,12 @@ def chapter_24_docker(styles):
     s.append(h2("Building locally", styles))
     s.extend(code_block("""# API only
 docker build -f Dockerfile \\
-  -t enlightec/medpharm-api:1.7.5 \\
+  -t enlightec/medpharm-api:1.7.6 \\
   -t enlightec/medpharm-api:latest .
 
 # Full stack
 docker build -f server/Dockerfile \\
-  -t enlightec/medpharm-server:1.7.5 \\
+  -t enlightec/medpharm-server:1.7.6 \\
   -t enlightec/medpharm-server:latest .
 
 # Test locally

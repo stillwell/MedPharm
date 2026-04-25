@@ -1,6 +1,6 @@
 # MedPharm ERP — Security Policy
 
-**Version 1.7.5 · 2026**
+**Version 1.7.6 · 2026**
 
 ## Reporting a vulnerability
 

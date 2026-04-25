@@ -29,7 +29,7 @@
 #                                      # (requires NGROK_AUTHTOKEN env var)
 #
 # Override the image tag:
-#   MEDPHARM_IMAGE_TAG=1.7.5 ./start_docker_hub.sh api
+#   MEDPHARM_IMAGE_TAG=1.7.6 ./start_docker_hub.sh api
 # ==============================================================================
 
 set -euo pipefail

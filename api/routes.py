@@ -69,7 +69,7 @@ def _record_login_attempt(username: str, *, account_type: str,
 
 @api_bp.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.7.5", "copyright": "\u00a9 2026 Enlightec Ltd."})
+    return jsonify({"status": "ok", "service": "MedPharm ERP API", "version": "1.7.6", "copyright": "\u00a9 2026 Enlightec Ltd."})
 
 
 # ── Authentication ────────────────────────────────────────────────────────────
