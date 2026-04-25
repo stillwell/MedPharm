@@ -62,6 +62,19 @@ struct LoginView: View {
                         HStack {
                             Text("SERVER URL").font(.caption).kerning(1.2).foregroundColor(MPColor.textMuted)
                             Spacer()
+                            Button("Paste") {
+                                let pb = NSPasteboard.general
+                                if let pasted = pb.string(forType: .string) {
+                                    let normalized = QRConfigParser.normalize(pasted)
+                                    if !normalized.isEmpty {
+                                        serverURL = normalized
+                                    }
+                                }
+                            }
+                            .help("Paste an ngrok URL or client-config JSON from the clipboard.")
+                            .font(.caption)
+                            .buttonStyle(.link)
+                            .foregroundColor(MPColor.primary)
                             Button("Reset") {
                                 serverURL = APIClient.defaultBaseURL
                             }

@@ -72,6 +72,41 @@ services:
       retries: 3
       start_period: 10s
 
+  # Optional ngrok tunnel — exposes the api container to the public Internet
+  # via ngrok's edge so that mobile/desktop clients sitting behind a firewall,
+  # NAT or carrier-grade NAT can reach the API. The service is gated behind
+  # the `ngrok` profile so it only starts when explicitly requested:
+  #
+  #   NGROK_AUTHTOKEN=2abc...  docker compose -f docker-compose.hub.yml \
+  #       --profile ngrok up -d
+  #
+  # The container's local web inspector lives at http://127.0.0.1:4040; the
+  # public URL appears in the "Web Interface" line of `docker compose logs
+  # ngrok` and at http://127.0.0.1:4040/api/tunnels.
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: medpharm-ngrok
+    profiles: ["ngrok"]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      # NGROK_AUTHTOKEN is required at run time; the ngrok agent will refuse
+      # to connect without it. Get a free token at https://dashboard.ngrok.com
+      # and either export NGROK_AUTHTOKEN before `docker compose up` or place
+      # it in a .env file alongside this compose file.
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+      - NGROK_REGION=${NGROK_REGION:-us}
+    command:
+      - "http"
+      - "api:8080"
+      - "--log=stdout"
+      - "--log-format=logfmt"
+    ports:
+      # Expose the inspector / local API only on the loopback interface.
+      - "127.0.0.1:4040:4040"
+
 volumes:
   medpharm-data:
     driver: local

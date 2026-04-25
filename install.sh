@@ -45,6 +45,12 @@ LOG_FILE="${SCRIPT_DIR}/install.log"
 FRESH=false
 INSTALL_DOCKER_API=false
 INSTALL_DOCKER_SERVER=false
+INSTALL_NGROK=false
+START_NGROK=false
+NGROK_AUTHTOKEN_ARG="${NGROK_AUTHTOKEN:-}"
+NGROK_PORT="${NGROK_PORT:-8080}"
+NGROK_REGION="${NGROK_REGION:-}"
+NGROK_DOMAIN="${NGROK_DOMAIN:-}"
 DOCKER_IMAGE_TAG="${MEDPHARM_IMAGE_TAG:-latest}"
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
@@ -60,6 +66,12 @@ for arg in "$@"; do
         --docker|--docker-api) INSTALL_DOCKER_API=true ;;
         --docker-server|--docker-full) INSTALL_DOCKER_SERVER=true ;;
         --tag=*) DOCKER_IMAGE_TAG="${arg#--tag=}" ;;
+        --ngrok) INSTALL_NGROK=true; START_NGROK=true ;;
+        --install-ngrok) INSTALL_NGROK=true ;;
+        --ngrok-authtoken=*|--ngrok-token=*) NGROK_AUTHTOKEN_ARG="${arg#*=}" ;;
+        --ngrok-port=*) NGROK_PORT="${arg#*=}" ;;
+        --ngrok-region=*) NGROK_REGION="${arg#*=}" ;;
+        --ngrok-domain=*|--ngrok-hostname=*) NGROK_DOMAIN="${arg#*=}" ;;
         --update|--check-update)
             # Delegate to the standalone updater. Strip the --update flag so
             # update.sh doesn't see it; everything else (--yes, --check-only,
@@ -103,12 +115,28 @@ Combined Docker Hub deployment:
                       does not conflict with the API-only container on 8080.
                       The full-stack Nginx entry point stays on port 80.
 
+Remote access via ngrok (firewall / NAT traversal for mobile clients):
+  --ngrok             Install the ngrok agent (if missing) AND immediately
+                      start a tunnel against the local API after the rest of
+                      the install completes
+  --install-ngrok     Install the ngrok agent only — do not start a tunnel
+  --ngrok-authtoken=<TOKEN>
+                      Persist an ngrok auth token (also accepts NGROK_AUTHTOKEN
+                      env var). Required for tunnels longer than ~2 hours
+                      and for reserved domains. Free token: https://ngrok.com
+  --ngrok-port=<N>    Local port to expose (default: 8080 — the API)
+  --ngrok-region=<R>  Edge region: us | eu | ap | au | sa | jp | in
+  --ngrok-domain=<D>  Pin a reserved ngrok domain (paid tiers)
+
 Examples:
   ./install.sh                              # Source install (Python venv)
   ./install.sh --docker                     # API-only via Docker Hub
   ./install.sh --docker-server              # Full stack via Docker Hub
   ./install.sh --docker --docker-server     # Both (API + full stack) at once
   ./install.sh --docker --tag=1.7.5         # Pin to a specific released version
+  ./install.sh --docker --ngrok --ngrok-authtoken=2abc...
+                                            # API-only + immediate public tunnel
+  ./install.sh --install-ngrok              # Just put ngrok on PATH
 
 Docker Hub:
   https://hub.docker.com/r/enlightec/medpharm-api
@@ -286,6 +314,120 @@ DONE
     echo -e "  Patient: jsmith_portal / patient123\n"
     echo -e "${DIM}Image tag: ${DOCKER_IMAGE_TAG}${NC}"
     echo -e "${DIM}Docker Hub: https://hub.docker.com/u/enlightec${NC}\n"
+}
+
+# ── ngrok install / launch ────────────────────────────────────────────────────
+#
+# Puts the ngrok agent on PATH (Debian/Ubuntu via the official APT repo, macOS
+# via Homebrew, RHEL/Fedora via the YUM repo, fallback to a static-binary
+# download into ~/.local/bin). Then optionally starts the tunnel via
+# ./start_ngrok.sh, which captures the public URL into data/ for the clients.
+
+install_ngrok() {
+    header "Installing ngrok agent"
+    if command -v ngrok >/dev/null 2>&1; then
+        log "ngrok already installed: $(ngrok --version 2>&1 | head -1)"
+        return 0
+    fi
+
+    local kernel uname_arch
+    kernel="$(uname -s)"
+    uname_arch="$(uname -m)"
+
+    if [[ "$kernel" == "Darwin" ]]; then
+        if command -v brew >/dev/null 2>&1; then
+            info "Installing ngrok via Homebrew (brew install ngrok/ngrok/ngrok)..."
+            brew install ngrok/ngrok/ngrok 2>&1 | tee -a "$LOG_FILE" \
+                || warn "Homebrew install failed — falling back to direct download"
+        else
+            warn "Homebrew not found; falling back to direct download"
+        fi
+    elif [[ -f /etc/debian_version ]] && command -v apt-get >/dev/null 2>&1; then
+        info "Adding ngrok APT repo and installing via apt..."
+        if [[ ! -f /etc/apt/sources.list.d/ngrok.list ]]; then
+            curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+                | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
+                || warn "Could not fetch ngrok APT GPG key"
+            echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+                | sudo tee /etc/apt/sources.list.d/ngrok.list >/dev/null \
+                || warn "Could not write /etc/apt/sources.list.d/ngrok.list"
+        fi
+        sudo apt-get update -y >>"$LOG_FILE" 2>&1 \
+            && sudo apt-get install -y ngrok >>"$LOG_FILE" 2>&1 \
+            || warn "apt install ngrok failed — falling back to direct download"
+    elif [[ -f /etc/fedora-release || -f /etc/redhat-release ]]; then
+        info "Adding ngrok YUM repo and installing via dnf/yum..."
+        local ngrok_repo=/etc/yum.repos.d/ngrok.repo
+        if [[ ! -f "$ngrok_repo" ]]; then
+            sudo tee "$ngrok_repo" >/dev/null <<'REPO'
+[ngrok]
+name=ngrok
+baseurl=https://ngrok-agent.s3.amazonaws.com/rpm
+enabled=1
+gpgcheck=0
+REPO
+        fi
+        if command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y ngrok >>"$LOG_FILE" 2>&1 \
+                || warn "dnf install ngrok failed — falling back to direct download"
+        else
+            sudo yum install -y ngrok >>"$LOG_FILE" 2>&1 \
+                || warn "yum install ngrok failed — falling back to direct download"
+        fi
+    fi
+
+    # Fallback: static binary into ~/.local/bin
+    if ! command -v ngrok >/dev/null 2>&1; then
+        local arch tarurl tmpdir
+        case "$uname_arch" in
+            x86_64|amd64) arch="amd64" ;;
+            aarch64|arm64) arch="arm64" ;;
+            armv7l) arch="arm" ;;
+            *) fail "Unsupported CPU arch for ngrok: $uname_arch" ;;
+        esac
+        local osdir
+        if [[ "$kernel" == "Darwin" ]]; then osdir="darwin"; else osdir="linux"; fi
+        tarurl="https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-${osdir}-${arch}.tgz"
+
+        info "Downloading static ngrok binary from $tarurl"
+        tmpdir="$(mktemp -d)"
+        if curl -fsSL "$tarurl" -o "$tmpdir/ngrok.tgz" 2>>"$LOG_FILE"; then
+            tar -xzf "$tmpdir/ngrok.tgz" -C "$tmpdir" >>"$LOG_FILE" 2>&1
+            mkdir -p "$HOME/.local/bin"
+            mv "$tmpdir/ngrok" "$HOME/.local/bin/ngrok"
+            chmod +x "$HOME/.local/bin/ngrok"
+            rm -rf "$tmpdir"
+            export PATH="$HOME/.local/bin:$PATH"
+            warn "ngrok installed to $HOME/.local/bin — make sure that directory is on your PATH"
+        else
+            rm -rf "$tmpdir"
+            fail "Could not download ngrok from $tarurl"
+        fi
+    fi
+
+    log "ngrok installed: $(ngrok --version 2>&1 | head -1)"
+
+    if [[ -n "$NGROK_AUTHTOKEN_ARG" ]]; then
+        info "Persisting ngrok auth token..."
+        ngrok config add-authtoken "$NGROK_AUTHTOKEN_ARG" >>"$LOG_FILE" 2>&1 \
+            && log "Auth token saved" \
+            || warn "Saving auth token failed — token may be invalid"
+    fi
+}
+
+start_ngrok_tunnel() {
+    header "Starting ngrok tunnel"
+    local script="${SCRIPT_DIR}/start_ngrok.sh"
+    [[ -x "$script" ]] || fail "start_ngrok.sh not found or not executable"
+
+    local args=()
+    [[ -n "$NGROK_PORT" ]]   && args+=("--port=$NGROK_PORT")
+    [[ -n "$NGROK_REGION" ]] && args+=("--region=$NGROK_REGION")
+    [[ -n "$NGROK_DOMAIN" ]] && args+=("--domain=$NGROK_DOMAIN")
+    [[ -n "$NGROK_AUTHTOKEN_ARG" ]] && args+=("--authtoken=$NGROK_AUTHTOKEN_ARG")
+
+    NGROK_AUTHTOKEN="$NGROK_AUTHTOKEN_ARG" "$script" "${args[@]}" \
+        || warn "ngrok tunnel did not come up — see data/ngrok.log for details"
 }
 
 # ── Detect OS & Package Manager ───────────────────────────────────────────────
@@ -857,6 +999,19 @@ main() {
             echo -e "  Full-stack direct API:    http://localhost:${SERVER_API_PORT:-8081}/ ${DIM}(plain)${NC}"
             echo -e "  Full-stack direct Portal: http://localhost:5000/ ${DIM}(plain)${NC}\n"
         fi
+        if [[ "$INSTALL_NGROK" == "true" ]]; then
+            install_ngrok
+            [[ "$START_NGROK" == "true" ]] && start_ngrok_tunnel
+        fi
+        return
+    fi
+
+    if [[ "$INSTALL_NGROK" == "true" && "$INSTALL_DOCKER_API" != "true" && "$INSTALL_DOCKER_SERVER" != "true" ]]; then
+        # Standalone --ngrok / --install-ngrok path — skip the Python venv work
+        # and just provision the tunnel agent. This covers operators who only
+        # need to expose an already-running deployment.
+        install_ngrok
+        [[ "$START_NGROK" == "true" ]] && start_ngrok_tunnel
         return
     fi
 

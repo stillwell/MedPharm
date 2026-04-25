@@ -19,8 +19,14 @@ import com.enlightec.medpharm.data.api.ApiClient
 import com.enlightec.medpharm.data.api.ServerConfig
 import com.enlightec.medpharm.databinding.ActivityLoginBinding
 import com.enlightec.medpharm.ui.dashboard.MainActivity
+import com.enlightec.medpharm.util.QRConfigParser
 import com.enlightec.medpharm.util.Resource
 import com.enlightec.medpharm.util.TokenManager
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 class LoginActivity : AppCompatActivity() {
 
@@ -50,6 +56,18 @@ class LoginActivity : AppCompatActivity() {
 
         binding.tvResetServerUrl.setOnClickListener {
             binding.etServerUrl.setText(ServerConfig.DEFAULT_API_BASE_URL)
+        }
+
+        binding.tvScanServerUrl.setOnClickListener {
+            launchQrScanner()
+        }
+
+        // Pre-fetch the Google Code Scanner module so the first scan is fast.
+        runCatching {
+            val request = ModuleInstallRequest.newBuilder()
+                .addApi(GmsBarcodeScanning.getClient(this))
+                .build()
+            ModuleInstall.getClient(this).installModules(request)
         }
 
         binding.btnLogin.setOnClickListener {
@@ -119,5 +137,30 @@ class LoginActivity : AppCompatActivity() {
     private fun startMainActivity() {
         startActivity(Intent(this, MainActivity::class.java))
         finish()
+    }
+
+    private fun launchQrScanner() {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .enableAutoZoom()
+            .build()
+        val scanner = GmsBarcodeScanning.getClient(this, options)
+        scanner.startScan()
+            .addOnSuccessListener { barcode ->
+                val raw = barcode.rawValue ?: return@addOnSuccessListener
+                val normalized = QRConfigParser.normalize(raw)
+                if (normalized.isNotEmpty()) {
+                    binding.etServerUrl.setText(normalized)
+                    Toast.makeText(this,
+                        getString(R.string.qr_scanner_filled),
+                        Toast.LENGTH_SHORT).show()
+                }
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this,
+                    getString(R.string.qr_scanner_failed,
+                        e.localizedMessage ?: e::class.simpleName ?: "unknown"),
+                    Toast.LENGTH_LONG).show()
+            }
     }
 }

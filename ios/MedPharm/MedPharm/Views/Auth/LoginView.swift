@@ -14,6 +14,7 @@ struct LoginView: View {
     @State private var password = ""
     @State private var isStaff = false
     @State private var showRegister = false
+    @State private var showScanner = false
     @State private var serverURL: String = APIClient.storedBaseURL
     @State private var pulse = false
 
@@ -68,11 +69,19 @@ struct LoginView: View {
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
                                     .keyboardType(.URL)
-                                Button("Reset to Default") {
-                                    serverURL = APIClient.defaultBaseURL
+                                HStack(spacing: 16) {
+                                    Button(action: { showScanner = true }) {
+                                        Label("Scan QR", systemImage: "qrcode.viewfinder")
+                                            .font(.caption)
+                                    }
+                                    .foregroundColor(MPColor.primary)
+                                    Button("Reset to Default") {
+                                        serverURL = APIClient.defaultBaseURL
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(MPColor.primary)
+                                    Spacer()
                                 }
-                                .font(.caption)
-                                .foregroundColor(MPColor.primary)
                             }
 
                             VStack(spacing: 12) {
@@ -131,6 +140,15 @@ struct LoginView: View {
             }
             .sheet(isPresented: $showRegister) {
                 RegisterView()
+            }
+            .sheet(isPresented: $showScanner) {
+                QRScannerView { scanned in
+                    let value = QRConfigParser.normalize(scanned)
+                    if !value.isEmpty {
+                        serverURL = value
+                    }
+                    showScanner = false
+                }
             }
             .onAppear { pulse = true }
             .preferredColorScheme(.dark)

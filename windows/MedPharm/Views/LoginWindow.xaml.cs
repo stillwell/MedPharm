@@ -27,6 +27,35 @@ public partial class LoginWindow : Window
         ServerUrlBox.Text = AppSettings.DefaultApiBaseUrl;
     }
 
+    private void PasteServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!Clipboard.ContainsText())
+            {
+                StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                StatusText.Text = "Clipboard is empty.";
+                return;
+            }
+            var pasted = Clipboard.GetText();
+            var normalized = QRConfigParser.Normalize(pasted);
+            if (string.IsNullOrEmpty(normalized))
+            {
+                StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+                StatusText.Text = "Clipboard does not contain a usable URL.";
+                return;
+            }
+            ServerUrlBox.Text = normalized;
+            StatusText.Foreground = System.Windows.Media.Brushes.Gray;
+            StatusText.Text = "Server URL set from clipboard.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Foreground = (System.Windows.Media.Brush)Application.Current.Resources["ErrorBrush"];
+            StatusText.Text = $"Could not read clipboard: {ex.Message}";
+        }
+    }
+
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
     {
         var username = UsernameBox.Text.Trim();

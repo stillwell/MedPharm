@@ -22,6 +22,14 @@
         android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="34">
 
+        <!-- Trigger an on-demand install of the Google Code Scanner module
+             so the QR-scan button on the login screen works the first time
+             a user taps it without waiting for Play Services to fetch the
+             module mid-flow. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
+
         <!-- Login Activity - Entry point -->
         <activity
             android:name=".ui.auth.LoginActivity"

@@ -75,10 +75,16 @@
                     <TextBlock Text="SERVER URL" Style="{StaticResource MPFieldLabel}" />
                     <TextBox x:Name="ServerUrlBox"
                              ToolTip="API base URL, e.g. https://medpharm-erp.enlightec.com:8080/api/v1" />
-                    <Button x:Name="ResetServerButton" Content="Reset to default"
-                            Style="{StaticResource MPLinkButton}"
-                            Click="ResetServerButton_Click"
-                            Margin="0,6,0,14" />
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,14">
+                        <Button x:Name="PasteServerButton" Content="Paste from clipboard"
+                                Style="{StaticResource MPLinkButton}"
+                                Click="PasteServerButton_Click"
+                                ToolTip="Paste an ngrok URL or client-config JSON copied from the server's data/ngrok_client_config.json file." />
+                        <Button x:Name="ResetServerButton" Content="Reset to default"
+                                Style="{StaticResource MPLinkButton}"
+                                Click="ResetServerButton_Click"
+                                Margin="20,0,0,0" />
+                    </StackPanel>
 
                     <TextBlock Text="LOGIN TYPE" Style="{StaticResource MPFieldLabel}" />
                     <ComboBox x:Name="LoginTypeCombo" SelectedIndex="0" Margin="0,0,0,14">

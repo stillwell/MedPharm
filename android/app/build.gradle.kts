@@ -94,6 +94,12 @@ dependencies {
     // Security - Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // QR scanning — Google's Code Scanner (Play Services). It uses a Google
+    // Play overlay so we do NOT need to declare the CAMERA permission or
+    // build our own preview UI; the dependency is small and the API is
+    // exactly what the LoginActivity needs to fill the Server URL field.
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

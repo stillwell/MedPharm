@@ -25,6 +25,8 @@
 #   ./start_docker_hub.sh server       # Full stack (Nginx + API + Portal)
 #   ./start_docker_hub.sh pull         # Pull latest images without starting
 #   ./start_docker_hub.sh stop         # Stop running MedPharm containers
+#   ./start_docker_hub.sh ngrok        # Start API + public ngrok tunnel
+#                                      # (requires NGROK_AUTHTOKEN env var)
 #
 # Override the image tag:
 #   MEDPHARM_IMAGE_TAG=1.7.5 ./start_docker_hub.sh api
@@ -123,9 +125,82 @@ pull_only() {
 
 stop_all() {
     info "Stopping MedPharm containers..."
-    docker compose -f "${SCRIPT_DIR}/docker-compose.hub.yml" down 2>/dev/null || true
+    docker compose -f "${SCRIPT_DIR}/docker-compose.hub.yml" --profile ngrok down 2>/dev/null || true
     docker compose -f "${SCRIPT_DIR}/server/docker-compose.hub.yml" down 2>/dev/null || true
     log "All MedPharm containers stopped"
+}
+
+# ── ngrok tunnel (firewall traversal for mobile clients) ─────────────────────
+
+start_ngrok() {
+    if [[ -z "${NGROK_AUTHTOKEN:-}" ]]; then
+        fail "NGROK_AUTHTOKEN is not set. Get a free token at https://dashboard.ngrok.com and re-run: NGROK_AUTHTOKEN=<token> ./start_docker_hub.sh ngrok"
+    fi
+    info "Bringing up the API container (if not already running)..."
+    MEDPHARM_IMAGE_TAG="${TAG}" docker compose \
+        -f "${SCRIPT_DIR}/docker-compose.hub.yml" up -d
+    info "Starting ngrok tunnel container (profile: ngrok)..."
+    NGROK_AUTHTOKEN="${NGROK_AUTHTOKEN}" \
+    NGROK_REGION="${NGROK_REGION:-us}" \
+    MEDPHARM_IMAGE_TAG="${TAG}" \
+        docker compose -f "${SCRIPT_DIR}/docker-compose.hub.yml" \
+            --profile ngrok up -d ngrok
+
+    info "Waiting for tunnel public URL..."
+    local url=""
+    for _ in $(seq 1 30); do
+        sleep 1
+        url="$(docker exec medpharm-ngrok wget -qO- http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+            | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for t in d.get("tunnels", []):
+    pu = t.get("public_url","")
+    if pu.startswith("https://"):
+        print(pu); break
+' 2>/dev/null || true)"
+        [[ -n "$url" ]] && break
+    done
+
+    if [[ -z "$url" ]]; then
+        warn "Could not read public URL from the ngrok inspector; check 'docker compose logs ngrok'."
+        return 1
+    fi
+
+    local api_url="${url%/}/api/v1"
+    mkdir -p "${SCRIPT_DIR}/data"
+    echo "$url" > "${SCRIPT_DIR}/data/ngrok_public_url.txt"
+    cat > "${SCRIPT_DIR}/data/ngrok_client_config.json" <<JSON
+{
+  "api_base_url": "$api_url",
+  "public_url": "$url",
+  "issued_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "tunnel": "ngrok",
+  "schema": 1
+}
+JSON
+    if command -v qrencode >/dev/null 2>&1; then
+        qrencode -o "${SCRIPT_DIR}/data/ngrok_qr.png" -s 8 -m 2 "$api_url" 2>/dev/null \
+            && info "QR code: ${SCRIPT_DIR}/data/ngrok_qr.png"
+    fi
+
+    log "ngrok tunnel is live"
+    echo
+    echo "  ╔══════════════════════════════════════════════════════════════════╗"
+    echo "  ║  MedPharm ERP - Public Tunnel (ngrok)                            ║"
+    echo "  ╚══════════════════════════════════════════════════════════════════╝"
+    echo "  Public URL:      $url"
+    echo "  Client API base: $api_url"
+    echo "  Inspector UI:    http://127.0.0.1:4040"
+    echo
+    echo "  Configure each client (Android/iOS scan QR; macOS/Windows paste URL):"
+    echo "    ${SCRIPT_DIR}/data/ngrok_qr.png"
+    echo "    ${SCRIPT_DIR}/data/ngrok_public_url.txt"
+    echo
+    echo "  Stop:  docker compose -f docker-compose.hub.yml --profile ngrok down"
 }
 
 # ── Interactive Menu ─────────────────────────────────────────────────────────
@@ -149,12 +224,16 @@ BANNER
     echo
     echo "  4) Stop running containers"
     echo
-    read -p "  Select [1-4]: " choice
+    echo "  5) Start ngrok tunnel (exposes API to the public Internet)"
+    echo "     Requires NGROK_AUTHTOKEN env var (free: https://dashboard.ngrok.com)"
+    echo
+    read -p "  Select [1-5]: " choice
     case "$choice" in
         1) start_api ;;
         2) start_server ;;
         3) pull_only ;;
         4) stop_all ;;
+        5) start_ngrok ;;
         *) fail "Invalid selection" ;;
     esac
 }
@@ -169,9 +248,10 @@ case "${1:-}" in
     full)   start_server ;;
     pull)   pull_only ;;
     stop|down) stop_all ;;
+    ngrok|tunnel) start_ngrok ;;
     "")     interactive_menu ;;
     -h|--help)
         grep '^#' "$0" | sed 's/^# \?//' | head -40
         ;;
-    *) fail "Unknown option: $1 (use: api, server, pull, stop, or no arg for menu)" ;;
+    *) fail "Unknown option: $1 (use: api, server, pull, stop, ngrok, or no arg for menu)" ;;
 esac
