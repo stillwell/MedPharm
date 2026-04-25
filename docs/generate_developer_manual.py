@@ -37,7 +37,7 @@ files at build time. Code samples are reproduced inline so the manual
 compiles cleanly in sterile environments (CI, Docker builds,
 documentation-only forks) and does not drift when the underlying
 modules are refactored. When source code changes substantially, the
-revision of the manual is incremented (1.7.5-A, 1.7.5-B, …) and
+revision of the manual is incremented (1.7.6-A, 1.7.6-B, …) and
 re-issued.
 """
 
@@ -321,7 +321,7 @@ class DevManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.5-A")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-A")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "Enlightec Ltd. — INTERNAL DEVELOPMENT REFERENCE")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -882,7 +882,7 @@ def build_cover(styles):
         fontSize=13, textColor=INDIGO_PALE, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.06 * inch))
     story.append(Paragraph(
-        "Revision 1.7.5-A &nbsp;//&nbsp; Issued "
+        "Revision 1.7.6-A &nbsp;//&nbsp; Issued "
         + datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -907,7 +907,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Developer Manual"],
             ["Volume / Edition", "Volume III — Engineer Edition"],
-            ["Revision", "1.7.5-A"],
+            ["Revision", "1.7.6-A"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -1006,7 +1006,7 @@ def build_foreword(styles):
         "you find an inaccuracy, a gap, or an outright lie that the "
         "code has since corrected, please "
         + mail(label="write in") + " and the manual will be updated. A "
-        "revision letter (1.7.5-A, 1.7.5-B, …) is appended for each "
+        "revision letter (1.7.6-A, 1.7.6-B, …) is appended for each "
         "re-issue, and a visible record appears in Appendix F.",
         styles))
     s.append(Spacer(1, 0.3 * inch))
@@ -5307,7 +5307,16 @@ def appendix_f_support(styles):
     s.append(make_table(
         ["Revision", "Date", "Author", "Summary"],
         [
-            ["1.7.5-A", datetime.now().strftime("%d %b %Y"),
+            ["1.7.6-A", datetime.now().strftime("%d %b %Y"),
+             "R. Stillwell",
+             "Reissued for the 1.7.6 product line. Notes the PDF "
+             "rendering fixes applied to this volume (cover-page navy "
+             "backdrop no longer bleeds onto body pages; spurious "
+             "blank pages before part dividers removed; output now "
+             "linearised as PDF 1.5 for browser viewers) and the "
+             "ngrok-tunnel onboarding flow available to operators "
+             "exposing the API across firewalls or NAT."],
+            ["1.7.5-A", "20 Apr 2026",
              "R. Stillwell",
              "Initial issue of the developer manual."],
         ],
@@ -5358,7 +5367,7 @@ def appendix_f_support(styles):
     s.append(Spacer(1, 0.4 * inch))
     s.append(Paragraph(
         "<i>End of the MedPharm ERP Developer Manual, "
-        "Volume III, Revision 1.7.5-A.</i>",
+        "Volume III, Revision 1.7.6-A.</i>",
         ParagraphStyle("EndSig", parent=styles["DM_Body"],
                        alignment=TA_CENTER, textColor=SLATE,
                        fontName="Helvetica-Oblique")))

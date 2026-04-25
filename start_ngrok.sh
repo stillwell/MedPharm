@@ -41,9 +41,11 @@
 # Side effects on success:
 #   data/ngrok_public_url.txt     - https://<random>.ngrok-free.app
 #   data/ngrok_client_config.json - {"api_base_url": "<url>/api/v1"}
-#   data/ngrok_qr.png             - QR code of the URL (if qrencode/qrcode lib
-#                                   is available) — scan from the iOS / Android
-#                                   client login screens to auto-fill the URL.
+#   data/ngrok_qr.png             - QR code of the URL (only if either the
+#                                   `qrencode` CLI or the Python `qrcode`
+#                                   package is available) — scan from the
+#                                   iOS / Android client login screens to
+#                                   auto-fill the URL.
 #
 # Required: ngrok agent on PATH. Install via:
 #   ./install.sh --ngrok            (Debian/Ubuntu/macOS, system-wide via apt
@@ -212,8 +214,10 @@ write_artifacts() {
 JSON
     log "Wrote $JSON_FILE"
 
-    # Try to draw a QR code: prefer qrencode (apt: qrencode), fall back to
-    # the Python qrcode library if it is importable (pulled in by the venv).
+    # Try to draw a QR code: prefer the qrencode CLI (apt: qrencode, brew:
+    # qrencode), fall back to the Python qrcode library if it happens to be
+    # importable. Neither is a hard requirement of MedPharm — the QR is a
+    # convenience for clients that scan from the login screen.
     if have qrencode; then
         qrencode -o "$QR_FILE" -s 8 -m 2 "$api_url" \
             && log "Wrote $QR_FILE (QR for: $api_url)"
@@ -225,7 +229,7 @@ img.save("$QR_FILE")
 PY
         log "Wrote $QR_FILE (QR for: $api_url)"
     else
-        warn "Skipping QR generation — install 'qrencode' (apt) or run inside the venv (which provides the qrcode Python package)"
+        warn "Skipping QR generation — install 'qrencode' (apt/brew) or 'pip install qrcode[pil]' to enable it"
     fi
 }
 

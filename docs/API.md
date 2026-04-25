@@ -93,6 +93,11 @@ HTTP method semantics:
 | `GET`  | `/patient/insurance` | Patient's insurance records |
 | `GET`  | `/patient/insurance/claims` | Claim list |
 | `POST` | `/patient/insurance/claims` | File a new claim (`invoice_id`, `insurance_id`) |
+| `GET`  | `/patient/messages` | List the patient's secure-message threads |
+| `POST` | `/patient/messages` | Open a new thread (`subject`, `body`, optional `provider_id`) |
+| `GET`  | `/patient/messages/<id>` | Thread + decrypted messages; marks them read |
+| `POST` | `/patient/messages/<id>/reply` | Append a reply to an open thread (`body`) |
+| `GET`  | `/patient/messages/providers` | Providers the patient may direct a thread to |
 
 ### Staff (`role in {doctor, psychiatrist, pharmacist, admin}`)
 
@@ -108,6 +113,17 @@ HTTP method semantics:
 | `GET`  | `/staff/analytics/demographics` | Patient age / gender breakdown |
 | `GET`  | `/staff/insurance/claims` | All insurance claims |
 | `POST` | `/staff/insurance/claims/<id>/process` | Approve / deny / pay claim |
+| `GET`  | `/staff/messages` | List secure-message threads (filter `?patient_id=`) |
+| `GET`  | `/staff/messages/<id>` | Thread + decrypted messages; marks them read |
+| `POST` | `/staff/messages/<id>/reply` | Append a staff reply to an open thread (`body`) |
+| `POST` | `/staff/messages/<id>/close` | Close a thread (no further replies accepted) |
+| `GET`  | `/staff/patients/<id>/notes` | List the caller's private notes on a patient |
+| `POST` | `/staff/patients/<id>/notes` | Create a private note (`body`, optional `is_pinned`) |
+| `GET`  | `/staff/notes/<id>` | Read one of the caller's notes |
+| `PUT`  | `/staff/notes/<id>` | Update body / pin state of the caller's note |
+| `DELETE` | `/staff/notes/<id>` | Delete the caller's note |
+
+> Provider notes are author-scoped at both the API and DB layer — a staff user can only read, update, or delete notes they themselves authored. Message bodies and note bodies are Fernet-encrypted at rest; the API returns the decrypted plaintext.
 
 ### Reference (authenticated, any role)
 

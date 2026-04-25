@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.5-A")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-A")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.5-A &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.6-A &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,7 +484,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.5-A"],
+            ["Revision", "1.7.6-A"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -4597,14 +4597,22 @@ def appendix_f_revision(styles):
             "numbered against the MedPharm release with which "
             "they are current, followed by a letter designating "
             "the revision of the manual itself within that "
-            "release (e.g. 1.7.5-A, 1.7.5-B). A revision-history "
+            "release (e.g. 1.7.6-A, 1.7.6-B). A revision-history "
             "table must accompany the manual; operators are "
             "asked to add to it when they contribute changes.",
             styles),
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.5-A", datetime.now().strftime("%d %b %Y"),
+                ["1.7.6-A", datetime.now().strftime("%d %b %Y"),
+                 "R. Stillwell",
+                 "Reissued for the 1.7.6 product line. Documents the new "
+                 "ngrok-tunnel onboarding flow (./install.sh --ngrok-login) "
+                 "for operators exposing the API to mobile clients across "
+                 "firewalls or NAT, plus the docker-compose `ngrok` profile "
+                 "and the QR-based client onboarding artifacts emitted to "
+                 "data/ngrok_*."],
+                ["1.7.5-A", "20 Apr 2026",
                  "R. Stillwell",
                  "Initial issue of the operator-facing service manual."],
             ],
@@ -4662,7 +4670,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.5-A.</i>",
+            "Volume II, Revision 1.7.6-A.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),
