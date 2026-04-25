@@ -25,7 +25,8 @@
 # Reads its auth token from one of (in order):
 #   1. --authtoken=<TOKEN> on the command line
 #   2. NGROK_AUTHTOKEN environment variable
-#   3. ~/.config/ngrok/ngrok.yml (already configured by `ngrok config`)
+#   3. ~/.config/medpharm/ngrok.env (captured by `./install.sh --ngrok-login`)
+#   4. ~/.config/ngrok/ngrok.yml (already configured by `ngrok config`)
 #
 # Usage:
 #   ./start_ngrok.sh                      # tunnel to https://localhost:8080
@@ -64,6 +65,15 @@ LOG_FILE="${DATA_DIR}/ngrok.log"
 URL_FILE="${DATA_DIR}/ngrok_public_url.txt"
 JSON_FILE="${DATA_DIR}/ngrok_client_config.json"
 QR_FILE="${DATA_DIR}/ngrok_qr.png"
+
+# Token captured by `./install.sh --ngrok-login` lives here; we source it
+# only when NGROK_AUTHTOKEN is not already set in the environment so
+# explicit overrides still win.
+NGROK_TOKEN_FILE="${HOME}/.config/medpharm/ngrok.env"
+if [[ -z "${NGROK_AUTHTOKEN:-}" && -r "$NGROK_TOKEN_FILE" ]]; then
+    # shellcheck disable=SC1090
+    set -o allexport; . "$NGROK_TOKEN_FILE"; set +o allexport
+fi
 
 PORT=8080
 PROTO="http"

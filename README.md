@@ -722,13 +722,45 @@ The integration touches three layers:
 
 ### Provision an auth token
 
-Sign up at <https://dashboard.ngrok.com> (the free tier is sufficient for development; paid tiers add reserved domains). Pass the token to the installer once and it will be persisted in the local ngrok config:
+Sign up at <https://dashboard.ngrok.com> (the free tier is sufficient for development; paid tiers add reserved domains). The token is captured **once** and persisted forever — every launcher script sources it automatically after that. Three equivalent ways to provide it:
+
+**A. Browser-based capture (recommended).** The installer opens your default browser at the ngrok dashboard, prompts for the token with input hidden (no echo, no scrollback leak), and saves it.
+
+```bash
+./install.sh --ngrok-login                 # capture only
+./install.sh --docker --ngrok --ngrok-login  # full firewalled-server setup
+```
+
+The flow is:
+
+1. The installer attempts to open <https://dashboard.ngrok.com/get-started/your-authtoken> via `xdg-open` (Linux), `open` (macOS), `sensible-browser`, the `BROWSER` env var, or `powershell.exe Start-Process` (WSL). If none of those work, it prints the URL for you to visit manually.
+2. You log in (or sign up) and copy the token shown in the gray code box.
+3. You return to the terminal, press `<Enter>`, and paste the token at the prompt. Input is hidden via `read -s`.
+4. The installer calls `ngrok config add-authtoken` (writes `~/.config/ngrok/ngrok.yml`) **and** writes `~/.config/medpharm/ngrok.env` with `chmod 0600` so future invocations of `start_ngrok.sh` and `start_docker_hub.sh ngrok` pick the token up automatically.
+
+**B. Inline.** Skip the browser entirely if you already have the token on the clipboard:
 
 ```bash
 ./install.sh --ngrok --ngrok-authtoken=2abc...XYZ
 ```
 
-Or set the `NGROK_AUTHTOKEN` environment variable — every script in this section honours it.
+This also writes both `~/.config/ngrok/ngrok.yml` and `~/.config/medpharm/ngrok.env`.
+
+**C. Environment variable.** Useful in CI:
+
+```bash
+NGROK_AUTHTOKEN=2abc...XYZ ./start_ngrok.sh
+NGROK_AUTHTOKEN=2abc...XYZ ./start_docker_hub.sh ngrok
+```
+
+The order of precedence at run time is:
+
+1. Explicit `--authtoken=` / `--ngrok-authtoken=` flag
+2. `NGROK_AUTHTOKEN` already exported in the caller's environment
+3. `~/.config/medpharm/ngrok.env` (auto-sourced)
+4. `~/.config/ngrok/ngrok.yml` (used by the ngrok agent itself)
+
+To rotate the token (e.g. after regenerating it on the dashboard), just re-run `./install.sh --ngrok-login` — the new value overwrites both files.
 
 ### Start a tunnel — source-installed server
 

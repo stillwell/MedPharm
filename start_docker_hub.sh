@@ -133,8 +133,16 @@ stop_all() {
 # ── ngrok tunnel (firewall traversal for mobile clients) ─────────────────────
 
 start_ngrok() {
+    # Auto-pick-up the token captured by `./install.sh --ngrok-login`. Explicit
+    # NGROK_AUTHTOKEN in the caller's env always wins.
+    local token_file="${HOME}/.config/medpharm/ngrok.env"
+    if [[ -z "${NGROK_AUTHTOKEN:-}" && -r "$token_file" ]]; then
+        # shellcheck disable=SC1090
+        set -o allexport; . "$token_file"; set +o allexport
+        info "Loaded auth token from $token_file"
+    fi
     if [[ -z "${NGROK_AUTHTOKEN:-}" ]]; then
-        fail "NGROK_AUTHTOKEN is not set. Get a free token at https://dashboard.ngrok.com and re-run: NGROK_AUTHTOKEN=<token> ./start_docker_hub.sh ngrok"
+        fail "NGROK_AUTHTOKEN is not set. Run ./install.sh --ngrok-login to capture it interactively, or pass it inline: NGROK_AUTHTOKEN=<token> ./start_docker_hub.sh ngrok"
     fi
     info "Bringing up the API container (if not already running)..."
     MEDPHARM_IMAGE_TAG="${TAG}" docker compose \

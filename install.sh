@@ -47,11 +47,18 @@ INSTALL_DOCKER_API=false
 INSTALL_DOCKER_SERVER=false
 INSTALL_NGROK=false
 START_NGROK=false
+NGROK_LOGIN=false
 NGROK_AUTHTOKEN_ARG="${NGROK_AUTHTOKEN:-}"
 NGROK_PORT="${NGROK_PORT:-8080}"
 NGROK_REGION="${NGROK_REGION:-}"
 NGROK_DOMAIN="${NGROK_DOMAIN:-}"
 DOCKER_IMAGE_TAG="${MEDPHARM_IMAGE_TAG:-latest}"
+
+# Where the captured ngrok auth token is persisted on this host. Picked up
+# automatically by start_ngrok.sh, start_docker_hub.sh, and the docker-compose
+# `ngrok` profile so the token only has to be entered once.
+NGROK_TOKEN_DIR="${HOME}/.config/medpharm"
+NGROK_TOKEN_FILE="${NGROK_TOKEN_DIR}/ngrok.env"
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
 #
@@ -68,6 +75,7 @@ for arg in "$@"; do
         --tag=*) DOCKER_IMAGE_TAG="${arg#--tag=}" ;;
         --ngrok) INSTALL_NGROK=true; START_NGROK=true ;;
         --install-ngrok) INSTALL_NGROK=true ;;
+        --ngrok-login) INSTALL_NGROK=true; NGROK_LOGIN=true ;;
         --ngrok-authtoken=*|--ngrok-token=*) NGROK_AUTHTOKEN_ARG="${arg#*=}" ;;
         --ngrok-port=*) NGROK_PORT="${arg#*=}" ;;
         --ngrok-region=*) NGROK_REGION="${arg#*=}" ;;
@@ -120,10 +128,16 @@ Remote access via ngrok (firewall / NAT traversal for mobile clients):
                       start a tunnel against the local API after the rest of
                       the install completes
   --install-ngrok     Install the ngrok agent only — do not start a tunnel
+  --ngrok-login       Open the ngrok dashboard in a browser, prompt for the
+                      auth token (input hidden) and persist it forever in
+                      ~/.config/medpharm/ngrok.env (mode 0600) AND in
+                      ngrok's own config (~/.config/ngrok/ngrok.yml). The
+                      saved token is auto-sourced by every launcher script
+                      after that, so the user never has to paste it again.
   --ngrok-authtoken=<TOKEN>
-                      Persist an ngrok auth token (also accepts NGROK_AUTHTOKEN
-                      env var). Required for tunnels longer than ~2 hours
-                      and for reserved domains. Free token: https://ngrok.com
+                      Persist an ngrok auth token non-interactively (also
+                      accepts NGROK_AUTHTOKEN env var). Skips the browser
+                      login. Free token: https://dashboard.ngrok.com
   --ngrok-port=<N>    Local port to expose (default: 8080 — the API)
   --ngrok-region=<R>  Edge region: us | eu | ap | au | sa | jp | in
   --ngrok-domain=<D>  Pin a reserved ngrok domain (paid tiers)
@@ -137,6 +151,11 @@ Examples:
   ./install.sh --docker --ngrok --ngrok-authtoken=2abc...
                                             # API-only + immediate public tunnel
   ./install.sh --install-ngrok              # Just put ngrok on PATH
+  ./install.sh --ngrok-login                # Browser-based token capture
+  ./install.sh --docker --ngrok --ngrok-login
+                                            # Full firewalled-server setup with
+                                            # token captured interactively (no
+                                            # need to copy/paste on the cmdline)
 
 Docker Hub:
   https://hub.docker.com/r/enlightec/medpharm-api
@@ -323,6 +342,130 @@ DONE
 # download into ~/.local/bin). Then optionally starts the tunnel via
 # ./start_ngrok.sh, which captures the public URL into data/ for the clients.
 
+# Open the user's default browser at the given URL. Best-effort, returns 0
+# even when no opener is available so the caller can fall back to printing
+# the URL for the user to navigate to manually.
+open_url_in_browser() {
+    local url="$1"
+    if command -v xdg-open >/dev/null 2>&1; then
+        (xdg-open "$url" >/dev/null 2>&1 &) || true
+    elif command -v open >/dev/null 2>&1; then
+        # macOS
+        (open "$url" >/dev/null 2>&1 &) || true
+    elif command -v sensible-browser >/dev/null 2>&1; then
+        (sensible-browser "$url" >/dev/null 2>&1 &) || true
+    elif [[ -n "${BROWSER:-}" ]]; then
+        ("$BROWSER" "$url" >/dev/null 2>&1 &) || true
+    elif command -v powershell.exe >/dev/null 2>&1; then
+        # WSL → Windows browser
+        (powershell.exe -NoProfile -Command "Start-Process '$url'" >/dev/null 2>&1 &) || true
+    else
+        return 1
+    fi
+}
+
+# Save the captured token to ~/.config/medpharm/ngrok.env (mode 0600) so the
+# launcher scripts and the docker-compose `ngrok` profile pick it up without
+# the user having to copy/paste it again. Two-line file:
+#   # comment
+#   NGROK_AUTHTOKEN=...
+persist_ngrok_token_to_env_file() {
+    local token="$1"
+    [[ -z "$token" ]] && return 0
+    mkdir -p "$NGROK_TOKEN_DIR"
+    chmod 700 "$NGROK_TOKEN_DIR" 2>/dev/null || true
+    {
+        echo "# MedPharm ERP — captured ngrok auth token"
+        echo "# Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) by install.sh"
+        echo "# Sourced automatically by start_ngrok.sh, start_docker_hub.sh,"
+        echo "# and the docker-compose ngrok profile. To rotate, re-run:"
+        echo "#   ./install.sh --ngrok-login"
+        echo "NGROK_AUTHTOKEN=$token"
+    } >"$NGROK_TOKEN_FILE"
+    chmod 600 "$NGROK_TOKEN_FILE"
+    log "Persisted token at $NGROK_TOKEN_FILE (mode 0600)"
+}
+
+# Interactive ngrok login flow:
+#   1. Open the dashboard token page in the user's browser (or print the URL)
+#   2. Read-prompt the user to paste the token (input hidden, no echo)
+#   3. Save it via `ngrok config add-authtoken` AND in $NGROK_TOKEN_FILE
+#
+# ngrok intentionally does not expose a headless OAuth flow for tokens, so
+# the dashboard-paste handshake is the supported path. We never log the
+# token to install.log.
+ngrok_login_and_capture_token() {
+    header "ngrok login — capture API token"
+    command -v ngrok >/dev/null 2>&1 \
+        || fail "ngrok must be installed before --ngrok-login (run with --install-ngrok first)"
+
+    local dashboard_url="https://dashboard.ngrok.com/get-started/your-authtoken"
+    local signup_url="https://dashboard.ngrok.com/signup"
+
+    info "Opening the ngrok auth-token page in your browser:"
+    info "  $dashboard_url"
+    info ""
+    info "If you do not have an ngrok account yet, sign up first at:"
+    info "  $signup_url"
+    info ""
+    info "When the page loads, copy the token shown in the gray code box."
+    info "Then return to this terminal."
+    echo
+
+    open_url_in_browser "$dashboard_url" \
+        || warn "Could not auto-open a browser. Visit the URL above manually."
+
+    # Stop the install from racing the user — let them navigate to the page.
+    info "Press <Enter> once the page is open and the token is on your clipboard..."
+    if [[ -t 0 ]]; then read -r _; else echo "(non-interactive shell — skipping wait)"; fi
+
+    local token=""
+    local attempts=0
+    while [[ -z "$token" && $attempts -lt 5 ]]; do
+        attempts=$((attempts + 1))
+        if [[ ! -t 0 ]]; then
+            warn "Cannot prompt for a token in a non-interactive shell. Either pass --ngrok-authtoken=<TOKEN> or set NGROK_AUTHTOKEN in the environment."
+            return 1
+        fi
+        # -s suppresses echo so the token stays off the screen / scrollback
+        echo -n "  Paste the ngrok auth token (input hidden): "
+        read -rs token
+        echo
+        token="$(echo -n "$token" | tr -d '[:space:]')"
+
+        if [[ -z "$token" ]]; then
+            warn "Empty input. Try again or press Ctrl-C to skip."
+            continue
+        fi
+
+        # ngrok tokens are typically 40-50 chars of base64 / hex with an
+        # optional underscore separating an account id from a secret. We
+        # only sanity-check length here and let `ngrok config add-authtoken`
+        # do the real verification.
+        if [[ ${#token} -lt 20 ]]; then
+            warn "That doesn't look like a valid ngrok token (only ${#token} chars). Try again."
+            token=""
+            continue
+        fi
+    done
+
+    [[ -z "$token" ]] && fail "Did not receive a usable token after $attempts attempts"
+
+    info "Storing token via 'ngrok config add-authtoken'..."
+    if ngrok config add-authtoken "$token" >/dev/null 2>&1; then
+        log "Token saved in ngrok's config (~/.config/ngrok/ngrok.yml)"
+    else
+        warn "ngrok rejected the token. Double-check it on the dashboard and re-run --ngrok-login."
+        return 1
+    fi
+
+    persist_ngrok_token_to_env_file "$token"
+
+    NGROK_AUTHTOKEN_ARG="$token"
+    export NGROK_AUTHTOKEN="$token"
+    return 0
+}
+
 install_ngrok() {
     header "Installing ngrok agent"
     if command -v ngrok >/dev/null 2>&1; then
@@ -409,9 +552,12 @@ REPO
 
     if [[ -n "$NGROK_AUTHTOKEN_ARG" ]]; then
         info "Persisting ngrok auth token..."
-        ngrok config add-authtoken "$NGROK_AUTHTOKEN_ARG" >>"$LOG_FILE" 2>&1 \
-            && log "Auth token saved" \
-            || warn "Saving auth token failed — token may be invalid"
+        if ngrok config add-authtoken "$NGROK_AUTHTOKEN_ARG" >>"$LOG_FILE" 2>&1; then
+            log "Auth token saved to ngrok config"
+            persist_ngrok_token_to_env_file "$NGROK_AUTHTOKEN_ARG"
+        else
+            warn "Saving auth token failed — token may be invalid"
+        fi
     fi
 }
 
@@ -1001,16 +1147,26 @@ main() {
         fi
         if [[ "$INSTALL_NGROK" == "true" ]]; then
             install_ngrok
+            if [[ "$NGROK_LOGIN" == "true" || ( "$START_NGROK" == "true" && -z "$NGROK_AUTHTOKEN_ARG" ) ]]; then
+                ngrok_login_and_capture_token \
+                    || warn "Skipping interactive token capture; the tunnel will fail without one."
+            fi
             [[ "$START_NGROK" == "true" ]] && start_ngrok_tunnel
         fi
         return
     fi
 
     if [[ "$INSTALL_NGROK" == "true" && "$INSTALL_DOCKER_API" != "true" && "$INSTALL_DOCKER_SERVER" != "true" ]]; then
-        # Standalone --ngrok / --install-ngrok path — skip the Python venv work
-        # and just provision the tunnel agent. This covers operators who only
-        # need to expose an already-running deployment.
+        # Standalone --ngrok / --install-ngrok / --ngrok-login path — skip the
+        # Python venv work and just provision the tunnel agent (and, when
+        # asked, capture the auth token interactively). This covers operators
+        # who only need to expose an already-running deployment, plus the
+        # token-rotation workflow `./install.sh --ngrok-login`.
         install_ngrok
+        if [[ "$NGROK_LOGIN" == "true" || ( "$START_NGROK" == "true" && -z "$NGROK_AUTHTOKEN_ARG" ) ]]; then
+            ngrok_login_and_capture_token \
+                || warn "Skipping interactive token capture; the tunnel will fail without one."
+        fi
         [[ "$START_NGROK" == "true" ]] && start_ngrok_tunnel
         return
     fi
