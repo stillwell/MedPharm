@@ -54,7 +54,7 @@ done
 
 cd "$REPO_ROOT"
 
-OWNER_REPO="$(git remote get-url origin | sed -E 's#.*github\.com[:/]([^/]+/[^/.]+)(\.git)?#\1#')"
+OWNER_REPO="$(git remote get-url origin | sed -E 's#.*github\.com[:/]##; s#\.git$##; s#/$##')"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 SHA="$(git rev-parse HEAD)"
 
@@ -75,14 +75,41 @@ fi
 
 # ── Find the Cirrus build for this commit ────────────────────────────────────
 # The public GraphQL endpoint at api.cirrus-ci.com requires no auth for OSS
-# repos. We poll until a build for our SHA appears (Cirrus normally picks up
-# the push within ~10 s).
+# repos. We first confirm the repo is registered with Cirrus (i.e. the GitHub
+# App is installed), then poll for a build matching our SHA.
 GQL_URL="https://api.cirrus-ci.com/graphql"
-echo "[2/3] Locating Cirrus build for $SHA ..."
+OWNER="${OWNER_REPO%%/*}"
+NAME="${OWNER_REPO##*/}"
 
+echo "[2/3] Confirming Cirrus knows about $OWNER_REPO ..."
+repo_check=$(jq -nc --arg owner "$OWNER" --arg name "$NAME" '{
+  query: "query($owner:String!,$name:String!){ ownerRepository(platform:\"github\",owner:$owner,name:$name){ id } }",
+  variables: { owner: $owner, name: $name }
+}')
+repo_resp=$(curl -fsS -H 'Content-Type: application/json' -X POST -d "$repo_check" "$GQL_URL" || echo '{}')
+repo_id=$(echo "$repo_resp" | jq -r '.data.ownerRepository.id // empty')
+
+if [[ -z "$repo_id" ]]; then
+    cat <<EOM
+ERROR: Cirrus CI does not know about $OWNER_REPO.
+
+  Cirrus only sees a repo after you install its GitHub App on it (one-time):
+
+      https://github.com/marketplace/cirrus-ci
+
+  Click "Install" → grant access to $OWNER_REPO → re-run this script.
+
+  The free-tier OSS plan is automatic for public repos; no payment method
+  is required.
+EOM
+    exit 1
+fi
+echo "      Repo registered: cirrus-ci.com/github/$OWNER_REPO  (id=$repo_id)"
+
+echo "      Locating build for $SHA ..."
 build_id=""
 for attempt in $(seq 1 30); do
-    payload=$(jq -nc --arg owner "${OWNER_REPO%%/*}" --arg name "${OWNER_REPO##*/}" --arg sha "$SHA" '{
+    payload=$(jq -nc --arg owner "$OWNER" --arg name "$NAME" --arg sha "$SHA" '{
       query: "query($owner:String!,$name:String!,$sha:String!){ ownerRepository(platform:\"github\",owner:$owner,name:$name){ builds(last:20){ edges{ node{ id changeIdInRepo status branch tasks{ id name status } } } } } }",
       variables: { owner: $owner, name: $name, sha: $sha }
     }')
@@ -95,10 +122,10 @@ for attempt in $(seq 1 30); do
 done
 
 if [[ -z "$build_id" || "$build_id" == "null" ]]; then
-    echo "ERROR: No Cirrus build found for $SHA after 150 s."
-    echo "       Check that the Cirrus CI GitHub App is installed on this repo:"
-    echo "         https://github.com/marketplace/cirrus-ci"
-    echo "       And that .cirrus.yml is present at the repo root."
+    echo "ERROR: Cirrus knows the repo but found no build for $SHA after 150 s."
+    echo "       This usually means .cirrus.yml at the tip of $BRANCH did not"
+    echo "       trigger any task (path filters? skip rules?), or the push has"
+    echo "       not reached Cirrus yet. Check https://cirrus-ci.com/github/$OWNER_REPO"
     exit 1
 fi
 
