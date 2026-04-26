@@ -1,0 +1,151 @@
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+# License: GNU General Public License v3.0
+#
+# ==============================================================================
+# MedPharm ERP - iOS Build Pipeline
+#
+# Builds the MedPharm iOS client on a macOS runner so that operators on
+# Linux / Windows can produce installable artifacts without owning a Mac.
+#
+# Two build matrices run in parallel:
+#   1. iOS Simulator  — always succeeds, no signing identity needed.
+#                       Artifact: MedPharm-iOS-Simulator.app.zip
+#   2. iOS Device     — compile-only with CODE_SIGNING_ALLOWED=NO. Proves
+#                       the device build is structurally valid; the .app
+#                       inside the .xcarchive is NOT installable on a real
+#                       phone (no signature) — to produce a signed .ipa, add
+#                       APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_API_KEY
+#                       secrets and re-run with `signed: true`.
+#                       Artifact: MedPharm-iOS-Device-Unsigned.xcarchive.zip
+#
+# Triggers:
+#   - push to master that touches ios/ or this workflow
+#   - tag v*.*.* (publishes alongside the Docker image)
+#   - manual `gh workflow run ios-build.yml` from any platform
+# ==============================================================================
+
+name: Build iOS Client
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*.*.*']
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration (Debug or Release)'
+        required: false
+        default: 'Release'
+
+defaults:
+  run:
+    working-directory: ios/MedPharm
+
+jobs:
+  simulator:
+    name: Build for iOS Simulator (unsigned, runnable)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Build for iOS Simulator
+        env:
+          CONFIG: ${{ github.event.inputs.configuration || 'Release' }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project MedPharm.xcodeproj \
+            -scheme MedPharm \
+            -configuration "$CONFIG" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | (xcbeautify --renderer github-actions || cat)
+          exit "${PIPESTATUS[0]}"
+
+      - name: Locate produced .app bundle
+        id: app
+        run: |
+          set -euo pipefail
+          APP="$(find build/Build/Products -type d -name 'MedPharm.app' | head -1)"
+          if [[ -z "$APP" ]]; then echo "::error::No MedPharm.app produced"; exit 1; fi
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+          echo "Built: $APP"
+
+      - name: Zip the simulator .app
+        run: |
+          ditto -c -k --keepParent "${{ steps.app.outputs.path }}" "${{ runner.temp }}/MedPharm-iOS-Simulator.app.zip"
+
+      - name: Upload simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedPharm-iOS-Simulator
+          path: ${{ runner.temp }}/MedPharm-iOS-Simulator.app.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  device:
+    name: Compile-check for iOS Device (unsigned)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Compile-check for generic iOS device
+        env:
+          CONFIG: ${{ github.event.inputs.configuration || 'Release' }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project MedPharm.xcodeproj \
+            -scheme MedPharm \
+            -configuration "$CONFIG" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            -archivePath build/MedPharm.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive 2>&1 | (xcbeautify --renderer github-actions || cat)
+          exit "${PIPESTATUS[0]}"
+
+      - name: Zip the unsigned xcarchive
+        run: |
+          if [[ -d build/MedPharm.xcarchive ]]; then
+            ditto -c -k --keepParent build/MedPharm.xcarchive "${{ runner.temp }}/MedPharm-iOS-Device-Unsigned.xcarchive.zip"
+          else
+            echo "::warning::No xcarchive produced — compile-check failed; see logs above"
+            exit 1
+          fi
+
+      - name: Upload unsigned device archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedPharm-iOS-Device-Unsigned
+          path: ${{ runner.temp }}/MedPharm-iOS-Device-Unsigned.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 14

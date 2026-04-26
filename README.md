@@ -235,16 +235,22 @@ MedPharm/
 │       └── res/               # Layouts, drawables, strings, themes
 │
 ├── ios/                       # iOS app (SwiftUI, async/await)
-│   └── MedPharm/MedPharm/
-│       ├── Models/            # Codable data models
-│       ├── Services/          # APIClient, AuthManager, KeychainHelper
-│       └── Views/             # SwiftUI views by feature
+│   ├── MedPharm/MedPharm/
+│   │   ├── Models/            # Codable data models
+│   │   ├── Services/          # APIClient, AuthManager, KeychainHelper
+│   │   └── Views/             # SwiftUI views by feature
+│   ├── Package.swift          # SPM facade for swift-on-Linux compile-check
+│   ├── swift_lint.sh          # Local Foundation-only build (no Mac needed)
+│   └── build_via_actions.sh   # Trigger CI build from any platform
 │
 ├── macos/                     # macOS app (SwiftUI, NavigationSplitView)
-│   └── MedPharm/MedPharm/
-│       ├── Models/            # Shared with iOS
-│       ├── Services/          # APIClient, AuthManager
-│       └── Views/             # macOS-optimized views
+│   ├── MedPharm/MedPharm/
+│   │   ├── Models/            # Shared with iOS
+│   │   ├── Services/          # APIClient, AuthManager
+│   │   └── Views/             # macOS-optimized views
+│   ├── Package.swift          # SPM facade for swift-on-Linux compile-check
+│   ├── swift_lint.sh          # Local Foundation-only build (no Mac needed)
+│   └── build_via_actions.sh   # Trigger CI build from any platform
 │
 ├── windows/                   # Windows app (.NET 8, WPF)
 │   └── MedPharm/
@@ -562,8 +568,24 @@ cd android
 ./gradlew assembleDebug
 ```
 
-**iOS / macOS:**
+**iOS / macOS (on a Mac):**
 Open `ios/MedPharm/MedPharm.xcodeproj` or `macos/MedPharm/MedPharm.xcodeproj` in Xcode and build.
+
+**iOS / macOS from Linux or Windows:**
+Apple's toolchain is macOS-only, so `xcodebuild` cannot run natively on Linux. Two workflows cover engineers without a Mac:
+
+```bash
+gh auth login                           # one-time GitHub CLI auth
+./ios/build_via_actions.sh              # remote build via .github/workflows/ios-build.yml
+                                        # → MedPharm-iOS-Simulator.app.zip + unsigned device archive
+./macos/build_via_actions.sh            # remote build via .github/workflows/macos-build.yml
+                                        # → MedPharm-macOS.app.zip (unsigned)
+
+./ios/swift_lint.sh                     # offline `swift build` of the Foundation-only
+./macos/swift_lint.sh                   # subset (Models/, QRConfigParser) — no Mac needed
+```
+
+Full details, signing notes, and limitations: [`ios/README.md § Build from Linux`](ios/README.md#build-from-linux--windows), [`macos/README.md § Build from Linux`](macos/README.md#build-from-linux--windows).
 
 **Windows:**
 ```bash

@@ -27,8 +27,8 @@ This guide covers building every MedPharm component **from source** on every tar
 | Web Portal | Python 3.10+ | `pip` + `flask` | any | WSGI app |
 | Qt Desktop | Python 3.10+ | `pip` + `PyInstaller` | Linux / macOS / Windows | native binary (optional) |
 | Android | Kotlin 1.9 | Gradle 8, AGP 8 | any | `app-release.apk` / `.aab` |
-| iOS | Swift 5.9+ | Xcode 15 | macOS only | `.ipa` |
-| macOS | Swift 5.9+ | Xcode 15 | macOS only | `.app` |
+| iOS | Swift 5.9+ | Xcode 15 (or GitHub Actions `macos-14`) | macOS — or Linux/Windows via GitHub Actions | `.ipa` (or unsigned `.app` from CI) |
+| macOS | Swift 5.9+ | Xcode 15 (or GitHub Actions `macos-14`) | macOS — or Linux/Windows via GitHub Actions | `.app` (signed on Mac, unsigned from CI) |
 | Windows | C# .NET 8 | `dotnet` SDK | Windows (Linux cross-compile) | `.exe` / `.msi` |
 | Docker API | — | Docker Buildx | any | `enlightec/medpharm-api` |
 | Docker Server | — | Docker Buildx | any | `enlightec/medpharm-server` |
@@ -188,6 +188,13 @@ API_BASE_URL = https:/$()/api.example.com/api/v1
 
 (the `$()` avoids the Xcode `//` comment rule).
 
+### Building from Linux / Windows
+
+No Mac on hand? Two complementary paths, fully documented in [`ios/README.md § Build from Linux`](../ios/README.md#build-from-linux--windows):
+
+* **`ios/build_via_actions.sh`** — runs the [`ios-build.yml`](../.github/workflows/ios-build.yml) workflow on a GitHub-hosted `macos-14` runner via `gh workflow run`, watches it, and downloads the artifacts (`MedPharm-iOS-Simulator.app.zip` for the simulator, `MedPharm-iOS-Device-Unsigned.xcarchive.zip` as a device-build compile-check). Produces installable simulator artifacts; signed-`.ipa` distribution requires you to add Apple Developer secrets to the repo.
+* **`ios/swift_lint.sh`** — runs `swift build` against [`ios/Package.swift`](../ios/Package.swift) using the Apple-shipped Linux Swift toolchain. Compiles the Foundation-only subset (`Models/Models.swift` + `Services/QRConfigParser.swift`) in seconds for fast feedback. Cannot compile any `Views/*.swift` (those import SwiftUI / UIKit / AVFoundation, which are macOS/iOS-only) nor `Services/APIClient.swift` (Keychain via Security framework).
+
 ---
 
 ## macOS (Swift / Xcode)
@@ -219,6 +226,13 @@ xcrun notarytool submit MedPharm.zip \
   --apple-id you@example.com --team-id TEAMID --password app-specific-pwd --wait
 xcrun stapler staple build/app/MedPharm.app
 ```
+
+### Building from Linux / Windows
+
+Mirrors the iOS story — see [`macos/README.md § Build from Linux`](../macos/README.md#build-from-linux--windows):
+
+* **`macos/build_via_actions.sh`** — drives [`macos-build.yml`](../.github/workflows/macos-build.yml) on a `macos-14` runner and downloads `MedPharm-macOS.app.zip` (unsigned). Run on a recipient Mac after `xattr -cr MedPharm.app`.
+* **`macos/swift_lint.sh`** — `swift build` of the Foundation-only subset on Linux for fast type/Codable checks.
 
 ---
 
