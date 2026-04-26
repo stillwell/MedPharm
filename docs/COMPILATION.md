@@ -190,9 +190,10 @@ API_BASE_URL = https:/$()/api.example.com/api/v1
 
 ### Building from Linux / Windows
 
-No Mac on hand? Two complementary paths, fully documented in [`ios/README.md § Build from Linux`](../ios/README.md#build-from-linux--windows):
+No Mac on hand? Three complementary paths, fully documented in [`ios/README.md § Build from Linux`](../ios/README.md#build-from-linux--windows):
 
-* **`ios/build_via_actions.sh`** — runs the [`ios-build.yml`](../.github/workflows/ios-build.yml) workflow on a GitHub-hosted `macos-14` runner via `gh workflow run`, watches it, and downloads the artifacts (`MedPharm-iOS-Simulator.app.zip` for the simulator, `MedPharm-iOS-Device-Unsigned.xcarchive.zip` as a device-build compile-check). Produces installable simulator artifacts; signed-`.ipa` distribution requires you to add Apple Developer secrets to the repo.
+* **`ios/build_via_actions.sh`** — runs the [`ios-build.yml`](../.github/workflows/ios-build.yml) workflow on a GitHub-hosted `macos-14` runner via `gh workflow run`, watches it, and downloads the artifacts (`MedPharm-iOS-Simulator.app.zip` for the simulator, `MedPharm-iOS-Device-Unsigned.xcarchive.zip` as a device-build compile-check). Produces installable simulator artifacts; signed-`.ipa` distribution requires you to add Apple Developer secrets to the repo. Requires a GitHub account with a working payment method on file (macOS runners are billed at 10× the Linux rate even for public repos).
+* **`ios/build_via_cirrus.sh`** — fallback that drives the same build on Cirrus CI (free macOS-on-M1 minutes for public OSS, separate from GitHub billing). Triggers the [`.cirrus.yml`](../.cirrus.yml) tasks. One-time setup: install the [Cirrus CI GitHub App](https://github.com/marketplace/cirrus-ci) on the repo.
 * **`ios/swift_lint.sh`** — runs `swift build` against [`ios/Package.swift`](../ios/Package.swift) using the Apple-shipped Linux Swift toolchain. Compiles the Foundation-only subset (`Models/Models.swift` + `Services/QRConfigParser.swift`) in seconds for fast feedback. Cannot compile any `Views/*.swift` (those import SwiftUI / UIKit / AVFoundation, which are macOS/iOS-only) nor `Services/APIClient.swift` (Keychain via Security framework).
 
 ---
@@ -232,6 +233,7 @@ xcrun stapler staple build/app/MedPharm.app
 Mirrors the iOS story — see [`macos/README.md § Build from Linux`](../macos/README.md#build-from-linux--windows):
 
 * **`macos/build_via_actions.sh`** — drives [`macos-build.yml`](../.github/workflows/macos-build.yml) on a `macos-14` runner and downloads `MedPharm-macOS.app.zip` (unsigned). Run on a recipient Mac after `xattr -cr MedPharm.app`.
+* **`macos/build_via_cirrus.sh`** — Cirrus CI fallback when GitHub Actions is billing-blocked. Same artifact, free macOS minutes, no GitHub billing.
 * **`macos/swift_lint.sh`** — `swift build` of the Foundation-only subset on Linux for fast type/Codable checks.
 
 ---

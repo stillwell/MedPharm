@@ -62,7 +62,7 @@ xcodebuild -exportArchive \
 
 Apple's toolchain only runs on macOS, so a true local build on Linux is not possible. Two complementary paths cover everything an engineer outside the Apple ecosystem needs:
 
-#### 1. Remote build via GitHub Actions (produces installable artifacts)
+#### 1a. Remote build via GitHub Actions (produces installable artifacts)
 
 `./build_via_actions.sh` triggers the [`ios-build.yml`](../.github/workflows/ios-build.yml) workflow on a GitHub-hosted `macos-14` runner, watches it complete, and downloads the build artifacts to `ios/build/`.
 
@@ -82,6 +82,27 @@ Two artifacts come back:
 | `MedPharm-iOS-Device-Unsigned.xcarchive.zip` | Compile-only proof — the device-target build succeeded. **Not installable on a real phone** because no Apple Developer signing identity was applied. To produce a signed `.ipa`, add `APPLE_API_KEY_ID` / `APPLE_API_ISSUER_ID` / `APPLE_API_KEY` secrets to the repo and adapt the workflow. |
 
 The workflow also runs automatically on every push to `master` that touches `ios/`, and on every `v*.*.*` tag.
+
+> **Heads-up on GitHub billing.** GitHub charges macOS-runner minutes at 10× the Linux rate and requires a valid payment method on the account even for public repos. If a job comes back almost-instantly with *"The job was not started because your account is locked due to a billing issue,"* fix payment at https://github.com/settings/billing or fall back to path **1b**.
+
+#### 1b. Remote build via Cirrus CI (free macOS-on-M1 minutes for OSS, billing-independent)
+
+Cirrus CI gives public GitHub repos a free monthly allotment of macOS minutes that's separate from GitHub's billing — the right fallback when path 1a is billing-blocked.
+
+One-time setup:
+
+1. Install the Cirrus CI GitHub App on the repo: https://github.com/marketplace/cirrus-ci
+
+Per build:
+
+```bash
+sudo apt install jq curl git    # most distros have these already
+./build_via_cirrus.sh                   # push current branch, wait, download
+./build_via_cirrus.sh --no-push         # rely on a previous push
+./build_via_cirrus.sh --no-download     # trigger only
+```
+
+The same artifacts come back (`MedPharm-iOS-Simulator.app.zip` and `MedPharm-iOS-Device-Unsigned.xcarchive.zip`). The Cirrus configuration lives at [`.cirrus.yml`](../.cirrus.yml) and runs automatically on every push to `master` that touches `ios/`, plus on tags. PRs from forks are skipped to protect your minute budget.
 
 #### 2. Offline compile-check with the Apple-shipped Linux Swift toolchain
 

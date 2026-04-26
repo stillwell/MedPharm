@@ -1,0 +1,137 @@
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+# License: GNU General Public License v3.0
+#
+# ==============================================================================
+# Cirrus CI - macOS Build Pipeline (fallback when GitHub-hosted macos runners
+# are billing-blocked or quota-exhausted)
+#
+# Cirrus CI gives public GitHub repos a free monthly allotment of macOS-on-M1
+# minutes that is independent of GitHub's billing. Same scheme as the GitHub
+# Actions workflows in .github/workflows/{ios,macos}-build.yml — two tasks
+# in parallel, unsigned artifacts.
+#
+# Setup (one-time):
+#   1. Install the Cirrus CI GitHub App on the repo:
+#        https://github.com/marketplace/cirrus-ci
+#   2. (Free-tier OSS only requires step 1 — no payment method needed for
+#       public repositories.)
+#
+# Trigger:
+#   - Auto on every push to master (touching ios/, macos/, or this file)
+#   - Auto on every PR from a branch in the same repo (forks are skipped to
+#     prevent untrusted code from burning your minutes)
+#   - Manual via the Cirrus web UI re-run button, or via the Linux helpers
+#     ios/build_via_cirrus.sh and macos/build_via_cirrus.sh
+#
+# Artifacts (downloadable via the Cirrus REST API or web UI):
+#   ios_simulator_task    → MedPharm-iOS-Simulator.app.zip
+#   ios_device_task       → MedPharm-iOS-Device-Unsigned.xcarchive.zip
+#   macos_task            → MedPharm-macOS.app.zip
+# ==============================================================================
+
+# Skip pull requests from forks (untrusted code path) to protect the free-tier
+# minute budget. Pushes from collaborators and PRs from same-repo branches run
+# normally.
+skip: $CIRRUS_PR != '' && $CIRRUS_REPO_FULL_NAME != $CIRRUS_PR_HEAD_REPO_FULL_NAME
+
+# ─── iOS Simulator (always succeeds, runnable build) ─────────────────────────
+ios_simulator_task:
+  name: iOS — Simulator build (unsigned, runnable)
+  only_if: changesInclude('ios/**', '.cirrus.yml') || $CIRRUS_BRANCH == 'master' || $CIRRUS_TAG != ''
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
+  env:
+    CONFIG: Release
+  build_script: |
+    set -euo pipefail
+    cd ios/MedPharm
+    xcodebuild -version
+    xcodebuild \
+      -project MedPharm.xcodeproj \
+      -scheme MedPharm \
+      -configuration "$CONFIG" \
+      -sdk iphonesimulator \
+      -destination 'generic/platform=iOS Simulator' \
+      -derivedDataPath build \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGN_IDENTITY="" \
+      build
+  package_script: |
+    set -euo pipefail
+    cd ios/MedPharm
+    APP="$(find build/Build/Products -type d -name 'MedPharm.app' | head -1)"
+    test -n "$APP" || { echo "no MedPharm.app produced"; exit 1; }
+    ditto -c -k --keepParent "$APP" "$CIRRUS_WORKING_DIR/MedPharm-iOS-Simulator.app.zip"
+  app_artifacts:
+    path: "MedPharm-iOS-Simulator.app.zip"
+    type: application/zip
+
+# ─── iOS Device (compile-check; unsigned archive) ────────────────────────────
+ios_device_task:
+  name: iOS — Device compile-check (unsigned)
+  only_if: changesInclude('ios/**', '.cirrus.yml') || $CIRRUS_BRANCH == 'master' || $CIRRUS_TAG != ''
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
+  env:
+    CONFIG: Release
+  build_script: |
+    set -euo pipefail
+    cd ios/MedPharm
+    xcodebuild -version
+    xcodebuild \
+      -project MedPharm.xcodeproj \
+      -scheme MedPharm \
+      -configuration "$CONFIG" \
+      -sdk iphoneos \
+      -destination 'generic/platform=iOS' \
+      -derivedDataPath build \
+      -archivePath build/MedPharm.xcarchive \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGN_IDENTITY="" \
+      archive
+  package_script: |
+    set -euo pipefail
+    cd ios/MedPharm
+    test -d build/MedPharm.xcarchive || { echo "no xcarchive produced"; exit 1; }
+    ditto -c -k --keepParent build/MedPharm.xcarchive \
+      "$CIRRUS_WORKING_DIR/MedPharm-iOS-Device-Unsigned.xcarchive.zip"
+  archive_artifacts:
+    path: "MedPharm-iOS-Device-Unsigned.xcarchive.zip"
+    type: application/zip
+
+# ─── macOS Desktop App (unsigned .app) ───────────────────────────────────────
+macos_task:
+  name: macOS — Desktop build (unsigned)
+  only_if: changesInclude('macos/**', '.cirrus.yml') || $CIRRUS_BRANCH == 'master' || $CIRRUS_TAG != ''
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-runner:sonoma
+  env:
+    CONFIG: Release
+  build_script: |
+    set -euo pipefail
+    cd macos/MedPharm
+    xcodebuild -version
+    xcodebuild \
+      -project MedPharm.xcodeproj \
+      -scheme MedPharm \
+      -configuration "$CONFIG" \
+      -destination 'platform=macOS' \
+      -derivedDataPath build \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGNING_REQUIRED=NO \
+      CODE_SIGN_IDENTITY="" \
+      build
+  package_script: |
+    set -euo pipefail
+    cd macos/MedPharm
+    APP="$(find build/Build/Products -type d -name 'MedPharm.app' | head -1)"
+    test -n "$APP" || { echo "no MedPharm.app produced"; exit 1; }
+    ditto -c -k --keepParent "$APP" "$CIRRUS_WORKING_DIR/MedPharm-macOS.app.zip"
+  app_artifacts:
+    path: "MedPharm-macOS.app.zip"
+    type: application/zip

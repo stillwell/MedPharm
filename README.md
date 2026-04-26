@@ -241,7 +241,8 @@ MedPharm/
 │   │   └── Views/             # SwiftUI views by feature
 │   ├── Package.swift          # SPM facade for swift-on-Linux compile-check
 │   ├── swift_lint.sh          # Local Foundation-only build (no Mac needed)
-│   └── build_via_actions.sh   # Trigger CI build from any platform
+│   ├── build_via_actions.sh   # Trigger GitHub Actions build from any platform
+│   └── build_via_cirrus.sh    # Trigger Cirrus CI fallback (no GitHub billing)
 │
 ├── macos/                     # macOS app (SwiftUI, NavigationSplitView)
 │   ├── MedPharm/MedPharm/
@@ -250,7 +251,8 @@ MedPharm/
 │   │   └── Views/             # macOS-optimized views
 │   ├── Package.swift          # SPM facade for swift-on-Linux compile-check
 │   ├── swift_lint.sh          # Local Foundation-only build (no Mac needed)
-│   └── build_via_actions.sh   # Trigger CI build from any platform
+│   ├── build_via_actions.sh   # Trigger GitHub Actions build from any platform
+│   └── build_via_cirrus.sh    # Trigger Cirrus CI fallback (no GitHub billing)
 │
 ├── windows/                   # Windows app (.NET 8, WPF)
 │   └── MedPharm/
@@ -572,17 +574,23 @@ cd android
 Open `ios/MedPharm/MedPharm.xcodeproj` or `macos/MedPharm/MedPharm.xcodeproj` in Xcode and build.
 
 **iOS / macOS from Linux or Windows:**
-Apple's toolchain is macOS-only, so `xcodebuild` cannot run natively on Linux. Two workflows cover engineers without a Mac:
+Apple's toolchain is macOS-only, so `xcodebuild` cannot run natively on Linux. Three options cover engineers without a Mac:
 
 ```bash
-gh auth login                           # one-time GitHub CLI auth
-./ios/build_via_actions.sh              # remote build via .github/workflows/ios-build.yml
-                                        # → MedPharm-iOS-Simulator.app.zip + unsigned device archive
-./macos/build_via_actions.sh            # remote build via .github/workflows/macos-build.yml
-                                        # → MedPharm-macOS.app.zip (unsigned)
+# Path 1a — GitHub Actions (.github/workflows/{ios,macos}-build.yml)
+gh auth login
+./ios/build_via_actions.sh              # → MedPharm-iOS-Simulator.app.zip + unsigned device archive
+./macos/build_via_actions.sh            # → MedPharm-macOS.app.zip (unsigned)
 
-./ios/swift_lint.sh                     # offline `swift build` of the Foundation-only
-./macos/swift_lint.sh                   # subset (Models/, QRConfigParser) — no Mac needed
+# Path 1b — Cirrus CI fallback (.cirrus.yml). Free macOS-on-M1 minutes for
+# public OSS, independent of GitHub billing. Install the Cirrus CI GitHub App
+# once at https://github.com/marketplace/cirrus-ci, then:
+./ios/build_via_cirrus.sh               # same artifacts as 1a
+./macos/build_via_cirrus.sh
+
+# Path 2 — Offline compile-check via Swift on Linux (no network, no Mac)
+./ios/swift_lint.sh                     # `swift build` of the Foundation-only subset
+./macos/swift_lint.sh                   # (Models/, QRConfigParser) — instant feedback
 ```
 
 Full details, signing notes, and limitations: [`ios/README.md § Build from Linux`](ios/README.md#build-from-linux--windows), [`macos/README.md § Build from Linux`](macos/README.md#build-from-linux--windows).

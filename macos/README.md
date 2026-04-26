@@ -63,7 +63,7 @@ xcodebuild -exportArchive \
 
 Apple's toolchain only runs on macOS. Two complementary paths cover engineers outside the Apple ecosystem:
 
-#### 1. Remote build via GitHub Actions (produces a runnable `.app`)
+#### 1a. Remote build via GitHub Actions (produces a runnable `.app`)
 
 `./build_via_actions.sh` triggers the [`macos-build.yml`](../.github/workflows/macos-build.yml) workflow on a GitHub-hosted `macos-14` runner and downloads the resulting `.app` to `macos/build/`.
 
@@ -84,6 +84,25 @@ open /Applications/MedPharm.app
 ```
 
 For a notarised, Gatekeeper-passing build, add `APPLE_DEVELOPER_ID` (the `Developer ID Application: …` identity) plus the App Store Connect API-key secrets to the repo and adapt the workflow.
+
+> **Heads-up on GitHub billing.** macOS-runner minutes are billed at 10× the Linux rate and require a valid payment method even for public repos. If a job is rejected immediately with *"The job was not started because your account is locked due to a billing issue,"* fix payment at https://github.com/settings/billing or fall back to path **1b**.
+
+#### 1b. Remote build via Cirrus CI (free macOS-on-M1 minutes for OSS)
+
+Cirrus CI provides a free monthly allotment of macOS minutes for public GitHub repos that is separate from GitHub's billing. Use this when GitHub Actions is billing-blocked.
+
+One-time: install the Cirrus CI GitHub App on the repo — https://github.com/marketplace/cirrus-ci
+
+Per build:
+
+```bash
+sudo apt install jq curl git
+./build_via_cirrus.sh                   # push, wait, download
+./build_via_cirrus.sh --no-push         # rely on a previous push
+./build_via_cirrus.sh --no-download     # trigger only
+```
+
+Same artifact (`MedPharm-macOS.app.zip`). The Cirrus config lives at [`.cirrus.yml`](../.cirrus.yml) and auto-runs on pushes to `master` that touch `macos/`, plus on tags. PRs from forks are skipped.
 
 #### 2. Offline compile-check with the Apple-shipped Linux Swift toolchain
 
