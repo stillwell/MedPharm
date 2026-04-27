@@ -326,6 +326,31 @@ The installer will:
 7. Run integration tests to verify everything works
 8. Preserve the tracked launcher scripts (`start_web.sh`, `start_desktop.sh`, `start_cloud.sh`, `generate_docs.sh`) — fallback templates with full GPL headers are only written when a launcher is missing from the working tree
 
+### Automatic updates
+
+Once installed, the working tree can keep itself current with the upstream `master` branch on GitHub. Every update path **backs up the SQLite database to `data/backups/medpharm-YYYYMMDD-HHMMSS.db` before** touching the working tree, so a botched deploy can always be rolled back to the prior commit + the matching snapshot.
+
+```bash
+./update.sh                              # Interactive: check, prompt, backup, fast-forward
+./update.sh --check-only                 # Just report whether new commits exist
+./update.sh --auto                       # Fully unattended: silent if up-to-date,
+                                         # one stdout line if it pulled, stderr on failure
+./update.sh --install-schedule=daily     # Recurring auto-update (systemd timer or cron)
+./update.sh --show-schedule              # What will run, and when
+./update.sh --uninstall-schedule         # Remove the recurring job
+./update.sh --help                       # Full flag reference
+```
+
+**Schedule mechanics.** `--install-schedule[=PERIOD]` prefers a **systemd `--user` timer** (sandboxed via `ProtectSystem=strict` / `ProtectHome=read-only` / `ReadWritePaths={SCRIPT_DIR}`, persistent across reboots, catches up on missed runs after wake) and falls back to a **crontab entry** when systemd-user isn't available (containers, headless boxes, BSDs). PERIOD accepts `hourly`, `daily`, `weekly` (default), `monthly`, or a literal `OnCalendar=...` (systemd) / `cron=...` (cron) expression. Both flavours stamp the install with a recognisable marker so `--uninstall-schedule` removes exactly the entry this script created and never touches anything else in your crontab.
+
+**Safety guarantees.**
+- A directory-based PID lock at `.update.lock.d/` keeps a manual run and a scheduled run from colliding on the git index. Stale locks (PID gone) are stolen automatically.
+- `--auto` **refuses** to update a dirty working tree (no unsupervised auto-stash); it logs the dirty files and exits non-zero so cron / journalctl surface the problem.
+- DB backup uses `sqlite3 .backup` (online, consistent) when available; falls back to `cp` of the file plus any WAL/SHM sidecars.
+- The DB path is auto-detected in this priority order: `$MEDPHARM_DB_PATH` env var → `medpharm_erp.db` (project root, the `run_cloud.py` default) → `data/medpharm_erp.db` (Docker volume default) → `data/medpharm.db` (legacy).
+
+After any update, restart any running MedPharm services (`./start_cloud.sh`, `./start_web.sh`, `./start_desktop.sh`, the Docker stack) to pick up the new code.
+
 ### Uninstallation
 
 The repository ships with `uninstall.sh`, which reverses every artifact `install.sh` creates. Tracked source files (launcher scripts, `.env.example`, docs, Dockerfiles) are never touched.

@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-B")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-C")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-B &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.6-C &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,7 +484,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.6-B"],
+            ["Revision", "1.7.6-C"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -3350,6 +3350,47 @@ def chapter_23_upgrades(styles):
             "not really the same, the correct response is to make "
             "it closer, not to bypass it.",
             styles),
+        h2("Source-tree updates with " + c("./update.sh"), styles),
+        p(
+            "Sites that run from a git checkout (rather than the "
+            "Docker images) update via " + c("./update.sh") + ", "
+            "which polls GitHub for new commits on the tracked "
+            "branch, snapshots the SQLite database to "
+            + c("data/backups/medpharm-YYYYMMDD-HHMMSS.db") + " using "
+            "the SQLite online " + c(".backup") + " command (so the "
+            "running API does not need to stop), and then "
+            "fast-forwards the working tree. Because the snapshot "
+            "is taken before any code change is applied, the "
+            "rollback path is the corresponding " + c(".db") + " "
+            "file plus a " + c("git reset --hard <previous-sha>") +
+            " — the same one-minute drill as the Docker rollback.",
+            styles),
+        p(
+            "For unattended sites, " + c("./update.sh "
+            "--install-schedule[=PERIOD]") + " installs a recurring "
+            "auto-update job (PERIOD ∈ " + c("hourly|daily|weekly|"
+            "monthly") + ", default " + c("weekly") + "). The "
+            "installer prefers a systemd " + c("--user") + " timer "
+            "(sandboxed, persistent across reboots, catches up on "
+            "missed runs after wake) and falls back to a crontab "
+            "entry on systems without a user manager. Both flavours "
+            "carry a recognisable marker so " + c("--uninstall-"
+            "schedule") + " can remove exactly the entry the "
+            "installer created without touching anything else in "
+            "the operator's crontab. " + c("--show-schedule") + " "
+            "prints the installed unit / cron line for inspection.",
+            styles),
+        Paragraph(
+            "<b>Note.</b> " + c("--auto") + " mode refuses to "
+            "update a dirty working tree (unsupervised auto-stash "
+            "is a foot-gun). If a scheduled run begins emailing "
+            "\"refused: dirty tree\", commit / stash the local "
+            "changes and the next firing will succeed. The on-disk "
+            "log at " + c("update.log") + " has the dirty file "
+            "list. Concurrency is enforced via a directory lock at "
+            + c(".update.lock.d/") + " so a manual run and a "
+            "scheduled run cannot collide on the git index.",
+            styles["SM_Note"]),
         PageBreak(),
     ]
     return s
@@ -4639,13 +4680,22 @@ def appendix_f_revision(styles):
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.6-B", datetime.now().strftime("%d %b %Y"),
+                ["1.7.6-C", datetime.now().strftime("%d %b %Y"),
                  "R. Stillwell",
-                 "Documents the click-medication → MedlinePlus drug-info "
+                 "Documents the source-tree auto-update path: "
+                 "./update.sh, the database-backup-before-fast-forward "
+                 "guarantee, and the new --auto / --install-schedule / "
+                 "--uninstall-schedule / --show-schedule flags that "
+                 "install a recurring job as a systemd --user timer "
+                 "(preferred) or crontab entry (fallback). Notes the "
+                 "concurrency lock and the dirty-tree refusal in --auto."],
+                ["1.7.6-B", "26 Apr 2026",
+                 "R. Stillwell",
+                 "Documented the click-medication → MedlinePlus drug-info "
                  "lookup affordance now present in every client (iOS, "
                  "macOS, Android, Qt desktop, web portal), and the fix "
                  "to the Qt medication detail panel that no longer clips "
-                 "its right side. Notes the ngrok-skip-browser-warning "
+                 "its right side. Noted the ngrok-skip-browser-warning "
                  "header that the mobile and desktop clients send so the "
                  "free-tier ngrok HTML interstitial cannot break first "
                  "logins."],
@@ -4715,7 +4765,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.6-B.</i>",
+            "Volume II, Revision 1.7.6-C.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),
