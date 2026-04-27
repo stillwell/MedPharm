@@ -321,7 +321,7 @@ class DevManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-B")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-C")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "Enlightec Ltd. — INTERNAL DEVELOPMENT REFERENCE")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -882,7 +882,7 @@ def build_cover(styles):
         fontSize=13, textColor=INDIGO_PALE, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.06 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-B &nbsp;//&nbsp; Issued "
+        "Revision 1.7.6-C &nbsp;//&nbsp; Issued "
         + datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -907,7 +907,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Developer Manual"],
             ["Volume / Edition", "Volume III — Engineer Edition"],
-            ["Revision", "1.7.6-B"],
+            ["Revision", "1.7.6-C"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -4152,6 +4152,31 @@ curl -k https://localhost:8080/api/v1/health""",
         "tagged images on Docker Hub are a contract.",
         styles))
 
+    s.append(h2("Convergence with the native systemd install", styles))
+    s.append(p(
+        "Both Dockerfiles deliberately mirror what "
+        + c("install-services.sh") + " sets up on a bare-metal host: "
+        "a system user named " + c("medpharm") + " (UID 1000, no "
+        "login shell, home " + c("/opt/medpharm") + "), a Python "
+        "venv at " + c("/opt/medpharm/venv") + ", source files "
+        + c("COPY") + "ed under " + c("/opt/medpharm/<package>") + ", "
+        "and the same set of " + c("MEDPHARM_*") + " environment "
+        "variables. The user's shell is " + c("/usr/sbin/nologin") +
+        " in both flavours so an exploit that opens an interactive "
+        "shell as the medpharm user cannot get a real login. The "
+        "Kubernetes pod (Chapter 25) carries this through with "
+        + c("runAsUser: 1000") + " and " + c("runAsGroup: 1000") + ".",
+        styles))
+    s.append(p(
+        "When you change one of these conventions you must change all "
+        "three places — the Dockerfiles, the systemd unit templates "
+        "at " + c("systemd/medpharm-{api,web}.service.template") + ", "
+        "and the k8s deployment at "
+        + c("k8s/base/deployment.yaml") + " — or the security "
+        "posture across the deployment matrix will diverge in a way "
+        "that is easy to miss in a pull request review.",
+        styles))
+
     s.append(PageBreak())
     return s
 
@@ -4206,6 +4231,29 @@ def chapter_25_kubernetes(styles):
         "result to the local file. The database remains "
         "available throughout; there is no lock held longer than "
         "a few milliseconds.",
+        styles))
+
+    s.append(h2("Pod and container security context", styles))
+    s.append(p(
+        "The deployment hardens the pod with "
+        + c("runAsNonRoot: true") + ", "
+        + c("runAsUser: 1000") + ", "
+        + c("runAsGroup: 1000") + ", "
+        + c("fsGroup: 1000") + " (matching the medpharm user "
+        "baked into the image), and the kubelet's "
+        + c("seccompProfile: RuntimeDefault") + ". The container "
+        "drops every Linux capability with "
+        + c("capabilities.drop: [ALL]") + " and only adds "
+        + c("NET_BIND_SERVICE") + " back so nginx can bind "
+        ":80/:443 — operators who front the deployment with an "
+        "external ingress (and therefore only need :8080/:5000 "
+        "out of the pod) can drop NET_BIND_SERVICE entirely. "
+        + c("allowPrivilegeEscalation: false") + " ensures setuid "
+        "binaries cannot regain privileges, and the read-only "
+        "rootfs flag is left at " + c("false") + " only because "
+        "Nginx writes its PID file under " + c("/var/run") + "; "
+        "moving Nginx to write under a tmpfs would let you flip "
+        "this on too.",
         styles))
 
     s.append(PageBreak())
@@ -4383,6 +4431,113 @@ print('DB ready')
         "land an HTML page in the JSON parser on the very first "
         "request from a fresh install. The header is harmless when "
         "ngrok is not in front of the API, so it ships unconditionally.",
+        styles))
+
+    s.append(h2("Production deployment from a development checkout", styles))
+    s.append(p(
+        "Development happens in the engineer's home-directory "
+        "checkout; production deployment lives at "
+        + c("/opt/medpharm") + " under the "
+        + c("medpharm") + " system user. The script that bridges "
+        "the two is " + c("install-services.sh") + ". It performs "
+        "an idempotent six-step migration of the current checkout "
+        "(or, with " + c("--clone-fresh") + ", a fresh clone from "
+        "origin) into " + c("/opt/medpharm") + ", builds a venv in "
+        "place, and renders the two systemd unit templates from "
+        + c("systemd/") + " into " + c("/etc/systemd/system/") + ".",
+        styles))
+    s.append(make_table(
+        ["Stage", "What happens"],
+        [
+            ["Pre-flight",
+             "Templates present, systemctl on PATH, python3 available"],
+            ["User",
+             "useradd -r -s /usr/sbin/nologin -d /opt/medpharm -M -U "
+             "medpharm; skipped if it already exists"],
+            ["rsync",
+             "$SCRIPT_DIR → /opt/medpharm with .git preserved (so "
+             "update.sh can fast-forward in place) and venv/, "
+             "__pycache__/, *.pyc, node_modules/, .update.lock.d/, "
+             "ngrok session artifacts excluded"],
+            ["venv",
+             "/opt/medpharm/venv via python3 -m venv; "
+             "pip install -r requirements-cloud.txt (and best-effort "
+             "requirements.txt — PyQt6 is allowed to fail since it "
+             "is desktop-only); explicit gunicorn fallback"],
+            ["Permissions",
+             "chown -R medpharm:medpharm; chmod 750 prefix, 770 "
+             "data + logs"],
+            ["Units",
+             "Template substitution → /etc/systemd/system/, "
+             "daemon-reload, enable, start (skip with --no-start)"],
+        ],
+        col_widths=[1.0 * inch, 5.4 * inch]))
+    s.append(p(
+        "The unit templates enable the standard hardening posture — "
+        + c("NoNewPrivileges") + ", "
+        + c("ProtectSystem=strict") + ", "
+        + c("ProtectHome=read-only") + " with explicit "
+        + c("ReadWritePaths") + ", "
+        + c("MemoryDenyWriteExecute") + ", "
+        + c("RestrictNamespaces") + ", "
+        + c("SystemCallFilter=@system-service") + " — and route "
+        "stdout / stderr to journald, queryable via "
+        + c("journalctl -u medpharm-api -u medpharm-web -f")
+        + ". Operator overrides go in "
+        + c("/etc/medpharm/medpharm.env") + " (system-wide) or "
+        + c("${INSTALL_DIR}/.env") + " (per-install); both are "
+        "loaded with the " + c("EnvironmentFile=-") + " syntax so "
+        "their absence is not an error.",
+        styles))
+
+    s.append(h2("How update.sh keeps a deployed checkout current", styles))
+    s.append(p(
+        "Once a host is running off " + c("/opt/medpharm") + ", "
+        + c("./update.sh") + " inside that tree handles fast-forward "
+        "updates from origin. The interactive flow has been there "
+        "for some time; what is new in 1.7.6-C is the unattended "
+        "path. " + c("./update.sh --auto") + " is the cron / "
+        "systemd-timer entry point: it acquires a directory lock at "
+        + c(".update.lock.d/") + " (with PID staleness recovery) so "
+        "it cannot collide with a manual run, refuses to touch a "
+        "dirty working tree (auto-stashing without supervision is a "
+        "foot-gun), runs the SQLite online "
+        + c(".backup") + " against the autodetected database path "
+        "before any code changes, and prints a single summary line "
+        "to stdout only when an update was actually applied — so a "
+        "weekly timer that runs ten times for ten unchanged weeks "
+        "produces no email noise.",
+        styles))
+    s.append(p(
+        c("--install-schedule[=PERIOD]") + " installs that auto-run "
+        "as a recurring job. The installer prefers a systemd "
+        + c("--user") + " timer — sandboxed to the project tree, "
+        "persistent across reboots with "
+        + c("Persistent=true") + " (catches up after wake), with a "
+        + c("RandomizedDelaySec=10min") + " jitter — and falls "
+        "back to a crontab entry on hosts without a user manager. "
+        "Both flavours carry a "
+        + c("# medpharm-auto-update") + " marker so "
+        + c("--uninstall-schedule") + " removes precisely the "
+        "entry the installer created. PERIOD accepts the friendly "
+        "names " + c("hourly|daily|weekly|monthly") + " plus the "
+        "passthrough forms " + c("OnCalendar=…") + " (systemd) and "
+        + c("cron=…") + " (cron) for advanced cadences.",
+        styles))
+    s.append(p(
+        "<b>Real bug fix worth flagging.</b> Before 1.7.6-C the "
+        + c("backup_database") + " function in update.sh hard-coded "
+        + c("DB_PATH=data/medpharm.db") + ", a file that does not "
+        "exist in any of the supported deployment topologies. The "
+        "consequence: every \"Backing up database…\" line in the log "
+        "was followed by a silent skip. The autodetect now probes, "
+        "in order, " + c("$MEDPHARM_DB_PATH") + " → "
+        + c("medpharm_erp.db") + " → "
+        + c("data/medpharm_erp.db") + " → "
+        + c("data/medpharm.db") + ", which catches the run_cloud.py "
+        "default, the docker-compose volume mount default, and the "
+        "legacy path. Operators who relied on the previous behaviour "
+        "for any reason should consult the script before upgrading.",
         styles))
 
     s.append(PageBreak())
@@ -5387,15 +5542,30 @@ def appendix_f_support(styles):
     s.append(make_table(
         ["Revision", "Date", "Author", "Summary"],
         [
-            ["1.7.6-B", datetime.now().strftime("%d %b %Y"),
+            ["1.7.6-C", datetime.now().strftime("%d %b %Y"),
              "R. Stillwell",
-             "Documents cross-platform builds for the iOS / macOS "
+             "Documents the source-tree auto-update mechanism "
+             "(./update.sh --auto + --install-schedule, the directory "
+             "lock, the dirty-tree refusal, the systemd-user-timer "
+             "preferred path with crontab fallback, and the real "
+             "DB_PATH autodetect bug fix); the install-services.sh "
+             "native-systemd deployment path that migrates the tree "
+             "to /opt/medpharm and runs as the medpharm system user; "
+             "and the convergence with the published Docker images "
+             "and the Kubernetes deployment on the same /opt/medpharm "
+             "+ medpharm-user + dropped-caps + non-root model. Notes "
+             "the Dockerfile shell switch to /usr/sbin/nologin and "
+             "the runAsNonRoot / capabilities.drop / seccompProfile "
+             "RuntimeDefault hardening of the k8s pod."],
+            ["1.7.6-B", "26 Apr 2026",
+             "R. Stillwell",
+             "Documented cross-platform builds for the iOS / macOS "
              "clients from a Linux or Windows shell (GitHub Actions, "
              "Cirrus CI fallback, swift-on-Linux compile-check), the "
              "ngrok-skip-browser-warning header sent by every mobile "
              "and desktop client, the click-medication → MedlinePlus "
              "lookup affordance in all clients, and a fix to the Qt "
-             "medication detail panel that no longer clips its right "
+             "medication detail panel that no longer clipped its right "
              "side at the splitter."],
             ["1.7.6-A", "25 Apr 2026",
              "R. Stillwell",
@@ -5457,7 +5627,7 @@ def appendix_f_support(styles):
     s.append(Spacer(1, 0.4 * inch))
     s.append(Paragraph(
         "<i>End of the MedPharm ERP Developer Manual, "
-        "Volume III, Revision 1.7.6-B.</i>",
+        "Volume III, Revision 1.7.6-C.</i>",
         ParagraphStyle("EndSig", parent=styles["DM_Body"],
                        alignment=TA_CENTER, textColor=SLATE,
                        fontName="Helvetica-Oblique")))
