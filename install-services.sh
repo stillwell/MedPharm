@@ -308,14 +308,17 @@ build_venv() {
 # ── Permissions / runtime dirs ────────────────────────────────────────────────
 fix_permissions() {
     mkdir -p "${INSTALL_DIR}/data" "${INSTALL_DIR}/logs"
-    if [[ "$USER_MODE" != "true" ]]; then
-        chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "$INSTALL_DIR"
-        # The DB (and its WAL/SHM sidecars) need write access from the service
-        # user; everything else can stay owned but read-only-by-policy via
-        # systemd's ProtectSystem=strict + ReadWritePaths.
-        chmod 750 "$INSTALL_DIR"
-        chmod 770 "${INSTALL_DIR}/data" "${INSTALL_DIR}/logs"
+    if [[ "$USER_MODE" == "true" ]]; then
+        # In user mode the invoking user owns the tree already; nothing to do.
+        log "Permissions: skipped (user-mode install runs as $(id -un))"
+        return 0
     fi
+    chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "$INSTALL_DIR"
+    # The DB (and its WAL/SHM sidecars) need write access from the service
+    # user; everything else can stay owned but read-only-by-policy via
+    # systemd's ProtectSystem=strict + ReadWritePaths.
+    chmod 750 "$INSTALL_DIR"
+    chmod 770 "${INSTALL_DIR}/data" "${INSTALL_DIR}/logs"
     log "Permissions set (owner=${SERVICE_USER}:${SERVICE_GROUP})"
 }
 
@@ -330,6 +333,49 @@ render_unit() {
         -e "s|{{WEB_PORT}}|${WEB_PORT}|g" \
         -e "s|{{WORKERS}}|${WORKERS}|g" \
         "$template" > "$outpath"
+
+    # User-service adjustments (systemctl --user). The templates are
+    # written for the production system-mode posture; for user-mode we
+    # have to relax three classes of directives that the user manager
+    # cannot satisfy:
+    #
+    #   1. User= / Group= — illegal in user units (the user manager
+    #      already runs as the invoking user). Produces status=217/USER.
+    #   2. WantedBy=multi-user.target — multi-user.target is a system
+    #      target; user units belong on default.target. Symlink
+    #      installation still succeeds but the unit never auto-starts
+    #      on session start.
+    #   3. The "drop capabilities" hardening block (RestrictSUIDSGID,
+    #      LockPersonality, MemoryDenyWriteExecute, RestrictRealtime,
+    #      kernel-level Protect*, SystemCall*) needs privileges the
+    #      user manager doesn't have, so the unit fails at start time
+    #      with status=218/CAPABILITIES.
+    #
+    # These are stripped only for user-mode; system-mode keeps the full
+    # hardening posture.
+    if [[ "$USER_MODE" == "true" ]]; then
+        sed -i \
+            -e '/^User=/d' \
+            -e '/^Group=/d' \
+            -e 's|^WantedBy=multi-user\.target$|WantedBy=default.target|' \
+            -e '/^ProtectKernelTunables=/d' \
+            -e '/^ProtectKernelModules=/d' \
+            -e '/^ProtectKernelLogs=/d' \
+            -e '/^ProtectControlGroups=/d' \
+            -e '/^ProtectClock=/d' \
+            -e '/^ProtectHostname=/d' \
+            -e '/^PrivateDevices=/d' \
+            -e '/^RestrictNamespaces=/d' \
+            -e '/^RestrictRealtime=/d' \
+            -e '/^RestrictSUIDSGID=/d' \
+            -e '/^LockPersonality=/d' \
+            -e '/^MemoryDenyWriteExecute=/d' \
+            -e '/^SystemCallArchitectures=/d' \
+            -e '/^SystemCallFilter=/d' \
+            -e '/^SystemCallErrorNumber=/d' \
+            "$outpath"
+    fi
+
     chmod 644 "$outpath"
 }
 
