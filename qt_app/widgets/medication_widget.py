@@ -132,30 +132,38 @@ class MedicationWidget(QWidget):
         splitter.addWidget(left)
 
         # ── Right: Detail ──
+        # The previous version capped the right pane at maxWidth=450 — combined
+        # with the section labels and the lookup button, that clipped the
+        # detail content. Drop the cap, set a sensible minimum so neither
+        # pane can be collapsed into nothing, and rely on the splitter
+        # stretch factors to balance the two sides at any window width.
         right = QScrollArea()
         right.setWidgetResizable(True)
         right.setFrameShape(QFrame.Shape.NoFrame)
-        right.setMaximumWidth(450)
+        right.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        right.setMinimumWidth(380)
         detail = QWidget()
         self.detail_layout = QVBoxLayout(detail)
         self.detail_layout.setContentsMargins(8, 16, 16, 16)
         self.detail_layout.setSpacing(12)
 
-        # Title row + "Look up" button that opens MedlinePlus in the user's
-        # default browser. Hidden until a medication is actually selected.
+        # Title row + compact "Look up" button. Putting the button on its own
+        # row used to push everything off-screen; using a tight icon-style
+        # label and giving the title the stretch keeps both visible at the
+        # narrowest splitter sizes.
         title_row = QHBoxLayout()
         self.med_title = QLabel("Select a medication")
         self.med_title.setObjectName("heading")
         self.med_title.setWordWrap(True)
         title_row.addWidget(self.med_title, 1)
 
-        self.lookup_btn = QPushButton("🔎 Look up on MedlinePlus")
+        self.lookup_btn = QPushButton("🔎 MedlinePlus")
         self.lookup_btn.setToolTip(
             "Open NIH MedlinePlus drug information for this medication "
             "in your default browser")
         self.lookup_btn.setVisible(False)
         self.lookup_btn.clicked.connect(self._open_drug_info)
-        title_row.addWidget(self.lookup_btn)
+        title_row.addWidget(self.lookup_btn, 0, Qt.AlignmentFlag.AlignTop)
         self.detail_layout.addLayout(title_row)
 
         self.med_generic = QLabel("")
@@ -233,8 +241,16 @@ class MedicationWidget(QWidget):
         right.setWidget(detail)
         splitter.addWidget(right)
 
+        # Both children should be allowed to give up space on resize. Without
+        # setChildrenCollapsible(False), a user could drag a pane shut by
+        # accident and lose the medication detail entirely.
+        left.setMinimumWidth(520)
+        splitter.setChildrenCollapsible(False)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
+        # Seed the initial split so the right pane gets enough room from the
+        # first paint, instead of inheriting whatever the size hints land on.
+        splitter.setSizes([840, 520])
         layout.addWidget(splitter)
 
     def refresh_data(self):
