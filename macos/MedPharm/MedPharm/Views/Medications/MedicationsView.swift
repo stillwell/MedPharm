@@ -34,7 +34,21 @@ struct MedicationsView: View {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
                 Table(filtered) {
-                    TableColumn("Brand Name", value: \.brand_name)
+                    TableColumn("Brand Name") { med in
+                        // Brand name acts as a hyperlink to MedlinePlus.
+                        // Visible affordance: blue text + Safari icon.
+                        if let url = DrugInfoURL.url(for: med) {
+                            Link(destination: url) {
+                                HStack(spacing: 4) {
+                                    Text(med.brand_name).foregroundColor(.accentColor)
+                                    Image(systemName: "safari").foregroundColor(.secondary)
+                                }
+                            }
+                            .help("Look up \(med.brand_name) on MedlinePlus")
+                        } else {
+                            Text(med.brand_name)
+                        }
+                    }
                     TableColumn("Generic Name", value: \.generic_name)
                     TableColumn("Class") { Text($0.drug_class ?? "") }
                     TableColumn("Strength") { Text($0.strength ?? "") }
@@ -42,6 +56,13 @@ struct MedicationsView: View {
                     TableColumn("Indications") {
                         Text($0.indications ?? "").lineLimit(1)
                     }
+                    TableColumn("Drug Info") { med in
+                        if let url = DrugInfoURL.url(for: med) {
+                            Link("MedlinePlus ↗", destination: url)
+                                .help("Open MedlinePlus drug information in your default browser")
+                        }
+                    }
+                    .width(110)
                 }
             }
         }

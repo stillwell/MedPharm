@@ -18,25 +18,31 @@ import androidx.recyclerview.widget.RecyclerView
 import com.enlightec.medpharm.R
 import com.enlightec.medpharm.data.model.Medication
 
-class MedicationsAdapter : ListAdapter<Medication, MedicationsAdapter.ViewHolder>(DiffCallback()) {
+class MedicationsAdapter(
+    private val onMedicationClick: (Medication) -> Unit = {},
+) : ListAdapter<Medication, MedicationsAdapter.ViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_medication, parent, false)
-        return ViewHolder(view)
+        return ViewHolder(view, onMedicationClick)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class ViewHolder(
+        itemView: View,
+        private val onClick: (Medication) -> Unit,
+    ) : RecyclerView.ViewHolder(itemView) {
         private val tvBrandName: TextView = itemView.findViewById(R.id.tvBrandName)
         private val tvGenericName: TextView = itemView.findViewById(R.id.tvGenericName)
         private val tvDrugClass: TextView = itemView.findViewById(R.id.tvDrugClass)
         private val tvDosage: TextView = itemView.findViewById(R.id.tvDosage)
         private val tvPrescriber: TextView = itemView.findViewById(R.id.tvPrescriber)
         private val tvIndications: TextView = itemView.findViewById(R.id.tvIndications)
+        private val tvDrugInfoCta: TextView = itemView.findViewById(R.id.tvDrugInfoCta)
 
         fun bind(med: Medication) {
             tvBrandName.text = med.brandName
@@ -63,6 +69,12 @@ class MedicationsAdapter : ListAdapter<Medication, MedicationsAdapter.ViewHolder
             } else {
                 tvIndications.visibility = View.GONE
             }
+
+            val tappable = med.brandName.isNotBlank() || med.genericName.isNotBlank()
+            tvDrugInfoCta.visibility = if (tappable) View.VISIBLE else View.GONE
+            itemView.isClickable = tappable
+            itemView.isFocusable = tappable
+            itemView.setOnClickListener { if (tappable) onClick(med) }
         }
     }
 

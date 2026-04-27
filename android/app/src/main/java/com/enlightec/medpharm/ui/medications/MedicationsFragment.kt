@@ -8,6 +8,8 @@
 
 package com.enlightec.medpharm.ui.medications
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +20,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.enlightec.medpharm.databinding.FragmentMedicationsBinding
+import com.enlightec.medpharm.util.DrugInfoUrl
 import com.enlightec.medpharm.util.Resource
 
 class MedicationsFragment : Fragment() {
@@ -35,7 +38,19 @@ class MedicationsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = MedicationsAdapter()
+        adapter = MedicationsAdapter { med ->
+            val uri = DrugInfoUrl.forMedication(med) ?: run {
+                Toast.makeText(requireContext(),
+                    "No medication name to look up", Toast.LENGTH_SHORT).show()
+                return@MedicationsAdapter
+            }
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(requireContext(),
+                    "No browser installed to open drug information", Toast.LENGTH_LONG).show()
+            }
+        }
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
 

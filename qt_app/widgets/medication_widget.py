@@ -22,14 +22,27 @@ MedPharm ERP - Medication Database Widget
 
 import csv
 import random
+from urllib.parse import quote_plus
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QComboBox,
     QMessageBox, QSplitter, QTextEdit, QGroupBox, QScrollArea,
     QFileDialog, QHeaderView
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QColor, QDesktopServices, QFont
+
+
+def _drug_info_url(med):
+    """Build a MedlinePlus search URL for a medication dict.
+
+    Brand name is preferred (it is what patients recognise) and the generic
+    name is the fallback. Returns None when both are blank.
+    """
+    term = (med.get("brand_name") or "").strip() or (med.get("generic_name") or "").strip()
+    if not term:
+        return None
+    return QUrl(f"https://medlineplus.gov/search.html?query={quote_plus(term)}")
 
 
 class MedicationWidget(QWidget):
@@ -119,14 +132,27 @@ class MedicationWidget(QWidget):
         self.detail_layout.setContentsMargins(8, 16, 16, 16)
         self.detail_layout.setSpacing(12)
 
+        # Title row + "Look up" button that opens MedlinePlus in the user's
+        # default browser. Hidden until a medication is actually selected.
+        title_row = QHBoxLayout()
         self.med_title = QLabel("Select a medication")
         self.med_title.setObjectName("heading")
         self.med_title.setWordWrap(True)
-        self.detail_layout.addWidget(self.med_title)
+        title_row.addWidget(self.med_title, 1)
+
+        self.lookup_btn = QPushButton("🔎 Look up on MedlinePlus")
+        self.lookup_btn.setToolTip(
+            "Open NIH MedlinePlus drug information for this medication "
+            "in your default browser")
+        self.lookup_btn.setVisible(False)
+        self.lookup_btn.clicked.connect(self._open_drug_info)
+        title_row.addWidget(self.lookup_btn)
+        self.detail_layout.addLayout(title_row)
 
         self.med_generic = QLabel("")
         self.med_generic.setObjectName("subheading")
         self.detail_layout.addWidget(self.med_generic)
+        self._current_med = None
 
         # Info cards
         self.info_group = QGroupBox("Information")
@@ -282,8 +308,10 @@ class MedicationWidget(QWidget):
         self.show_detail(med)
 
     def show_detail(self, med):
+        self._current_med = med
         self.med_title.setText(med.get("brand_name", ""))
         self.med_generic.setText(med.get("generic_name", ""))
+        self.lookup_btn.setVisible(_drug_info_url(med) is not None)
 
         self.info_labels["Manufacturer"].setText(med.get("manufacturer", "-"))
         self.info_labels["Drug Class"].setText(med.get("drug_class", "-"))
@@ -314,6 +342,14 @@ class MedicationWidget(QWidget):
             self.inter_list.setText("<br><br>".join(lines))
         else:
             self.inter_list.setText("No known interactions in database.")
+
+    def _open_drug_info(self):
+        if not self._current_med:
+            return
+        url = _drug_info_url(self._current_med)
+        if url is None:
+            return
+        QDesktopServices.openUrl(url)
 
     def simulate_price_update(self):
         reply = QMessageBox.question(self, "Price Update",

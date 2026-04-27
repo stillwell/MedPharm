@@ -36,6 +36,7 @@ let package = Package(
             sources: [
                 "Models/Models.swift",
                 "Services/QRConfigParser.swift",
+                "Services/DrugInfoURL.swift",
             ]
         ),
     ]
