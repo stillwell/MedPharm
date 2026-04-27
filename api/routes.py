@@ -434,11 +434,42 @@ def patient_medications():
 @api_bp.route("/medications/search", methods=["GET"])
 @token_required
 def search_medications():
+    """Paginated medication search.
+
+    Query params:
+        q          — substring matched against brand_name / generic_name / NDC
+        drug_class — substring against drug_class
+        schedule   — DEA schedule (II, III, IV, V)
+        form       — DrugForm enum value
+        page       — 1-indexed page number (default 1)
+        page_size  — page size, capped at 200 (default 50)
+
+    Response includes pagination metadata so clients can page through the
+    full result set rather than blowing up on the 300k-row catalogue
+    after a full FDA NDC bulk load.
+    """
     query = request.args.get("q", "")
     drug_class = request.args.get("drug_class", "")
     schedule = request.args.get("schedule", "")
-    meds = g.db_manager.search_medications(query=query, drug_class=drug_class, schedule=schedule)
-    return jsonify({"medications": meds})
+    form = request.args.get("form", "")
+    try:
+        page = max(int(request.args.get("page", 1)), 1)
+        page_size = min(max(int(request.args.get("page_size", 50)), 1), 200)
+    except ValueError:
+        return jsonify({"error": "page and page_size must be integers"}), 400
+    offset = (page - 1) * page_size
+    result = g.db_manager.search_medications(
+        query=query, drug_class=drug_class, schedule=schedule, form=form,
+        limit=page_size, offset=offset, include_total=True,
+    )
+    total = result.get("total", 0)
+    return jsonify({
+        "medications": result["medications"],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": (total + page_size - 1) // page_size if page_size else 0,
+    })
 
 
 @api_bp.route("/medications/<int:med_id>", methods=["GET"])

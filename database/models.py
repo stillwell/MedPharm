@@ -323,6 +323,23 @@ class Medication(Base):
     is_controlled = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
+    # ── Bulk-import provenance + verbatim FDA fields ──────────────────────
+    # Added in 1.7.6-E to support loading the FDA NDC Directory, Orange Book,
+    # NIH DSLD, and DailyMed SPL labels. The dosage_form_raw / route_raw
+    # columns hold the verbatim FDA strings (e.g. "POWDER, METERED" or
+    # "INTRA-ARTERIAL") because the existing DrugForm / DrugRoute enums
+    # cover ~10 values each while FDA defines hundreds; the mapper picks
+    # the nearest enum for the legacy UI filters and preserves the raw
+    # text here so search and display can show what the FDA actually says.
+    data_source = Column(String(32), default="seed", index=True)
+    product_type = Column(String(64))
+    marketing_category = Column(String(64))
+    dosage_form_raw = Column(String(200))
+    route_raw = Column(String(200))
+    pharm_classes = Column(Text)
+    start_marketing_date = Column(String(10))
+    end_marketing_date = Column(String(10))
+
     # Relationships
     interactions_as_a = relationship("MedicationInteraction", foreign_keys="MedicationInteraction.medication_a_id", back_populates="medication_a")
     interactions_as_b = relationship("MedicationInteraction", foreign_keys="MedicationInteraction.medication_b_id", back_populates="medication_b")

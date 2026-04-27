@@ -26,6 +26,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, date, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import create_engine, func, or_, and_, desc
 from sqlalchemy.orm import sessionmaker, Session
@@ -63,6 +64,50 @@ class DatabaseManager:
         )
         Base.metadata.create_all(self.engine)
         self._session_factory = sessionmaker(bind=self.engine)
+        self._upgrade_schema_in_place()
+
+    def _upgrade_schema_in_place(self):
+        """Add columns + indexes that newer code expects without dropping data.
+
+        SQLite cannot ALTER COLUMN, but ALTER TABLE ADD COLUMN is safe and
+        non-destructive. We iterate the desired column list and add only the
+        ones that are missing, so this is idempotent across upgrades.
+
+        Added in 1.7.6-E for the FDA / DailyMed bulk-load work.
+        """
+        from sqlalchemy import text, inspect
+        insp = inspect(self.engine)
+        if "medications" not in insp.get_table_names():
+            return
+        existing_cols = {c["name"] for c in insp.get_columns("medications")}
+        new_cols = [
+            ("data_source",           "VARCHAR(32) DEFAULT 'seed'"),
+            ("product_type",          "VARCHAR(64)"),
+            ("marketing_category",    "VARCHAR(64)"),
+            ("dosage_form_raw",       "VARCHAR(200)"),
+            ("route_raw",             "VARCHAR(200)"),
+            ("pharm_classes",         "TEXT"),
+            ("start_marketing_date",  "VARCHAR(10)"),
+            ("end_marketing_date",    "VARCHAR(10)"),
+        ]
+        with self.engine.begin() as conn:
+            for col_name, col_type in new_cols:
+                if col_name not in existing_cols:
+                    conn.execute(text(
+                        f"ALTER TABLE medications ADD COLUMN {col_name} {col_type}"))
+            # Indexes that materially help search at 300k+ rows. Lower-case
+            # functional indexes serve case-insensitive ILIKE prefix queries.
+            existing_idx = {i["name"] for i in insp.get_indexes("medications")}
+            wanted_idx = {
+                "ix_medications_data_source":       "data_source",
+                "ix_medications_brand_name_lower":  "lower(brand_name)",
+                "ix_medications_generic_name_lower": "lower(generic_name)",
+            }
+            for idx_name, idx_expr in wanted_idx.items():
+                if idx_name not in existing_idx:
+                    conn.execute(text(
+                        f"CREATE INDEX IF NOT EXISTS {idx_name} "
+                        f"ON medications ({idx_expr})"))
 
     @contextmanager
     def get_session(self):
@@ -292,8 +337,31 @@ class DatabaseManager:
                 return self._medication_to_dict(med)
         return None
 
+    # Page-size cap for callers that pass `limit=None` against a table with
+    # potentially 300k+ rows (post-FDA bulk load). The Qt MedicationWidget
+    # used to fetch all rows at once; that pattern is no longer safe and
+    # callers should paginate. We log a warning and clamp at this value
+    # rather than letting an inadvertent unbounded query OOM the process.
+    _DEFAULT_MED_PAGE_SIZE = 100
+    _UNBOUNDED_MED_LIMIT_CAP = 5000
+
     def search_medications(self, query: str = "", drug_class: str = "",
-                           schedule: str = "", form: str = "") -> list[dict]:
+                           schedule: str = "", form: str = "",
+                           limit: Optional[int] = _DEFAULT_MED_PAGE_SIZE,
+                           offset: int = 0,
+                           include_total: bool = False
+                           ) -> list[dict] | dict:
+        """Filtered + paginated medication search.
+
+        `limit=None` means "give me everything matching" but is silently
+        clamped to _UNBOUNDED_MED_LIMIT_CAP to protect against accidental
+        full-table scans now that the table can hold 300k+ rows.
+
+        When `include_total=True` returns
+            {"medications": [...], "total": <int>, "limit": <int>, "offset": <int>}
+        otherwise returns the list (preserving the historical signature
+        for callers that don't care about pagination metadata).
+        """
         with self.get_session() as session:
             q = session.query(Medication).filter(Medication.is_active == True)
             if query:
@@ -317,11 +385,40 @@ class DatabaseManager:
                     q = q.filter(Medication.form == DrugForm(form))
                 except ValueError:
                     pass
-            meds = q.order_by(Medication.brand_name).all()
-            return [self._medication_to_dict(m) for m in meds]
 
-    def get_all_medications(self) -> list[dict]:
-        return self.search_medications()
+            total = q.count() if include_total else None
+
+            if limit is None:
+                import logging
+                logging.getLogger("medpharm.db").warning(
+                    "search_medications: unbounded query clamped to %s rows "
+                    "(callers should paginate)", self._UNBOUNDED_MED_LIMIT_CAP)
+                limit = self._UNBOUNDED_MED_LIMIT_CAP
+
+            q = q.order_by(Medication.brand_name).offset(offset).limit(limit)
+            meds = [self._medication_to_dict(m) for m in q.all()]
+
+        if include_total:
+            return {
+                "medications": meds, "total": total,
+                "limit": limit, "offset": offset,
+            }
+        return meds
+
+    def get_all_medications(self, limit: Optional[int] = _DEFAULT_MED_PAGE_SIZE,
+                            offset: int = 0) -> list[dict]:
+        """Paginated. Callers wanting pagination metadata should use
+        `search_medications(include_total=True)` directly."""
+        return self.search_medications(limit=limit, offset=offset)
+
+    def get_drug_class_options(self, limit: int = 200) -> list[str]:
+        """Return DISTINCT drug_class values, sorted, capped. Cheap because
+        of the index on drug_class. Used to populate filter dropdowns
+        without scanning the whole medications table."""
+        with self.get_session() as session:
+            rows = session.query(Medication.drug_class).distinct().order_by(
+                Medication.drug_class).limit(limit).all()
+            return [r[0] for r in rows if r[0]]
 
     def get_medication_interactions(self, med_id: int) -> list[dict]:
         with self.get_session() as session:

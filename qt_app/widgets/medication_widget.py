@@ -253,11 +253,19 @@ class MedicationWidget(QWidget):
         splitter.setSizes([840, 520])
         layout.addWidget(splitter)
 
+    # Page size for the in-table view. After the FDA NDC bulk load the
+    # medications table can hold 300k+ rows; loading them all and filtering
+    # in Python (the pre-1.7.6-E behaviour) was the bottleneck. We now ask
+    # the DB to filter and return one page; if the result set is larger
+    # than the page, the footer prompts the user to narrow their search.
+    PAGE_SIZE = 200
+
     def refresh_data(self):
         try:
-            self.all_meds = self.db_manager.get_all_medications()
-            # Populate class filter
-            classes = sorted(set(m.get("drug_class", "") for m in self.all_meds if m.get("drug_class")))
+            # Cheap; uses the index on drug_class. Capped at 200 entries —
+            # if the user has more drug classes than that they can type the
+            # class name into the search box instead.
+            classes = self.db_manager.get_drug_class_options(limit=200)
             current = self.class_filter.currentText()
             self.class_filter.blockSignals(True)
             self.class_filter.clear()
@@ -268,34 +276,59 @@ class MedicationWidget(QWidget):
             self.class_filter.blockSignals(False)
 
             self.apply_filter()
-
-            total = len(self.all_meds)
-            controlled = sum(1 for m in self.all_meds if m.get("is_controlled"))
-            avg_price = sum(m.get("retail_price", 0) for m in self.all_meds) / max(total, 1)
-            self.stats_label.setText(f"Total: {total} medications  |  Controlled: {controlled}  |  Avg Price: ${avg_price:.2f}")
         except Exception as e:
             print(f"Medication refresh error: {e}")
 
     def apply_filter(self):
-        search = self.search_input.text().strip().lower() if hasattr(self, "search_input") else ""
+        search = self.search_input.text().strip() if hasattr(self, "search_input") else ""
         drug_class = self.class_filter.currentText() if hasattr(self, "class_filter") else "All Classes"
         schedule = self.schedule_filter.currentText() if hasattr(self, "schedule_filter") else "All Schedules"
 
-        meds = self.all_meds
-        if search:
-            meds = [m for m in meds if search in m.get("brand_name", "").lower()
-                    or search in m.get("generic_name", "").lower()
-                    or search in m.get("ndc_code", "").lower()]
-        if drug_class != "All Classes":
-            meds = [m for m in meds if m.get("drug_class") == drug_class]
-
-        schedule_map = {"Schedule II": "II", "Schedule III": "III", "Schedule IV": "IV", "Schedule V": "V"}
+        # Translate the UI's "Schedule II" / "Non-Controlled" labels into
+        # the value the DB layer expects. Non-Controlled is a UI-only
+        # convenience that does not have a single enum value, so we do it
+        # client-side after the fact.
+        sched_db = ""
+        non_controlled_only = False
+        schedule_map = {"Schedule II": "II", "Schedule III": "III",
+                         "Schedule IV": "IV", "Schedule V": "V"}
         if schedule == "Non-Controlled":
-            meds = [m for m in meds if not m.get("is_controlled")]
+            non_controlled_only = True
         elif schedule in schedule_map:
-            meds = [m for m in meds if m.get("schedule") == schedule_map[schedule]]
+            sched_db = schedule_map[schedule]
 
+        try:
+            result = self.db_manager.search_medications(
+                query=search,
+                drug_class="" if drug_class == "All Classes" else drug_class,
+                schedule=sched_db,
+                limit=self.PAGE_SIZE,
+                offset=0,
+                include_total=True,
+            )
+        except Exception as e:
+            print(f"Medication search error: {e}")
+            return
+        meds = result["medications"]
+        total = result["total"]
+        if non_controlled_only:
+            meds = [m for m in meds if not m.get("is_controlled")]
+
+        # Cache for on_med_selected / detail lookup; only the visible page,
+        # not the full set.
+        self.all_meds = meds
         self.populate_table(meds)
+
+        # Footer summary — replaces the old aggregate stats line. The
+        # avg-price + controlled-count totals were misleading once 300k
+        # OTC products joined the dataset, so we now show what the user
+        # actually sees on the current page plus the matching grand total.
+        if total > self.PAGE_SIZE:
+            note = (f"Showing {len(meds)} of {total} matches. "
+                    f"Refine the search to narrow further.")
+        else:
+            note = f"Showing {len(meds)} of {total} matches."
+        self.stats_label.setText(note)
 
     def populate_table(self, meds):
         self.med_table.setRowCount(len(meds))
@@ -378,38 +411,77 @@ class MedicationWidget(QWidget):
 
     def simulate_price_update(self):
         reply = QMessageBox.question(self, "Price Update",
-            "Simulate a market price update (random +/-5% change)?")
+            "Simulate a market price update (random +/-5% change) for the "
+            "currently visible page only?")
         if reply != QMessageBox.StandardButton.Yes:
             return
         try:
             for med in self.all_meds:
+                # FDA bulk-loaded entries have no price; skip those instead of
+                # multiplying None by a random float.
+                awp = med.get("avg_wholesale_price") or 0
+                retail = med.get("retail_price") or 0
+                if not awp and not retail:
+                    continue
                 factor = 1 + random.uniform(-0.05, 0.05)
-                new_awp = round(med["avg_wholesale_price"] * factor, 2)
-                new_retail = round(med["retail_price"] * factor, 2)
-                self.db_manager.update_medication_prices(med["id"], new_awp, new_retail)
+                self.db_manager.update_medication_prices(
+                    med["id"],
+                    round(awp * factor, 2),
+                    round(retail * factor, 2))
             self.refresh_data()
-            QMessageBox.information(self, "Success", "Medication prices updated.")
+            QMessageBox.information(self, "Success",
+                "Medication prices updated for the visible page.")
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
 
     def export_csv(self):
+        # Match the active filter, not just self.all_meds (which is one page).
+        # Walk pages server-side so the export covers the full result set
+        # even after a 300k-row FDA bulk load.
         path, _ = QFileDialog.getSaveFileName(self, "Export Medications", "medications.csv", "CSV Files (*.csv)")
         if not path:
             return
         try:
+            search = self.search_input.text().strip() if hasattr(self, "search_input") else ""
+            drug_class = self.class_filter.currentText() if hasattr(self, "class_filter") else "All Classes"
+            schedule = self.schedule_filter.currentText() if hasattr(self, "schedule_filter") else "All Schedules"
+            sched_db = ""
+            schedule_map = {"Schedule II": "II", "Schedule III": "III",
+                             "Schedule IV": "IV", "Schedule V": "V"}
+            if schedule in schedule_map:
+                sched_db = schedule_map[schedule]
+            non_controlled_only = (schedule == "Non-Controlled")
+
             with open(path, "w", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow(["NDC", "Brand Name", "Generic Name", "Manufacturer", "Class",
                                  "Schedule", "Route", "Form", "Strength", "AWP", "Retail Price",
                                  "Indications", "Contraindications", "Side Effects"])
-                for m in self.all_meds:
-                    writer.writerow([
-                        m.get("ndc_code"), m.get("brand_name"), m.get("generic_name"),
-                        m.get("manufacturer"), m.get("drug_class"), m.get("schedule"),
-                        m.get("route"), m.get("form"), m.get("strength"),
-                        m.get("avg_wholesale_price"), m.get("retail_price"),
-                        m.get("indications"), m.get("contraindications"), m.get("side_effects")
-                    ])
-            QMessageBox.information(self, "Success", f"Exported {len(self.all_meds)} medications to {path}")
+                offset = 0
+                page = 2000   # larger than the UI page; export should be fast
+                written = 0
+                while True:
+                    batch = self.db_manager.search_medications(
+                        query=search,
+                        drug_class="" if drug_class == "All Classes" else drug_class,
+                        schedule=sched_db,
+                        limit=page, offset=offset)
+                    if not batch:
+                        break
+                    for m in batch:
+                        if non_controlled_only and m.get("is_controlled"):
+                            continue
+                        writer.writerow([
+                            m.get("ndc_code"), m.get("brand_name"), m.get("generic_name"),
+                            m.get("manufacturer"), m.get("drug_class"), m.get("schedule"),
+                            m.get("route"), m.get("form"), m.get("strength"),
+                            m.get("avg_wholesale_price"), m.get("retail_price"),
+                            m.get("indications"), m.get("contraindications"), m.get("side_effects")
+                        ])
+                        written += 1
+                    offset += len(batch)
+                    if len(batch) < page:
+                        break
+            QMessageBox.information(self, "Success", f"Exported {written} medications to {path}")
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
