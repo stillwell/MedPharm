@@ -39,8 +39,10 @@
                                loses their place in the portal. #}
                             {% set lookup_term = med.brand_name or med.generic_name %}
                             {% if lookup_term %}
+                            {# MedlinePlus's homepage search form posts to the NLM vsearch backend; the
+                               cleaner-looking medlineplus.gov/search.html returns 404. #}
                             <h4 class="mb-0">
-                                <a href="https://medlineplus.gov/search.html?query={{ lookup_term | urlencode }}"
+                                <a href="https://vsearch.nlm.nih.gov/vivisimo/cgi-bin/query-meta?v%3Aproject=medlineplus&v%3Asources=medlineplus-bundle&query={{ lookup_term | urlencode }}"
                                    target="_blank" rel="noopener noreferrer"
                                    class="text-primary text-decoration-none"
                                    title="Look up {{ lookup_term }} on MedlinePlus (opens in a new tab)">

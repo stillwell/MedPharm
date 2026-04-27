@@ -37,7 +37,15 @@ object DrugInfoUrl {
         if (term.isEmpty()) return null
         val encoded = Uri.encode(term)
         val url = when (source) {
-            DrugInfoSource.MEDLINE_PLUS -> "https://medlineplus.gov/search.html?query=$encoded"
+            // MedlinePlus's homepage search form posts to the NLM vsearch
+            // backend; the v:project / v:sources params are required to
+            // scope results to MedlinePlus content. The cleaner-looking
+            // medlineplus.gov/search.html does not exist (404).
+            DrugInfoSource.MEDLINE_PLUS ->
+                "https://vsearch.nlm.nih.gov/vivisimo/cgi-bin/query-meta" +
+                    "?v%3Aproject=medlineplus" +
+                    "&v%3Asources=medlineplus-bundle" +
+                    "&query=$encoded"
             DrugInfoSource.DAILY_MED    -> "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=$encoded"
             DrugInfoSource.DRUGS_COM    -> "https://www.drugs.com/search.php?searchterm=$encoded"
         }

@@ -38,11 +38,20 @@ def _drug_info_url(med):
 
     Brand name is preferred (it is what patients recognise) and the generic
     name is the fallback. Returns None when both are blank.
+
+    Uses the NLM vsearch backend (the actual destination of the
+    MedlinePlus homepage search form). The cleaner-looking
+    medlineplus.gov/search.html does not exist (404).
     """
     term = (med.get("brand_name") or "").strip() or (med.get("generic_name") or "").strip()
     if not term:
         return None
-    return QUrl(f"https://medlineplus.gov/search.html?query={quote_plus(term)}")
+    return QUrl(
+        "https://vsearch.nlm.nih.gov/vivisimo/cgi-bin/query-meta"
+        "?v%3Aproject=medlineplus"
+        "&v%3Asources=medlineplus-bundle"
+        f"&query={quote_plus(term)}"
+    )
 
 
 class MedicationWidget(QWidget):

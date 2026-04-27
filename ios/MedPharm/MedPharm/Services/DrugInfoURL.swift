@@ -41,7 +41,15 @@ enum DrugInfoURL {
         let encoded = term.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? term
         switch source {
         case .medlinePlus:
-            return URL(string: "https://medlineplus.gov/search.html?query=\(encoded)")
+            // MedlinePlus's homepage search form posts to the NLM vsearch
+            // backend; the v:project / v:sources params are required to scope
+            // results to MedlinePlus content. The cleaner-looking
+            // medlineplus.gov/search.html does not exist (404).
+            return URL(string:
+                "https://vsearch.nlm.nih.gov/vivisimo/cgi-bin/query-meta"
+                + "?v%3Aproject=medlineplus"
+                + "&v%3Asources=medlineplus-bundle"
+                + "&query=\(encoded)")
         case .dailyMed:
             return URL(string: "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=\(encoded)")
         case .drugsCom:
