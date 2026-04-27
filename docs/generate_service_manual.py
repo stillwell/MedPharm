@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-A")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-B")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-A &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.6-B &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,7 +484,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.6-A"],
+            ["Revision", "1.7.6-B"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -3815,6 +3815,41 @@ def chapter_28_client_symptoms(styles):
             f"{c('qt_app/settings.py')} points at the local file "
             "and not the REST endpoint.",
             styles),
+        h2("Any client: clinician or patient asks where to learn "
+           "more about a medication", styles),
+        p(
+            "Every client now exposes a tap-to-open affordance on "
+            "medication rows that launches the system browser at "
+            "the NIH MedlinePlus search results page for the drug. "
+            "On iOS, macOS and Android the row itself is tappable; "
+            "on the Qt desktop a "
+            f"{c('🔎 MedlinePlus')} button appears in the detail "
+            "panel once a row is selected; on the web portal the "
+            "brand name on each card is the link (opens in a new "
+            "tab). The destination is "
+            "vsearch.nlm.nih.gov, the NLM-hosted backend that the "
+            "MedlinePlus homepage form posts to. Operators do not "
+            "need to provision anything for this — the link is "
+            "inert until the user actually taps it, and it carries "
+            "no PHI. Patients should be reminded that MedlinePlus "
+            "content is informational, not a substitute for advice "
+            "from their care team.",
+            styles),
+        h2("Any client behind ngrok: first request returns a "
+           "browser-warning HTML page, not JSON", styles),
+        p(
+            "When the API is exposed via an ngrok free-tier tunnel "
+            "(see Chapter 24), the very first request from a fresh "
+            "client install can come back as the ngrok HTML "
+            "interstitial rather than the expected JSON, and the "
+            "client surfaces a generic \"couldn't connect\" error. "
+            "Mobile and desktop clients now send the "
+            f"{c('ngrok-skip-browser-warning: true')} header "
+            "unconditionally, which silences the interstitial. If "
+            "you see this on an older client, upgrade the client to "
+            "1.7.6 or later. The header is harmless when the API "
+            "is reached without ngrok in front of it.",
+            styles),
         PageBreak(),
     ]
     return s
@@ -4604,14 +4639,24 @@ def appendix_f_revision(styles):
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.6-A", datetime.now().strftime("%d %b %Y"),
+                ["1.7.6-B", datetime.now().strftime("%d %b %Y"),
                  "R. Stillwell",
-                 "Reissued for the 1.7.6 product line. Documents the new "
-                 "ngrok-tunnel onboarding flow (./install.sh --ngrok-login) "
-                 "for operators exposing the API to mobile clients across "
-                 "firewalls or NAT, plus the docker-compose `ngrok` profile "
-                 "and the QR-based client onboarding artifacts emitted to "
-                 "data/ngrok_*."],
+                 "Documents the click-medication → MedlinePlus drug-info "
+                 "lookup affordance now present in every client (iOS, "
+                 "macOS, Android, Qt desktop, web portal), and the fix "
+                 "to the Qt medication detail panel that no longer clips "
+                 "its right side. Notes the ngrok-skip-browser-warning "
+                 "header that the mobile and desktop clients send so the "
+                 "free-tier ngrok HTML interstitial cannot break first "
+                 "logins."],
+                ["1.7.6-A", "25 Apr 2026",
+                 "R. Stillwell",
+                 "Reissued for the 1.7.6 product line. Documented the "
+                 "new ngrok-tunnel onboarding flow (./install.sh "
+                 "--ngrok-login) for operators exposing the API to "
+                 "mobile clients across firewalls or NAT, plus the "
+                 "docker-compose `ngrok` profile and the QR-based "
+                 "client onboarding artifacts emitted to data/ngrok_*."],
                 ["1.7.5-A", "20 Apr 2026",
                  "R. Stillwell",
                  "Initial issue of the operator-facing service manual."],
@@ -4670,7 +4715,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.6-A.</i>",
+            "Volume II, Revision 1.7.6-B.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),

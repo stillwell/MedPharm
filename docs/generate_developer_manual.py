@@ -321,7 +321,7 @@ class DevManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-A")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-B")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "Enlightec Ltd. — INTERNAL DEVELOPMENT REFERENCE")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -882,7 +882,7 @@ def build_cover(styles):
         fontSize=13, textColor=INDIGO_PALE, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.06 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-A &nbsp;//&nbsp; Issued "
+        "Revision 1.7.6-B &nbsp;//&nbsp; Issued "
         + datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -907,7 +907,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Developer Manual"],
             ["Volume / Edition", "Volume III — Engineer Edition"],
-            ["Revision", "1.7.6-A"],
+            ["Revision", "1.7.6-B"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -4305,6 +4305,86 @@ print('DB ready')
         "Reformat anything you touch if it deviates.",
         styles))
 
+    s.append(h2("Building the iOS and macOS clients from a non-Mac host", styles))
+    s.append(p(
+        "Apple's toolchain is macOS-only — " + c("xcodebuild") + " "
+        "does not exist on Linux or Windows, the SDK is not "
+        "redistributable, and Apple's code-signing identities and "
+        "notarisation service are macOS-only. Engineers without a "
+        "Mac on the bench therefore use one of three paths, each "
+        "wired into helper scripts that live next to the Apple "
+        "source.",
+        styles))
+    s.append(make_table(
+        ["Path", "What it produces", "When to use"],
+        [
+            ["GitHub Actions",
+             "MedPharm-iOS-Simulator.app.zip + an unsigned "
+             "device .xcarchive; or MedPharm-macOS.app.zip",
+             "Default. Build runs on a macos-14 runner; signed "
+             ".ipa requires Apple Developer secrets. Driver: "
+             + c("ios/build_via_actions.sh") + " or "
+             + c("macos/build_via_actions.sh") + "."],
+            ["Cirrus CI fallback",
+             "Same artifacts as GitHub Actions",
+             "When the GitHub account is billing-blocked from "
+             "macOS minutes. Cirrus offers free macOS-on-M1 "
+             "minutes for public OSS, independent of GitHub "
+             "billing. Driver: " + c("ios/build_via_cirrus.sh")
+             + " or " + c("macos/build_via_cirrus.sh") + "."],
+            ["Swift on Linux compile-check",
+             "Library build of the Foundation-only subset "
+             "(Models + QRConfigParser + DrugInfoURL)",
+             "Fast feedback loop while editing. Cannot compile "
+             "Views/ (SwiftUI / UIKit / AppKit) or APIClient.swift "
+             "(Security framework). Driver: "
+             + c("ios/swift_lint.sh") + " or "
+             + c("macos/swift_lint.sh") + "."],
+        ],
+        col_widths=[1.5 * inch, 2.4 * inch, 2.4 * inch]))
+    s.append(p(
+        "The CI workflows live at "
+        + c(".github/workflows/ios-build.yml") + " and "
+        + c(".github/workflows/macos-build.yml") + ". The Cirrus "
+        "config is " + c(".cirrus.yml") + " at the repo root and "
+        "requires a one-time install of the Cirrus CI GitHub App. "
+        "Both CI paths skip the build when no source under "
+        + c("ios/") + " or " + c("macos/") + " has changed.",
+        styles))
+
+    s.append(h2("Linking out to authoritative drug information", styles))
+    s.append(p(
+        "All five clients (iOS, macOS, Android, Qt desktop, web "
+        "portal) include a small DrugInfoURL helper that builds a "
+        "MedlinePlus search URL from a Medication's brand or "
+        "generic name and returns " + c("nil") + " for blank "
+        "input. Tapping a medication row (or the brand-name "
+        "header on the web) opens the resulting URL in the user's "
+        "default browser. The MedlinePlus search URL must hit the "
+        "NLM vsearch backend at "
+        + c("vsearch.nlm.nih.gov/vivisimo/cgi-bin/query-meta") + " "
+        "with the " + c("v:project=medlineplus") + " and "
+        + c("v:sources=medlineplus-bundle") + " parameters; the "
+        "shorter " + c("medlineplus.gov/search.html") + " URL "
+        "returns a 404. The helper also exposes DailyMed (FDA "
+        "labels) and Drugs.com as alternatives for clinicians who "
+        "want either the prescribing information or a layperson "
+        "summary.",
+        styles))
+
+    s.append(h2("ngrok-tunnel safety net for non-Mac access", styles))
+    s.append(p(
+        "When a deployment's API is fronted by an ngrok tunnel "
+        "(see " + c("./start_ngrok.sh") + " and the docker-compose "
+        + c("ngrok") + " profile), every mobile and desktop "
+        "client adds the " + c("ngrok-skip-browser-warning: true")
+        + " header to its outgoing requests. This bypasses the "
+        "free-tier ngrok HTML interstitial that would otherwise "
+        "land an HTML page in the JSON parser on the very first "
+        "request from a fresh install. The header is harmless when "
+        "ngrok is not in front of the API, so it ships unconditionally.",
+        styles))
+
     s.append(PageBreak())
     return s
 
@@ -5307,9 +5387,19 @@ def appendix_f_support(styles):
     s.append(make_table(
         ["Revision", "Date", "Author", "Summary"],
         [
-            ["1.7.6-A", datetime.now().strftime("%d %b %Y"),
+            ["1.7.6-B", datetime.now().strftime("%d %b %Y"),
              "R. Stillwell",
-             "Reissued for the 1.7.6 product line. Notes the PDF "
+             "Documents cross-platform builds for the iOS / macOS "
+             "clients from a Linux or Windows shell (GitHub Actions, "
+             "Cirrus CI fallback, swift-on-Linux compile-check), the "
+             "ngrok-skip-browser-warning header sent by every mobile "
+             "and desktop client, the click-medication → MedlinePlus "
+             "lookup affordance in all clients, and a fix to the Qt "
+             "medication detail panel that no longer clips its right "
+             "side at the splitter."],
+            ["1.7.6-A", "25 Apr 2026",
+             "R. Stillwell",
+             "Reissued for the 1.7.6 product line. Noted the PDF "
              "rendering fixes applied to this volume (cover-page navy "
              "backdrop no longer bleeds onto body pages; spurious "
              "blank pages before part dividers removed; output now "
@@ -5367,7 +5457,7 @@ def appendix_f_support(styles):
     s.append(Spacer(1, 0.4 * inch))
     s.append(Paragraph(
         "<i>End of the MedPharm ERP Developer Manual, "
-        "Volume III, Revision 1.7.6-A.</i>",
+        "Volume III, Revision 1.7.6-B.</i>",
         ParagraphStyle("EndSig", parent=styles["DM_Body"],
                        alignment=TA_CENTER, textColor=SLATE,
                        fontName="Helvetica-Oblique")))
