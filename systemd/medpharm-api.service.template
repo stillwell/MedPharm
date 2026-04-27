@@ -1,0 +1,77 @@
+# MedPharm ERP — REST API server (port 8080)
+#
+# Installed by install-services.sh. Placeholders ({{NAME}}) are substituted
+# at install time. To regenerate after editing this template, re-run
+# `sudo ./install-services.sh update-units`.
+#
+# Standard ops:
+#   sudo systemctl status  medpharm-api
+#   sudo systemctl restart medpharm-api
+#   journalctl -u medpharm-api -f
+
+[Unit]
+Description=MedPharm ERP — REST API server (port {{API_PORT}})
+Documentation=https://github.com/stillwell/MedPharm
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+Group={{SERVICE_GROUP}}
+WorkingDirectory={{INSTALL_DIR}}
+
+# Operator overrides (paths, secrets, TLS, CORS) live here. The `-` prefix
+# means "missing file is OK"; the unit still starts with the script defaults.
+EnvironmentFile=-{{INSTALL_DIR}}/.env
+EnvironmentFile=-/etc/medpharm/medpharm.env
+
+# Defaults; any of these can be overridden in the EnvironmentFile above.
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH={{INSTALL_DIR}}
+Environment=MEDPHARM_HOST=0.0.0.0
+Environment=MEDPHARM_PORT={{API_PORT}}
+Environment=MEDPHARM_DB_PATH={{INSTALL_DIR}}/medpharm_erp.db
+Environment=MEDPHARM_TLS_DIR={{INSTALL_DIR}}/data/tls
+Environment=MEDPHARM_TLS_MODE=auto
+
+ExecStart={{INSTALL_DIR}}/venv/bin/gunicorn --workers {{WORKERS}} --threads 2 --bind 0.0.0.0:{{API_PORT}} --access-logfile - --error-logfile - --timeout 60 --graceful-timeout 30 run_cloud:app
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=mixed
+KillSignal=SIGTERM
+
+# ── Sandboxing ───────────────────────────────────────────────────────────────
+# Tight enough to limit blast radius if the API is compromised; loose enough
+# that a Python web app + sqlite + reading TLS certs from disk all work.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{INSTALL_DIR}}/data {{INSTALL_DIR}}/logs
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Resource limits
+LimitNOFILE=4096
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

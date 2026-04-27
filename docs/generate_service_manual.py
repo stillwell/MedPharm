@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-C")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-D")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-C &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.6-D &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,7 +484,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.6-C"],
+            ["Revision", "1.7.6-D"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -1538,7 +1538,75 @@ echo "$MEDPHARM_SECRET_KEY" | sha256sum""", styles),
 ./install.sh --docker-server
 
 # Docker-based install — API only (recommended for separate edge + API hosts)
-./install.sh --docker""", styles),
+./install.sh --docker
+
+# Native systemd services (alternative to Docker for bare-metal hosts)
+sudo ./install-services.sh install""", styles),
+        h2("Step 3a — Native systemd-service install (alternative)", styles),
+        p(
+            "On bare-metal hosts that already have systemd, "
+            + c("install-services.sh") + " is a production-grade "
+            "alternative to Docker. It migrates the source tree to "
+            + c("/opt/medpharm") + ", creates a "
+            + c("medpharm") + " system user (UID matched to the "
+            "Docker images and the Kubernetes deployment), builds a "
+            "Python venv in place, and installs two sandboxed "
+            "systemd units — " + c("medpharm-api.service") + " and "
+            + c("medpharm-web.service") + " — that start on boot and "
+            "restart on failure under "
+            + c("Restart=on-failure RestartSec=5") + ".",
+            styles),
+        make_table(
+            ["Subcommand", "What it does"],
+            [
+                ["install",
+                 "rsync this checkout to PREFIX, create user, build "
+                 "venv, install + enable + start units"],
+                ["status",
+                 "systemctl status for both units"],
+                ["logs --follow",
+                 "journald tail for both units (Ctrl-C to detach)"],
+                ["restart",
+                 "Restart both units (or --api-only / --web-only)"],
+                ["update-units",
+                 "Re-render templates after editing them; restart "
+                 "is the operator's call"],
+                ["uninstall",
+                 "Stop, disable, remove unit files (tree preserved)"],
+                ["uninstall --purge",
+                 "Also remove PREFIX and the medpharm user; the DB "
+                 "is archived to /var/backups/medpharm/ first"],
+            ],
+            col_widths=[1.4 * inch, 5.0 * inch]),
+        p(
+            "The unit templates at "
+            + c("systemd/medpharm-api.service.template") + " and "
+            + c("systemd/medpharm-web.service.template") + " enable "
+            "the standard hardening posture: " + c("NoNewPrivileges")
+            + ", " + c("ProtectSystem=strict") + ", "
+            + c("ProtectHome=read-only") + " with explicit "
+            + c("ReadWritePaths") + ", "
+            + c("MemoryDenyWriteExecute") + ", "
+            + c("RestrictNamespaces") + ", "
+            + c("SystemCallFilter=@system-service") + ". A compromise "
+            "of the API or web portal cannot pivot to the rest of the "
+            "host without first defeating the kernel's seccomp filter. "
+            "Operators who need to relax any of these for a "
+            "site-specific reason should edit the template files in "
+            "the source tree (under " + c("systemd/") + ") and re-run "
+            + c("sudo ./install-services.sh update-units") + ".",
+            styles),
+        Paragraph(
+            "<b>Note.</b> All three deployment paths converge on the "
+            "same convention: the application runs as the "
+            + c("medpharm") + " system user (UID 1000, no login "
+            "shell), out of " + c("/opt/medpharm") + ", with the SQLite "
+            "database at " + c("/opt/medpharm/medpharm_erp.db") + " "
+            "(or the equivalent volume mount in container/k8s "
+            "deployments). Choosing between Docker, Kubernetes, and "
+            "native systemd is therefore a question of fleet "
+            "management, not of security model.",
+            styles["SM_Note"]),
         h2("Step 4 — Install TLS certificates", styles),
         p(
             "With TLS handled by Nginx in the full-stack container, "
@@ -4680,14 +4748,27 @@ def appendix_f_revision(styles):
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.6-C", datetime.now().strftime("%d %b %Y"),
+                ["1.7.6-D", datetime.now().strftime("%d %b %Y"),
                  "R. Stillwell",
-                 "Documents the source-tree auto-update path: "
+                 "Documents the install-services.sh native-systemd "
+                 "deployment path: migration to /opt/medpharm, creation "
+                 "of the medpharm system user, sandboxed unit files for "
+                 "medpharm-api.service and medpharm-web.service, and the "
+                 "convergence with the Docker images and the k8s "
+                 "manifests on the same /opt/medpharm + medpharm-user "
+                 "convention. Aligns the Dockerfiles' useradd shell to "
+                 "/usr/sbin/nologin and adds runAsNonRoot / capabilities "
+                 "drop / seccompProfile RuntimeDefault to the k8s "
+                 "deployment so the security model is identical across "
+                 "all three deployment paths."],
+                ["1.7.6-C", "27 Apr 2026",
+                 "R. Stillwell",
+                 "Documented the source-tree auto-update path: "
                  "./update.sh, the database-backup-before-fast-forward "
                  "guarantee, and the new --auto / --install-schedule / "
                  "--uninstall-schedule / --show-schedule flags that "
                  "install a recurring job as a systemd --user timer "
-                 "(preferred) or crontab entry (fallback). Notes the "
+                 "(preferred) or crontab entry (fallback). Noted the "
                  "concurrency lock and the dirty-tree refusal in --auto."],
                 ["1.7.6-B", "26 Apr 2026",
                  "R. Stillwell",
@@ -4765,7 +4846,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.6-C.</i>",
+            "Volume II, Revision 1.7.6-D.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),

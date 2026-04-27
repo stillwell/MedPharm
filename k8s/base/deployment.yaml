@@ -42,12 +42,37 @@ spec:
         app.kubernetes.io/component: server
         app.kubernetes.io/version: "1.7.6"
     spec:
+      # Pod-level security context. fsGroup=1000 matches the medpharm
+      # system user inside the image (created by both Dockerfiles via
+      # `useradd -r -s /usr/sbin/nologin -m -d /opt/medpharm`). seccomp
+      # uses the kubelet's RuntimeDefault profile.
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: medpharm
           image: enlightec/medpharm-server:1.7.6
           imagePullPolicy: IfNotPresent
+          # Container-level hardening. Mirrors the systemd unit's
+          # NoNewPrivileges + drop-all-caps + non-root posture so the
+          # security model is the same whether you ship via Docker, k8s,
+          # or native systemd.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              # Nginx in the medpharm-server image binds :80/:443. Without
+              # NET_BIND_SERVICE a non-root process cannot listen on
+              # privileged ports. If you front the deployment with an
+              # external ingress and only need :8080/:5000, drop this too.
+              add:
+                - NET_BIND_SERVICE
+            readOnlyRootFilesystem: false
           ports:
             - name: http
               containerPort: 80

@@ -27,6 +27,8 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - [Project Structure](#project-structure)
 - [Requirements](#requirements)
 - [Installation](#installation)
+  - [Running as system services](#running-as-system-services)
+  - [Automatic updates](#automatic-updates)
 - [Docker Hub Images](#docker-hub-images)
 - [Quick Start](#quick-start)
 - [Remote Access via ngrok](#remote-access-via-ngrok)
@@ -325,6 +327,60 @@ The installer will:
 6. Seed expanded reference data (symptoms, conditions, additional medications)
 7. Run integration tests to verify everything works
 8. Preserve the tracked launcher scripts (`start_web.sh`, `start_desktop.sh`, `start_cloud.sh`, `generate_docs.sh`) — fallback templates with full GPL headers are only written when a launcher is missing from the working tree
+
+### Running as system services
+
+For server deployments, the API and patient web portal can run as **systemd services** that start on boot, restart on failure, and run under a dedicated `medpharm` system user. The native systemd setup uses the same `/opt/medpharm` install path and the same `medpharm` user as the published Docker images, so the security model is identical whether you ship via Docker, Kubernetes, or native processes.
+
+```bash
+# Migrate this checkout to /opt/medpharm, create the medpharm user, build a
+# venv, and install + start medpharm-api.service + medpharm-web.service.
+sudo ./install-services.sh install
+
+# Subcommands
+sudo ./install-services.sh status              # systemctl status for both units
+sudo ./install-services.sh logs --follow       # tail journald for both
+sudo ./install-services.sh restart             # restart both
+sudo ./install-services.sh start --api-only    # selective start
+sudo ./install-services.sh update-units        # re-render after editing the templates
+sudo ./install-services.sh uninstall           # stop, disable, remove unit files
+sudo ./install-services.sh uninstall --purge   # also remove /opt/medpharm + the user
+                                               # (the DB is archived to /var/backups/medpharm/ first)
+sudo ./install-services.sh --help              # full flag reference
+```
+
+**What gets installed.** Two unit files at `/etc/systemd/system/`:
+- `medpharm-api.service` — gunicorn binding `:8080`, running `run_cloud:app`. Ordered `After=network-online.target`.
+- `medpharm-web.service` — gunicorn binding `:5000`, running `run_web:app`. Ordered `After=medpharm-api.service` so first-paint requests see a populated schema.
+
+Both units enable **systemd sandboxing** (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only` with explicit `ReadWritePaths`, `MemoryDenyWriteExecute`, `RestrictNamespaces`, `SystemCallFilter=@system-service`) so a compromise of the API or web portal can't pivot to the rest of the host. The unit templates live at [`systemd/medpharm-api.service.template`](systemd/medpharm-api.service.template) and [`systemd/medpharm-web.service.template`](systemd/medpharm-web.service.template) — read them to see exactly what is enabled, and edit + `update-units` if you need to relax anything for your environment.
+
+**Operator overrides** go in `/etc/medpharm/medpharm.env` (system-wide) or `${INSTALL_DIR}/.env` (per-install). Any of `MEDPHARM_JWT_SECRET`, `MEDPHARM_FIELD_KEY`, `MEDPHARM_TLS_MODE`, `MEDPHARM_CORS_ORIGINS`, etc. — see the unit templates for the full list of `Environment=` defaults.
+
+**Useful flags on `install`:**
+
+| Flag | Effect |
+|---|---|
+| `--user=NAME` | Service user (default `medpharm`) |
+| `--no-create-user` | Don't create the user; assume it already exists |
+| `--prefix=PATH` | Install dir (default `/opt/medpharm`) |
+| `--api-port=N`, `--web-port=N`, `--workers=N` | Override defaults |
+| `--api-only`, `--web-only` | Install only one service |
+| `--from-current` *(default)* | rsync this checkout into the prefix |
+| `--clone-fresh` | `git clone` from the upstream repo into the prefix instead |
+| `--no-start` | Install + enable but don't start (staged rollouts) |
+| `--force` | Overwrite an existing prefix (the existing tree is archived to `${PREFIX}.bak.<timestamp>` first) |
+| `--user-mode` | Install as `systemctl --user` units (no sudo, no boot start unless you also `loginctl enable-linger`) |
+
+**Choosing a deployment mode.** All three published deployment paths converge on `/opt/medpharm` + the `medpharm` user (UID 1000, no login shell):
+
+| Mode | Best for | Service supervision |
+|---|---|---|
+| `install-services.sh install` | Bare-metal / VM hosts that already have systemd | systemd unit, journald, `systemctl restart` |
+| `docker compose -f docker-compose.hub.yml up -d` | Single-host containerised deploy | Docker daemon |
+| `k8s/medpharm-k8s.sh deploy` | Multi-node / cluster deploys | kubelet, with the deployment's `runAsNonRoot: true`, dropped capabilities, `seccompProfile: RuntimeDefault` |
+
+If you also want **automatic source-tree updates** on a recurring schedule, layer `./update.sh --install-schedule=daily` on top — that timer runs as the operator who installed it (not the `medpharm` service user) so it can `git pull` and trigger a `systemctl restart medpharm-api medpharm-web` as needed.
 
 ### Automatic updates
 

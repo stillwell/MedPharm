@@ -49,8 +49,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create application user
-RUN useradd -r -s /bin/false -m -d /opt/medpharm medpharm
+# Create application user (matches the native systemd install in
+# install-services.sh: system user, no login shell, /opt/medpharm as home).
+RUN useradd -r -s /usr/sbin/nologin -m -d /opt/medpharm medpharm
 
 WORKDIR /opt/medpharm
 
