@@ -1679,6 +1679,114 @@ def build_document():
         ListItem(Paragraph(f'See {link("https://flask.palletsprojects.com/en/3.0.x/deploying/", "Flask Deployment Options")} for complete guidance', styles["BodyText2"])),
     ], bulletType="bullet", start="bulletchar")
     story.append(prod_items)
+
+    story.append(Paragraph("19.5 Native systemd-Service Install (install-services.sh)", styles["H2"]))
+    story.append(Paragraph(
+        "For bare-metal hosts that already have systemd, "
+        f"{code('install-services.sh')} migrates the source tree to "
+        f"{code('/opt/medpharm')}, creates the {code('medpharm')} system "
+        "user (UID 1000, no login shell), builds a Python venv, and "
+        f"installs two sandboxed systemd units — {code('medpharm-api.service')} "
+        f"on port 8080 and {code('medpharm-web.service')} on port 5000 — "
+        f"that start on boot and restart on failure under "
+        f"{code('Restart=on-failure RestartSec=5')}. The same convention "
+        f"({code('/opt/medpharm')} + {code('medpharm')} user) is used by "
+        "the published Docker images and the Kubernetes deployment, so "
+        "the security model is identical regardless of which deployment "
+        "path you choose.",
+        styles["BodyText2"]))
+    story.append(code_block(textwrap.dedent("""\
+    # Install (creates user, migrates tree to /opt/medpharm, enables units)
+    sudo ./install-services.sh install
+
+    # Day-to-day management
+    sudo ./install-services.sh status              # systemctl status for both
+    sudo ./install-services.sh logs --follow       # journald tail
+    sudo ./install-services.sh restart             # restart both
+    sudo ./install-services.sh uninstall           # stop, disable, remove units
+    sudo ./install-services.sh uninstall --purge   # also remove tree + user
+
+    # Useful flags on `install`:
+    #   --user=NAME        service user (default: medpharm)
+    #   --no-create-user   assume the user already exists
+    #   --prefix=PATH      install dir (default: /opt/medpharm)
+    #   --api-port=N       API listen port (default: 8080)
+    #   --web-port=N       web portal listen port (default: 5000)
+    #   --workers=N        gunicorn worker count (default: 4)
+    #   --api-only         install only the API
+    #   --web-only         install only the web portal
+    #   --no-start         install + enable but don't start
+    #   --user-mode        systemctl --user units (no sudo, no boot start)"""), styles))
+    story.append(Paragraph(
+        f"The unit templates at {code('systemd/medpharm-api.service.template')} "
+        f"and {code('systemd/medpharm-web.service.template')} apply the "
+        f"standard hardening posture: {code('NoNewPrivileges')}, "
+        f"{code('ProtectSystem=strict')}, {code('ProtectHome=read-only')} "
+        f"with explicit {code('ReadWritePaths')}, "
+        f"{code('MemoryDenyWriteExecute')}, {code('RestrictNamespaces')}, "
+        f"{code('SystemCallFilter=@system-service')}. Operator overrides "
+        f"go in {code('/etc/medpharm/medpharm.env')} (system-wide) or "
+        f"{code('${INSTALL_DIR}/.env')} (per-install).",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("19.6 Auto-Update with Database Backup (update.sh)", styles["H2"]))
+    story.append(Paragraph(
+        f"{code('./update.sh')} polls GitHub for new commits on the tracked "
+        "branch, snapshots the SQLite database to "
+        f"{code('data/backups/medpharm-YYYYMMDD-HHMMSS.db')} via the SQLite "
+        f"online {code('.backup')} command, and fast-forwards the working "
+        f"tree. The {code('--auto')} flag is the unattended entry point — "
+        "silent on stdout when up-to-date, one summary line when an update "
+        "was applied, stderr on real failures (so cron / journalctl surface "
+        f"the problem). {code('--install-schedule[=PERIOD]')} installs a "
+        "recurring job — preferring a sandboxed systemd "
+        f"{code('--user')} timer with {code('Persistent=true')} (so missed "
+        "runs catch up after wake), falling back to a crontab entry on "
+        "hosts without a user manager.",
+        styles["BodyText2"]))
+    story.append(code_block(textwrap.dedent("""\
+    # Interactive (banner, prompts, full status)
+    ./update.sh
+
+    # Just check; don't pull
+    ./update.sh --check-only
+
+    # Unattended (suitable for cron / systemd timers)
+    ./update.sh --auto
+
+    # Recurring auto-update (PERIOD: hourly | daily | weekly | monthly)
+    ./update.sh --install-schedule=daily
+    ./update.sh --show-schedule
+    ./update.sh --uninstall-schedule
+
+    # Safety guarantees:
+    #   - directory-based PID lock at .update.lock.d/ prevents collisions
+    #     between manual and scheduled runs (stale locks are stolen)
+    #   - --auto refuses to update a dirty working tree (no auto-stash)
+    #   - DB backup runs FIRST; pull only proceeds if backup succeeded
+    #   - DB path autodetected: $MEDPHARM_DB_PATH → medpharm_erp.db →
+    #     data/medpharm_erp.db → data/medpharm.db"""), styles))
+
+    story.append(Paragraph("19.7 Cross-Platform Apple Builds from Linux/Windows", styles["H2"]))
+    story.append(Paragraph(
+        "Apple's toolchain only runs on macOS. For engineers who develop on "
+        "Linux or Windows, three complementary paths produce the iOS and "
+        "macOS clients without a Mac on the bench:",
+        styles["BodyText2"]))
+    cap_data = [
+        ["Path", "Driver", "Output"],
+        ["GitHub Actions",
+         f"{code('ios/build_via_actions.sh')} / {code('macos/build_via_actions.sh')}",
+         "Simulator-runnable .app + unsigned device .xcarchive (or unsigned macOS .app); signed .ipa requires Apple Developer secrets"],
+        ["Cirrus CI fallback",
+         f"{code('ios/build_via_cirrus.sh')} / {code('macos/build_via_cirrus.sh')}",
+         "Same artifacts as GitHub Actions, on free macOS-on-M1 minutes independent of GitHub billing"],
+        ["Swift on Linux compile-check",
+         f"{code('ios/swift_lint.sh')} / {code('macos/swift_lint.sh')}",
+         "Foundation-only subset (Models + Services) compiled in seconds via the Apple-shipped Linux Swift toolchain"],
+    ]
+    story.append(make_table(cap_data[0], cap_data[1:], [1.4*inch, 2.0*inch, 3.2*inch]))
+
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════
