@@ -17,6 +17,17 @@ Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlight
 - **`./update.sh`** — new standalone updater that polls GitHub for new commits, optionally backs up the database, and fast-forwards the local working tree.
 - **Volume III Developer Manual** added in this release line as the engineer-facing companion to Volume I (Technical Reference) and Volume II (Service Manual).
 
+### Rolling updates since 1.7.6 (revisions A–E)
+
+The 1.7.6 product line carries a series of operator- and engineer-facing improvements published as manual revisions A through E without re-tagging the underlying release. Service Manual is at **1.7.6-E**, Developer Manual at **1.7.6-D**, Volume I tracks the headline `v1.7.6` cover stamp.
+
+- **Click-medication → MedlinePlus** in every client. iOS / macOS / Android rows are tappable, the Qt desktop has a "🔎 MedlinePlus" button in the medication detail panel, the patient web portal hyperlinks the brand name. URL helper centralised so the data source is one swap.
+- **iOS / macOS builds from a non-Mac host.** [`.github/workflows/{ios,macos}-build.yml`](.github/workflows/) drive `xcodebuild` on a `macos-14` runner; the Cirrus CI fallback at [`.cirrus.yml`](.cirrus.yml) provides free macOS-on-M1 minutes when GitHub Actions is billing-blocked. Helpers `ios/build_via_actions.sh`, `ios/build_via_cirrus.sh`, and `ios/swift_lint.sh` (offline Foundation-only compile-check on the Linux Swift toolchain).
+- **Auto-update with database backup.** [`./update.sh`](update.sh) gains `--auto`, `--install-schedule[=PERIOD]`, `--uninstall-schedule`, `--show-schedule` for unattended runs via systemd `--user` timer (preferred) or crontab (fallback). Concurrency lock at `.update.lock.d/`, dirty-tree refusal in `--auto`, DB-backup-before-pull guarantee.
+- **Native systemd services** via [`./install-services.sh`](install-services.sh). Migrates the tree to `/opt/medpharm`, creates the `medpharm` system user (UID 1000, `/usr/sbin/nologin`), installs sandboxed `medpharm-api.service` + `medpharm-web.service` units. Aligned with the Docker image and k8s deployment so all three deployment paths converge on the same security model (`runAsNonRoot`, `capabilities.drop=[ALL]`, `seccompProfile: RuntimeDefault`).
+- **Medications catalogue bulk loaders.** [`database/load_fda_data.py`](database/load_fda_data.py) ingests the FDA NDC Directory + NIH DSLD (~360k Rx + OTC + dietary-supplement entries). [`database/load_dailymed_spl.py`](database/load_dailymed_spl.py) enriches existing rows with prescribing information (indications, contraindications, side effects, dosage, warnings) extracted from HL7 V3 SPL XML by LOINC section code. Idempotent, streaming, resumable. Schema gains `data_source` + 7 other columns and three indexes; `search_medications` and `/medications/search` paginate. Full operator guide: [`docs/MEDICATIONS_DATABASE.md`](docs/MEDICATIONS_DATABASE.md).
+- **Code-health pass.** `datetime.utcnow()` (deprecated in Python 3.12, removed in 3.14) replaced across 35 call sites with a centralised `_naive_utc_now()` helper. Schema migration is now dialect-aware (functional `lower(col)` indexes on SQLite + Postgres, plain indexes on MySQL/other). SAWarning noise from functional-index reflection silenced. Android `MedicationsResponse` carries optional pagination metadata so the new "Showing N of M — refine your search" footer can fire when the catalogue overflows the page.
+
 ---
 
 ## Table of Contents
