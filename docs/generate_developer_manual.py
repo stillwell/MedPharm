@@ -321,7 +321,7 @@ class DevManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-C")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-D")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "Enlightec Ltd. — INTERNAL DEVELOPMENT REFERENCE")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -882,7 +882,7 @@ def build_cover(styles):
         fontSize=13, textColor=INDIGO_PALE, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.06 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-C &nbsp;//&nbsp; Issued "
+        "Revision 1.7.6-D &nbsp;//&nbsp; Issued "
         + datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -907,7 +907,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Developer Manual"],
             ["Volume / Edition", "Volume III — Engineer Edition"],
-            ["Revision", "1.7.6-C"],
+            ["Revision", "1.7.6-D"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -2839,6 +2839,135 @@ def chapter_11_db_manager(styles):
         return {"status": "processed", "approved": approved}""",
         language="python",
         caption="Listing 11-3. Multi-row transaction — claim, payment, invoice state all update together."))
+
+    s.append(h2("Pagination contract for search_medications", styles))
+    s.append(p(
+        "Before the 1.7.6-E medications-catalogue work the medications "
+        "table held under a hundred rows and the server happily "
+        "returned every match for any search. After a full FDA NDC "
+        "bulk load (Phase 1 below) it can hold over 300 000 rows, "
+        "and an unbounded SELECT against that is guaranteed to bring "
+        "the API down. " + c("search_medications") + " is therefore "
+        "now paginated:",
+        styles))
+    s.extend(code_block("""def search_medications(self, query="", drug_class="", schedule="", form="",
+                       limit=_DEFAULT_MED_PAGE_SIZE,    # 100
+                       offset=0,
+                       include_total=False) -> list[dict] | dict:
+    \"\"\"limit=None means 'give me everything matching' but is silently
+    clamped to _UNBOUNDED_MED_LIMIT_CAP (5000) and emits a logged
+    WARNING — protect against accidental full-table scans.\"\"\"
+    ...
+    if include_total:
+        return {"medications": [...], "total": N, "limit": L, "offset": O}
+    return [...]   # historical signature""",
+        language="python",
+        caption="Listing 11-4. Two response shapes; pick include_total=True "
+                "when the caller actually paginates."))
+    s.append(p(
+        "The legacy " + c("get_all_medications()") + " is now an alias "
+        "for " + c("search_medications(limit=100)") + ". Anyone passing "
+        + c("limit=None") + " gets clamped to 5000 with a logged "
+        "warning so a stray unbounded query in a feature branch is "
+        "loud rather than silent. The Qt MedicationWidget calls the "
+        "DB on every keystroke (sub-ms with the lower(brand_name) / "
+        "lower(generic_name) functional indexes added in 1.7.6-E); "
+        "the Flask route at /medications/search exposes "
+        + c("page") + " / " + c("page_size") + " query params and "
+        "returns " + c("total") + " + " + c("total_pages") + " "
+        "alongside the paginated " + c("medications") + " list.",
+        styles))
+
+    s.append(h2("Bulk loaders for the medications catalogue", styles))
+    s.append(p(
+        "Two scripts populate the table from public US government "
+        "data. Both are streaming, idempotent, and refuse to overwrite "
+        "rows whose " + c("data_source") + " is " + c("'seed'") + " — "
+        "the original hand-curated demo data survives any number of "
+        "bulk loads.",
+        styles))
+    s.append(make_table(
+        ["Loader", "Source", "Provides"],
+        [
+            ["load_fda_data.py",
+             "FDA NDC Directory (~360k entries)",
+             "name, manufacturer, NDC, dose form, route, marketing "
+             "category, DEA schedule"],
+            ["load_fda_data.py",
+             "NIH DSLD",
+             "complementary / dietary-supplement labels "
+             "(~150k records)"],
+            ["load_dailymed_spl.py",
+             "DailyMed SPL XML labels",
+             "indications, contraindications, side effects, drug "
+             "interactions, dosage, warnings — extracted by LOINC "
+             "section code from HL7 V3 SPL"],
+        ],
+        col_widths=[1.6 * inch, 1.7 * inch, 3.0 * inch]))
+    s.append(p(
+        c("load_fda_data.py") + " uses " + c("zipfile") + " + "
+        + c("csv.DictReader") + " for streaming TSV, hint-matches "
+        "FDA's open-vocabulary dosage form / route strings to the "
+        "existing " + c("DrugForm") + " / " + c("DrugRoute") + " "
+        "enums, and stores the verbatim FDA strings in the new "
+        + c("dosage_form_raw") + " / " + c("route_raw") + " "
+        "columns so nothing is lost. Upserts batch-commit every "
+        "1000 rows to keep memory bounded.",
+        styles))
+    s.append(p(
+        c("load_dailymed_spl.py") + " takes either a list of NDCs "
+        "(via " + c("--ndc-list") + " or " + c("--top N") + ") and "
+        "fetches per-drug SPL XML from the NLM REST API at 1 req/sec, "
+        "or a directory of pre-downloaded SPL files via "
+        + c("--from-dir") + " / " + c("--from-zip") + " for offline "
+        "ingest. Per-setid SHA-256 + last-modified is tracked in a "
+        + c("dailymed_ingest_log") + " side table so a crashed run "
+        "resumes idempotently. Section extraction uses lxml with "
+        + c("recover=True") + " for tolerance against malformed SPL "
+        "exports — that's why " + c("lxml>=5.0.0") + " is in "
+        + c("requirements-cloud.txt") + " and baked into the Docker "
+        "images.",
+        styles))
+    s.append(p(
+        "Operator-facing flag matrix and sizing table live at "
+        + c("docs/MEDICATIONS_DATABASE.md") + ". Rolling back a bad "
+        "load is one statement: " + c("DELETE FROM medications "
+        "WHERE data_source IN ('fda_ndc','orange_book','dsld')") + ".",
+        styles))
+
+    s.append(h2("The _naive_utc_now() helper", styles))
+    s.append(p(
+        "Python 3.12 deprecated " + c("datetime.utcnow()") + "; "
+        "3.14 removes it. The repo had 35 call sites — every "
+        + c("Column(DateTime, default=...)") + " in models.py, "
+        "various " + c("now = datetime.utcnow()") + " calls in "
+        "db_manager.py, and a handful of timestamp formatters in "
+        "fhir.py / audit.py / emergency.py / seed_data.py. The "
+        "1.7.6-D pass replaces them with a single helper:",
+        styles))
+    s.extend(code_block("""def _naive_utc_now() -> datetime:
+    \"\"\"Drop-in replacement for the deprecated datetime.utcnow().
+
+    Returns the current UTC time as a *naive* datetime (no tzinfo)
+    so it matches the existing schema, where every DateTime column
+    has stored naive UTC since the project started. Switching
+    wholesale to tz-aware datetimes would require a data migration
+    of every historical row.
+    \"\"\"
+    return datetime.now(timezone.utc).replace(tzinfo=None)""",
+        language="python",
+        caption="Listing 11-5. database/models.py — the project-wide "
+                "replacement for datetime.utcnow()."))
+    s.append(p(
+        "Why naive instead of tz-aware? The existing data on disk "
+        "is naive UTC; mixing tz-aware values into queries against "
+        "naive columns triggers " + c("TypeError") + "s in SQLAlchemy "
+        "comparisons. Migrating the schema to tz-aware would require "
+        "a full row-by-row rewrite of " + c("created_at") + " / "
+        + c("updated_at") + " / " + c("audit_log") + " timestamps, "
+        "which is more risk than reward for a deprecation that is "
+        "two Python versions away.",
+        styles))
 
     s.append(PageBreak())
     return s
@@ -5542,9 +5671,25 @@ def appendix_f_support(styles):
     s.append(make_table(
         ["Revision", "Date", "Author", "Summary"],
         [
-            ["1.7.6-C", datetime.now().strftime("%d %b %Y"),
+            ["1.7.6-D", datetime.now().strftime("%d %b %Y"),
              "R. Stillwell",
-             "Documents the source-tree auto-update mechanism "
+             "Documents the medications-catalogue bulk loaders "
+             "(database/load_fda_data.py for the FDA NDC Directory + "
+             "NIH DSLD; database/load_dailymed_spl.py for HL7 V3 SPL "
+             "label parsing via either the rate-limited NLM REST API "
+             "or a local bulk extract). Adds the eight new "
+             "Medication columns (data_source, product_type, "
+             "marketing_category, dosage_form_raw, route_raw, "
+             "pharm_classes, start_marketing_date, "
+             "end_marketing_date) and the three indexes that "
+             "support search at 300k+ rows. Notes the pagination "
+             "contract on search_medications and the /medications/"
+             "search route, the unbounded-query clamp at 5000 rows, "
+             "and the _naive_utc_now() helper that replaces the "
+             "deprecated datetime.utcnow() across 35 call sites."],
+            ["1.7.6-C", "27 Apr 2026",
+             "R. Stillwell",
+             "Documented the source-tree auto-update mechanism "
              "(./update.sh --auto + --install-schedule, the directory "
              "lock, the dirty-tree refusal, the systemd-user-timer "
              "preferred path with crontab fallback, and the real "
@@ -5627,7 +5772,7 @@ def appendix_f_support(styles):
     s.append(Spacer(1, 0.4 * inch))
     s.append(Paragraph(
         "<i>End of the MedPharm ERP Developer Manual, "
-        "Volume III, Revision 1.7.6-C.</i>",
+        "Volume III, Revision 1.7.6-D.</i>",
         ParagraphStyle("EndSig", parent=styles["DM_Body"],
                        alignment=TA_CENTER, textColor=SLATE,
                        fontName="Helvetica-Oblique")))
