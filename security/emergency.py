@@ -9,7 +9,7 @@ a compliance officer can review it after the fact.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -34,7 +34,8 @@ def log_emergency_access(db_manager, *, user_id: int, patient_id: int,
             "Emergency access requires a justification of at least 20 "
             "characters describing the clinical situation."
         )
-    now = datetime.utcnow()
+    # naive UTC, drop-in for the deprecated datetime.utcnow() (Py 3.12+)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     expires = now.replace(microsecond=0)
     # Use timedelta without importing at module scope to keep imports tight
     from datetime import timedelta

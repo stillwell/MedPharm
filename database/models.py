@@ -20,13 +20,28 @@
 MedPharm ERP - SQLAlchemy Database Models
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import (
     Column, Integer, String, Text, Float, Boolean, Date, DateTime,
     ForeignKey, Enum, Index, UniqueConstraint, Numeric
 )
 from sqlalchemy.orm import declarative_base, relationship
 import enum
+
+
+def _naive_utc_now() -> datetime:
+    """Drop-in replacement for the deprecated ``datetime.utcnow()``.
+
+    Returns the current UTC time as a *naive* datetime (no tzinfo) so it
+    matches the existing schema, where every DateTime column has stored
+    naive UTC since the project started. Switching wholesale to tz-aware
+    datetimes would require a data migration of every historical row.
+
+    Required because Python 3.12 deprecated ``datetime.utcnow()``; it is
+    removed in 3.14.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 Base = declarative_base()
 
@@ -196,7 +211,7 @@ class User(Base):
     phone = Column(String(20))
     license_number = Column(String(50))
     specialization = Column(String(200))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
     is_active = Column(Boolean, default=True)
 
     # Relationships
@@ -236,7 +251,7 @@ class Patient(Base):
     emergency_contact_name = Column(String(200))
     emergency_contact_phone = Column(String(20))
     blood_type = Column(Enum(BloodType))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
     is_active = Column(Boolean, default=True)
 
     __table_args__ = (
@@ -274,7 +289,7 @@ class PatientPortalAccount(Base):
     email = Column(String(200), nullable=False)
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="portal_account")
     payments = relationship("Payment", back_populates="portal_account")
@@ -319,7 +334,7 @@ class Medication(Base):
     side_effects = Column(Text)
     avg_wholesale_price = Column(Numeric(10, 2))
     retail_price = Column(Numeric(10, 2))
-    last_price_update = Column(DateTime, default=datetime.utcnow)
+    last_price_update = Column(DateTime, default=_naive_utc_now)
     is_controlled = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
@@ -391,7 +406,7 @@ class Vital(Base):
     weight = Column(Numeric(6, 1))
     height = Column(Numeric(5, 1))
     bmi = Column(Numeric(5, 1))
-    recorded_at = Column(DateTime, default=datetime.utcnow)
+    recorded_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="vitals")
     recorded_by = relationship("User", back_populates="vitals_recorded")
@@ -425,7 +440,7 @@ class MedicalRecord(Base):
     content = Column(Text)
     attachments_json = Column(Text)
     record_date = Column(Date, default=date.today)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="medical_records")
     provider = relationship("User", back_populates="medical_records")
@@ -443,7 +458,7 @@ class Prescription(Base):
     notes = Column(Text)
     prescribed_date = Column(Date, default=date.today)
     expiry_date = Column(Date)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="prescriptions")
     prescriber = relationship("User", back_populates="prescriptions_written")
@@ -485,7 +500,7 @@ class Appointment(Base):
     status = Column(Enum(AppointmentStatus), default=AppointmentStatus.SCHEDULED)
     reason = Column(String(500))
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="appointments")
     provider = relationship("User", back_populates="appointments")
@@ -507,7 +522,7 @@ class Invoice(Base):
     balance_due = Column(Numeric(10, 2), default=0)
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.DRAFT)
     notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     patient = relationship("Patient", back_populates="invoices")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
@@ -539,7 +554,7 @@ class Payment(Base):
     amount = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(Enum(PaymentMethod), nullable=False)
     transaction_reference = Column(String(100))
-    payment_date = Column(DateTime, default=datetime.utcnow)
+    payment_date = Column(DateTime, default=_naive_utc_now)
     status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     notes = Column(Text)
 
@@ -581,7 +596,7 @@ class InsuranceClaim(Base):
     deductible_applied = Column(Numeric(10, 2), default=0)
     denial_reason = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now)
 
     invoice = relationship("Invoice", backref="insurance_claims")
     insurance = relationship("Insurance", backref="claims")
@@ -627,7 +642,7 @@ class AuditLog(Base):
     user_agent = Column(String(300))
     prev_hash = Column(String(64))
     row_hash = Column(String(64), index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=_naive_utc_now, index=True)
 
     user = relationship("User", back_populates="audit_logs")
 
@@ -653,7 +668,7 @@ class PHIAccessLog(Base):
     ip_address = Column(String(45))
     user_agent = Column(String(300))
     duration_ms = Column(Integer)
-    accessed_at = Column(DateTime, default=datetime.utcnow, index=True)
+    accessed_at = Column(DateTime, default=_naive_utc_now, index=True)
 
 
 class FailedLogin(Base):
@@ -669,7 +684,7 @@ class FailedLogin(Base):
     ip_address = Column(String(45))
     user_agent = Column(String(300))
     reason = Column(String(60))
-    occurred_at = Column(DateTime, default=datetime.utcnow, index=True)
+    occurred_at = Column(DateTime, default=_naive_utc_now, index=True)
 
 
 class PasswordHistory(Base):
@@ -680,7 +695,7 @@ class PasswordHistory(Base):
     account_type = Column(String(20), nullable=False)  # staff|patient
     account_id = Column(Integer, nullable=False, index=True)
     password_hash = Column(String(256), nullable=False)
-    changed_at = Column(DateTime, default=datetime.utcnow)
+    changed_at = Column(DateTime, default=_naive_utc_now)
 
 
 class MFASecret(Base):
@@ -691,7 +706,7 @@ class MFASecret(Base):
     account_type = Column(String(20), nullable=False)
     account_id = Column(Integer, nullable=False, index=True)
     secret_encrypted = Column(String(500), nullable=False)
-    enrolled_at = Column(DateTime, default=datetime.utcnow)
+    enrolled_at = Column(DateTime, default=_naive_utc_now)
     last_used_at = Column(DateTime)
     backup_codes_json = Column(Text)  # encrypted list of one-time backup codes
 
@@ -707,7 +722,7 @@ class EmergencyAccessGrantRec(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
     justification = Column(Text, nullable=False)
-    granted_at = Column(DateTime, default=datetime.utcnow)
+    granted_at = Column(DateTime, default=_naive_utc_now)
     expires_at = Column(DateTime, nullable=False)
     ip_address = Column(String(45))
     user_agent = Column(String(300))
@@ -740,7 +755,7 @@ class PatientConsent(Base):
     consent_type = Column(Enum(ConsentType), nullable=False)
     status = Column(Enum(ConsentStatus), nullable=False, default=ConsentStatus.GRANTED)
     scope = Column(Text)                          # free-text scope description
-    granted_at = Column(DateTime, default=datetime.utcnow)
+    granted_at = Column(DateTime, default=_naive_utc_now)
     expires_at = Column(DateTime, nullable=True)
     revoked_at = Column(DateTime, nullable=True)
     witnessed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -760,8 +775,8 @@ class MessageThread(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
     provider_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     subject = Column(String(200), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_message_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=_naive_utc_now)
+    last_message_at = Column(DateTime, default=_naive_utc_now, index=True)
     is_closed = Column(Boolean, default=False)
 
     patient = relationship("Patient")
@@ -779,7 +794,7 @@ class SecureMessage(Base):
     sender_type = Column(String(20), nullable=False)   # staff|patient|system
     sender_id = Column(Integer, nullable=False)
     body_encrypted = Column(Text, nullable=False)      # Fernet ciphertext
-    sent_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime, default=_naive_utc_now)
     read_at = Column(DateTime, nullable=True)
 
     thread = relationship("MessageThread", back_populates="messages")
@@ -800,8 +815,8 @@ class ProviderNote(Base):
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     body_encrypted = Column(Text, nullable=False)      # Fernet ciphertext
     is_pinned = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_naive_utc_now, index=True)
+    updated_at = Column(DateTime, default=_naive_utc_now, onupdate=_naive_utc_now)
 
     patient = relationship("Patient")
     author = relationship("User")
@@ -837,7 +852,7 @@ class LabOrder(Base):
     status = Column(Enum(LabOrderStatus), default=LabOrderStatus.ORDERED)
     priority = Column(String(20), default="routine")   # routine|stat|asap
     clinical_indication = Column(Text)
-    ordered_at = Column(DateTime, default=datetime.utcnow)
+    ordered_at = Column(DateTime, default=_naive_utc_now)
     collected_at = Column(DateTime, nullable=True)
     resulted_at = Column(DateTime, nullable=True)
 
@@ -858,7 +873,7 @@ class LabResult(Base):
     unit = Column(String(30))
     reference_range = Column(String(60))
     flag = Column(Enum(LabResultFlag), default=LabResultFlag.NORMAL)
-    resulted_at = Column(DateTime, default=datetime.utcnow)
+    resulted_at = Column(DateTime, default=_naive_utc_now)
     notes = Column(Text)
 
     order = relationship("LabOrder", back_populates="results")
@@ -905,7 +920,7 @@ class Immunization(Base):
     cvx_code = Column(String(10))         # CDC CVX vaccine code
     lot_number = Column(String(50))
     manufacturer = Column(String(200))
-    administered_at = Column(DateTime, default=datetime.utcnow)
+    administered_at = Column(DateTime, default=_naive_utc_now)
     dose_number = Column(Integer)
     route = Column(String(50))
     site = Column(String(50))             # e.g., left deltoid
@@ -935,7 +950,7 @@ class Referral(Base):
     to_organization = Column(String(200))
     reason = Column(Text, nullable=False)
     status = Column(Enum(ReferralStatus), default=ReferralStatus.REQUESTED)
-    requested_at = Column(DateTime, default=datetime.utcnow)
+    requested_at = Column(DateTime, default=_naive_utc_now)
     scheduled_for = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     notes = Column(Text)
@@ -964,5 +979,5 @@ class PatientDocument(Base):
     size_bytes = Column(Integer)
     storage_ref = Column(String(500), nullable=False)      # path on disk or S3 key
     sha256_ciphertext = Column(String(64), nullable=False) # integrity check
-    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_at = Column(DateTime, default=_naive_utc_now)
     is_active = Column(Boolean, default=True)

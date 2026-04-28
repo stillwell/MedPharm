@@ -47,6 +47,7 @@ from database.models import (
     LabOrder, LabResult, LabOrderStatus,
     LabResultFlag, CarePlan, CarePlanStatus, Immunization, Referral,
     ReferralStatus, PatientDocument,
+    _naive_utc_now,
 )
 
 
@@ -70,16 +71,34 @@ class DatabaseManager:
         """Add columns + indexes that newer code expects without dropping data.
 
         SQLite cannot ALTER COLUMN, but ALTER TABLE ADD COLUMN is safe and
-        non-destructive. We iterate the desired column list and add only the
-        ones that are missing, so this is idempotent across upgrades.
+        non-destructive across SQLite, Postgres, and MySQL. We iterate the
+        desired column list and add only the ones that are missing, so this
+        is idempotent across upgrades.
+
+        Functional indexes on `lower(col)` work natively on SQLite and
+        Postgres but not on MySQL — for MySQL or any other dialect we
+        fall back to a plain index on the column itself (case-sensitive
+        but not broken; ILIKE-style queries will simply do a full scan).
 
         Added in 1.7.6-E for the FDA / DailyMed bulk-load work.
         """
+        import warnings as _warnings
         from sqlalchemy import text, inspect
-        insp = inspect(self.engine)
-        if "medications" not in insp.get_table_names():
-            return
-        existing_cols = {c["name"] for c in insp.get_columns("medications")}
+        from sqlalchemy.exc import SAWarning
+
+        # SQLAlchemy can't reflect expression-based indexes ("lower(brand_name)")
+        # via the abstract inspector and emits an SAWarning every time. The
+        # indexes themselves are correctly created and used by SQLite for
+        # query planning — the warning is purely about introspection. Suppress
+        # so init_db()'s startup output stays clean.
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore", SAWarning)
+            insp = inspect(self.engine)
+            if "medications" not in insp.get_table_names():
+                return
+            existing_cols = {c["name"] for c in insp.get_columns("medications")}
+            existing_idx = {i["name"] for i in insp.get_indexes("medications")}
+
         new_cols = [
             ("data_source",           "VARCHAR(32) DEFAULT 'seed'"),
             ("product_type",          "VARCHAR(64)"),
@@ -90,19 +109,30 @@ class DatabaseManager:
             ("start_marketing_date",  "VARCHAR(10)"),
             ("end_marketing_date",    "VARCHAR(10)"),
         ]
+
+        # Engine-specific index expressions. MySQL doesn't support
+        # function-based indexes in pre-8.0 versions and uses a different
+        # syntax in 8.0+; rather than branch by version we just degrade to
+        # a plain index there.
+        dialect = self.engine.dialect.name
+        if dialect in ("sqlite", "postgresql"):
+            wanted_idx = {
+                "ix_medications_data_source":        "data_source",
+                "ix_medications_brand_name_lower":   "lower(brand_name)",
+                "ix_medications_generic_name_lower": "lower(generic_name)",
+            }
+        else:
+            wanted_idx = {
+                "ix_medications_data_source": "data_source",
+                "ix_medications_brand_name":  "brand_name",
+                "ix_medications_generic_name": "generic_name",
+            }
+
         with self.engine.begin() as conn:
             for col_name, col_type in new_cols:
                 if col_name not in existing_cols:
                     conn.execute(text(
                         f"ALTER TABLE medications ADD COLUMN {col_name} {col_type}"))
-            # Indexes that materially help search at 300k+ rows. Lower-case
-            # functional indexes serve case-insensitive ILIKE prefix queries.
-            existing_idx = {i["name"] for i in insp.get_indexes("medications")}
-            wanted_idx = {
-                "ix_medications_data_source":       "data_source",
-                "ix_medications_brand_name_lower":  "lower(brand_name)",
-                "ix_medications_generic_name_lower": "lower(generic_name)",
-            }
             for idx_name, idx_expr in wanted_idx.items():
                 if idx_name not in existing_idx:
                     conn.execute(text(
@@ -145,7 +175,7 @@ class DatabaseManager:
                 username=username, is_active=True
             ).first()
             if account and self.verify_password(account.password_hash, password):
-                account.last_login = datetime.utcnow()
+                account.last_login = _naive_utc_now()
                 result = {
                     "id": account.id,
                     "patient_id": account.patient_id,
@@ -471,7 +501,7 @@ class DatabaseManager:
             if med:
                 med.avg_wholesale_price = awp
                 med.retail_price = retail
-                med.last_price_update = datetime.utcnow()
+                med.last_price_update = _naive_utc_now()
 
     @staticmethod
     def _medication_to_dict(med: Medication) -> dict:
@@ -1321,7 +1351,7 @@ class DatabaseManager:
                 account_type=account_type, account_id=account_id
             ).first()
             if row:
-                row.last_used_at = datetime.utcnow()
+                row.last_used_at = _naive_utc_now()
 
     # ── HIPAA: emergency access / break-glass ─────────────────────────────
 
@@ -1344,7 +1374,7 @@ class DatabaseManager:
             row = (session.query(EmergencyAccessGrantRec)
                           .filter(EmergencyAccessGrantRec.user_id == user_id,
                                   EmergencyAccessGrantRec.patient_id == patient_id,
-                                  EmergencyAccessGrantRec.expires_at > datetime.utcnow())
+                                  EmergencyAccessGrantRec.expires_at > _naive_utc_now())
                           .order_by(desc(EmergencyAccessGrantRec.granted_at)).first())
             if not row:
                 return None
@@ -1381,7 +1411,7 @@ class DatabaseManager:
             if not row:
                 return False
             row.status = ConsentStatus.REVOKED
-            row.revoked_at = datetime.utcnow()
+            row.revoked_at = _naive_utc_now()
             return True
 
     def get_patient_consents(self, patient_id: int) -> list[dict]:
@@ -1409,7 +1439,7 @@ class DatabaseManager:
                           .order_by(desc(PatientConsent.granted_at)).first())
             if not row:
                 return False
-            if row.expires_at and row.expires_at < datetime.utcnow():
+            if row.expires_at and row.expires_at < _naive_utc_now():
                 return False
             return True
 
@@ -1439,7 +1469,7 @@ class DatabaseManager:
                 sender_id=sender_id, body_encrypted=cipher,
             )
             session.add(msg)
-            thread.last_message_at = datetime.utcnow()
+            thread.last_message_at = _naive_utc_now()
             session.flush()
             return msg.id
 
@@ -1537,7 +1567,7 @@ class DatabaseManager:
 
     def mark_messages_read(self, thread_id: int, reader_type: str) -> int:
         with self.get_session() as session:
-            now = datetime.utcnow()
+            now = _naive_utc_now()
             q = (session.query(SecureMessage)
                         .filter(SecureMessage.thread_id == thread_id,
                                 SecureMessage.read_at.is_(None),
@@ -1663,7 +1693,7 @@ class DatabaseManager:
             )
             session.add(row)
             order.status = LabOrderStatus.RESULTED
-            order.resulted_at = datetime.utcnow()
+            order.resulted_at = _naive_utc_now()
             session.flush()
             return row.id
 

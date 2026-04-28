@@ -12,7 +12,13 @@ This implements § 164.312(b) (audit controls) and § 164.312(c)(1) (integrity).
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _naive_utc_now() -> datetime:
+    """Drop-in for the deprecated ``datetime.utcnow()`` (Py 3.12+).
+    Returns naive UTC to match the AuditLog table's existing column."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _canonical(payload: dict) -> bytes:
@@ -60,7 +66,7 @@ class AuditChain:
             "details": details or {},
             "ip": ip,
             "user_agent": user_agent,
-            "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+            "timestamp": _naive_utc_now().isoformat(timespec="seconds"),
         }
         with self.db.get_session() as session:
             prev_hash = self._last_hash(session)
@@ -75,7 +81,7 @@ class AuditChain:
                 user_agent=user_agent,
                 prev_hash=prev_hash,
                 row_hash=row_hash,
-                timestamp=datetime.utcnow(),
+                timestamp=_naive_utc_now(),
             )
             session.add(row)
         return row_hash

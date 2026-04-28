@@ -21,7 +21,7 @@ MedPharm ERP - Seed Data
 Populates the database with realistic sample data including 50+ medications.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import random
 
@@ -329,7 +329,7 @@ def seed_database(db_manager: DatabaseManager):
                     oxygen_saturation=round(random.uniform(95.0, 100.0), 1),
                     weight=round(random.uniform(120, 220), 1),
                     height=round(random.uniform(155, 190), 1),
-                    recorded_at=datetime.utcnow() - timedelta(days=days_ago)
+                    recorded_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_ago)
                 ))
         session.flush()
 
@@ -470,7 +470,7 @@ def seed_database(db_manager: DatabaseManager):
         session.flush()
 
         # ── Appointments ───────────────────────────────────────────────
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         today = date.today()
         appts_data = [
             (patients[0].id, users[0].id, AppointmentType.FOLLOW_UP, now.replace(hour=9, minute=0) + timedelta(days=1), 30, AppointmentStatus.SCHEDULED, "BP follow-up"),
@@ -558,7 +558,7 @@ def seed_database(db_manager: DatabaseManager):
         for ae in audit_entries:
             session.add(AuditLog(
                 user_id=ae[0], action=ae[1], entity_type=ae[2], entity_id=ae[3],
-                timestamp=datetime.utcnow() - timedelta(hours=random.randint(1, 720))
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=random.randint(1, 720))
             ))
         session.flush()
 

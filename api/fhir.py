@@ -22,11 +22,22 @@ themselves. Every read records a PHIAccessLog row, so the audit trail
 matches the HIPAA Accounting of Disclosures requirement.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, g, request
 
 from api.auth import token_required
+
+
+def _utcnow_iso() -> str:
+    """ISO-8601 UTC timestamp with explicit Z suffix. Replaces the deprecated
+    ``datetime.utcnow()`` (Py 3.12+ DeprecationWarning, removed in 3.14)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _utcnow_date() -> str:
+    """Today's ISO-8601 date in UTC."""
+    return datetime.now(timezone.utc).date().isoformat()
 from security.phi import PHIAccessReason
 
 
@@ -90,7 +101,7 @@ def _bundle(resource_type: str, entries: list[dict]) -> dict:
     return {
         "resourceType": "Bundle",
         "type": "searchset",
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": _utcnow_iso(),
         "total": len(entries),
         "entry": [{"resource": e} for e in entries],
     }
@@ -103,7 +114,7 @@ def capability_statement():
     return _json({
         "resourceType": "CapabilityStatement",
         "status": "active",
-        "date": datetime.utcnow().date().isoformat(),
+        "date": _utcnow_date(),
         "publisher": "Enlightec Ltd.",
         "kind": "instance",
         "software": {"name": "MedPharm ERP", "version": "1.7.6"},
