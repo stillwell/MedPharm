@@ -6,3 +6,9 @@ SQLAlchemy>=2.0.0
 Werkzeug>=3.0.0
 flask-cors>=4.0.0
 gunicorn>=21.2.0
+
+# Required by database/load_dailymed_spl.py (Phase 3 medications-catalogue
+# enrichment). The script parses HL7 V3 SPL XML, which lxml handles much
+# faster and more correctly than the stdlib ElementTree (recovery mode +
+# huge_tree=True, both used by the loader).
+lxml>=5.0.0
