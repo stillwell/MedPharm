@@ -47,6 +47,20 @@
             android:textColor="@color/text_secondary"
             android:visibility="gone" />
 
+        <!-- Footer shown when the server returned only a partial page of
+             results (post-1.7.6-E pagination). Hidden when the response
+             already covered the full match set. -->
+        <TextView
+            android:id="@+id/tvPaginationFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="12dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            android:visibility="gone" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"

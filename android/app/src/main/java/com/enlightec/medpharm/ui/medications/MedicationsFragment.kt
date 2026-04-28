@@ -19,6 +19,7 @@ import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.enlightec.medpharm.R
 import com.enlightec.medpharm.databinding.FragmentMedicationsBinding
 import com.enlightec.medpharm.util.DrugInfoUrl
 import com.enlightec.medpharm.util.Resource
@@ -72,12 +73,30 @@ class MedicationsFragment : Fragment() {
                 is Resource.Loading -> binding.swipeRefresh.isRefreshing = true
                 is Resource.Success -> {
                     binding.swipeRefresh.isRefreshing = false
-                    adapter.submitList(result.data.medications)
+                    val data = result.data
+                    adapter.submitList(data.medications)
                     binding.tvEmpty.visibility =
-                        if (result.data.medications.isEmpty()) View.VISIBLE else View.GONE
+                        if (data.medications.isEmpty()) View.VISIBLE else View.GONE
+
+                    // Show a "showing N of M — refine to see more" hint when
+                    // the server paginated and the visible page is a strict
+                    // subset of all matches. Server returns total=0 when the
+                    // endpoint isn't paginated (older servers, /patient/
+                    // medications), in which case we hide the footer.
+                    val visible = data.medications.size
+                    val total = data.total
+                    if (total > 0 && total > visible) {
+                        binding.tvPaginationFooter.text = getString(
+                            R.string.medications_pagination_more,
+                            visible, total)
+                        binding.tvPaginationFooter.visibility = View.VISIBLE
+                    } else {
+                        binding.tvPaginationFooter.visibility = View.GONE
+                    }
                 }
                 is Resource.Error -> {
                     binding.swipeRefresh.isRefreshing = false
+                    binding.tvPaginationFooter.visibility = View.GONE
                     Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
                 }
             }

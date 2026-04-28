@@ -119,6 +119,14 @@ data class Medication(
 
 data class MedicationsResponse(
     val medications: List<Medication> = emptyList(),
+    // The /medications/search endpoint paginates as of 1.7.6-E (server returns
+    // page / page_size / total / total_pages alongside `medications`). Older
+    // server responses omit these fields, hence the defaults — the data class
+    // continues to decode the historical {medications: [...]} shape unchanged.
+    val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 0,
+    val total: Int = 0,
+    @SerializedName("total_pages") val totalPages: Int = 0,
 )
 
 // ── Billing ──────────────────────────────────────────────────────────────────
