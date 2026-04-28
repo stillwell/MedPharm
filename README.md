@@ -382,6 +382,30 @@ Both units enable **systemd sandboxing** (`NoNewPrivileges`, `ProtectSystem=stri
 
 If you also want **automatic source-tree updates** on a recurring schedule, layer `./update.sh --install-schedule=daily` on top — that timer runs as the operator who installed it (not the `medpharm` service user) so it can `git pull` and trigger a `systemctl restart medpharm-api medpharm-web` as needed.
 
+### Loading the medications catalogue
+
+The shipped seed data covers ~80 demo medications. To populate a realistic catalogue from public US government sources, two loaders compose:
+
+```bash
+# Phase 1: FDA NDC Directory + NIH DSLD — names, codes, manufacturer, dose form,
+# route, DEA schedule for ~360k Rx + OTC + dietary-supplement products. ~5 min.
+python3 database/load_fda_data.py all
+
+# Phase 3: DailyMed SPL labels — indications, contraindications, side effects,
+# warnings, dosage extracted from the HL7 V3 SPL XML the FDA publishes.
+# Incremental enrichment via the NLM REST API:
+python3 database/load_dailymed_spl.py fetch --top 500
+
+# OR offline parse of an FDA bulk SPL extract:
+python3 database/load_dailymed_spl.py parse --from-dir /path/to/extracted/spls
+```
+
+Both loaders are **idempotent**, **resumable**, **streaming** (never load all rows in memory), and **non-destructive** — they preserve the original hand-curated seed data (rows with `data_source='seed'`) and only update rows they previously inserted.
+
+The 1.7.6-E schema adds three indexes (`data_source`, `lower(brand_name)`, `lower(generic_name)`), and `search_medications` / `/medications/search` are now paginated so the patient-facing UIs continue to perform well at 300k+ rows.
+
+Full operator guide with subcommand tables, performance notes, and a "how much should I load" sizing matrix: [`docs/MEDICATIONS_DATABASE.md`](docs/MEDICATIONS_DATABASE.md).
+
 ### Automatic updates
 
 Once installed, the working tree can keep itself current with the upstream `master` branch on GitHub. Every update path **backs up the SQLite database to `data/backups/medpharm-YYYYMMDD-HHMMSS.db` before** touching the working tree, so a botched deploy can always be rolled back to the prior commit + the matching snapshot.

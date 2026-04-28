@@ -362,7 +362,7 @@ class ServiceManualDoc(BaseDocTemplate):
         canv.setFont("Helvetica", 8)
         canv.setFillColor(STONE)
         canv.drawString(0.9 * inch, 0.52 * inch,
-                        f"Issued {self.build_date}  //  Revision 1.7.6-D")
+                        f"Issued {self.build_date}  //  Revision 1.7.6-E")
         canv.drawCentredString(w / 2, 0.52 * inch,
                                "CONFIDENTIAL — FOR AUTHORISED OPERATORS")
         canv.drawRightString(w - 0.9 * inch, 0.52 * inch, f"Page {doc.page}")
@@ -460,7 +460,7 @@ def build_cover(styles):
                        textColor=TEAL, alignment=TA_CENTER)))
     story.append(Spacer(1, 0.05 * inch))
     story.append(Paragraph(
-        "Revision 1.7.6-D &nbsp;//&nbsp; Issued " +
+        "Revision 1.7.6-E &nbsp;//&nbsp; Issued " +
         datetime.now().strftime("%B %Y"),
         ParagraphStyle("CovRev", parent=styles["Normal"],
                        fontName="Helvetica", fontSize=10,
@@ -484,7 +484,7 @@ def build_colophon(styles):
         [
             ["Title", "MedPharm ERP — Service Manual"],
             ["Volume / Edition", "Volume II — Operator Edition"],
-            ["Revision", "1.7.6-D"],
+            ["Revision", "1.7.6-E"],
             ["Issue Date", datetime.now().strftime("%d %B %Y")],
             ["Author", "Robert Andrew Stillwell"],
             ["Publisher", "Enlightec Ltd., www.enlightec.com"],
@@ -3530,6 +3530,54 @@ def chapter_24_dependencies(styles):
             "year should have a Python 3.12 or later migration "
             "on the schedule.",
             styles),
+        h2("Loading the medications catalogue", styles),
+        p(
+            "The shipped seed data covers approximately eighty "
+            "demonstration medications — enough to exercise every "
+            "screen but not enough to function as a real pharmacy "
+            "reference. For production use, two bulk loaders populate "
+            "the " + c("medications") + " table from public US "
+            "government data:",
+            styles),
+        bullets([
+            c("python3 database/load_fda_data.py all") + " — pulls "
+            "the FDA NDC Directory and the NIH Dietary Supplement "
+            "Label Database. About 360 000 entries (every Rx, OTC, "
+            "and supplement registered with the FDA), about five "
+            "minutes of wall clock, about +400 MB of SQLite. "
+            "Authoritative for name, manufacturer, NDC, dose form, "
+            "route, marketing category, and DEA schedule. Does NOT "
+            "carry indications or side-effect data — those come from "
+            "DailyMed, below.",
+            c("python3 database/load_dailymed_spl.py fetch --top 500")
+            + " — calls the rate-limited NLM REST API to pull the "
+            "structured prescribing labels (HL7 V3 SPL XML) for the "
+            "next 500 medications that lack indications. Extracts "
+            "INDICATIONS / CONTRAINDICATIONS / ADVERSE REACTIONS / "
+            "WARNINGS / DOSAGE by their LOINC section codes and folds "
+            "the plain text into the existing schema. Re-run weekly "
+            "to grow the enriched subset; idempotent via a "
+            + c("dailymed_ingest_log") + " side table that tracks "
+            "per-setid SHA-256.",
+            c("python3 database/load_dailymed_spl.py parse "
+              "--from-dir <bulk-extract>") + " — alternate path for "
+            "operators who download one of the multi-gigabyte "
+            "DailyMed bulk-release ZIPs from "
+            + c("dailymed.nlm.nih.gov/dailymed/spl-resources-all-"
+                "drug-labels.cfm") + " and want to ingest offline. "
+            "Best for an air-gapped commissioning run.",
+        ], styles),
+        Paragraph(
+            "<b>Note.</b> Both loaders are non-destructive. Rows "
+            "whose " + c("data_source") + " is " + c("'seed'") + " "
+            "(the shipped demonstration data) are never overwritten "
+            "by either loader, and rolling back a bad bulk load is a "
+            "single SQL statement: " + c("DELETE FROM medications "
+            "WHERE data_source IN ('fda_ndc','orange_book','dsld')")
+            + ". Full operator guide with subcommand tables, "
+            "performance notes, and a sizing matrix lives at "
+            + c("docs/MEDICATIONS_DATABASE.md") + ".",
+            styles["SM_Note"]),
         PageBreak(),
     ]
     return s
@@ -4748,16 +4796,35 @@ def appendix_f_revision(styles):
         make_table(
             ["Revision", "Date", "Author", "Summary of Change"],
             [
-                ["1.7.6-D", datetime.now().strftime("%d %b %Y"),
+                ["1.7.6-E", datetime.now().strftime("%d %b %Y"),
                  "R. Stillwell",
-                 "Documents the install-services.sh native-systemd "
+                 "Documents the medications-catalogue bulk loaders. "
+                 "load_fda_data.py ingests the FDA NDC Directory + NIH "
+                 "DSLD (~360k Rx + OTC + dietary-supplement entries; "
+                 "~+400 MB to the SQLite DB; idempotent, keyed on NDC). "
+                 "load_dailymed_spl.py enriches existing rows with "
+                 "indications / contraindications / side effects / dosage "
+                 "extracted from the HL7 V3 SPL XML labels at "
+                 "dailymed.nlm.nih.gov, either via the rate-limited REST "
+                 "API (fetch --top N) or by parsing a pre-downloaded bulk "
+                 "extract (parse --from-dir). Schema gains data_source / "
+                 "product_type / marketing_category / dosage_form_raw / "
+                 "route_raw / pharm_classes / start_marketing_date / "
+                 "end_marketing_date columns plus three indexes "
+                 "(data_source, lower(brand_name), lower(generic_name)). "
+                 "search_medications and the /medications/search route "
+                 "are now paginated; unbounded queries clamp at 5000 "
+                 "rows with a logged warning."],
+                ["1.7.6-D", "27 Apr 2026",
+                 "R. Stillwell",
+                 "Documented the install-services.sh native-systemd "
                  "deployment path: migration to /opt/medpharm, creation "
                  "of the medpharm system user, sandboxed unit files for "
                  "medpharm-api.service and medpharm-web.service, and the "
                  "convergence with the Docker images and the k8s "
                  "manifests on the same /opt/medpharm + medpharm-user "
-                 "convention. Aligns the Dockerfiles' useradd shell to "
-                 "/usr/sbin/nologin and adds runAsNonRoot / capabilities "
+                 "convention. Aligned the Dockerfiles' useradd shell to "
+                 "/usr/sbin/nologin and added runAsNonRoot / capabilities "
                  "drop / seccompProfile RuntimeDefault to the k8s "
                  "deployment so the security model is identical across "
                  "all three deployment paths."],
@@ -4846,7 +4913,7 @@ def appendix_f_revision(styles):
         Spacer(1, 0.4 * inch),
         Paragraph(
             "<i>End of the MedPharm ERP Service Manual, "
-            "Volume II, Revision 1.7.6-D.</i>",
+            "Volume II, Revision 1.7.6-E.</i>",
             ParagraphStyle("EndSig", parent=styles["SM_Body"],
                            alignment=TA_CENTER, textColor=SLATE,
                            fontName="Helvetica-Oblique")),
