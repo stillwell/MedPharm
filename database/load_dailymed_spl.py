@@ -65,11 +65,63 @@ if str(_ROOT) not in sys.path:
 from database.db_manager import DatabaseManager
 from database.models import Medication
 
-try:
-    from lxml import etree
-except ImportError:
-    print("ERROR: lxml is required. Install with:  pip install lxml")
-    sys.exit(2)
+def _ensure_lxml():
+    """Import lxml.etree, auto-installing lxml into the active venv if missing.
+
+    Refuses to auto-install into system Python (no venv detected) — that
+    path needs sudo and would clutter system packages with project deps.
+    Falls back to the original "install with: pip install lxml" guidance
+    on any failure.
+    """
+    try:
+        from lxml import etree as _etree
+        return _etree
+    except ImportError:
+        pass
+
+    in_venv = (
+        getattr(sys, "real_prefix", None) is not None       # legacy virtualenv
+        or sys.prefix != getattr(sys, "base_prefix", sys.prefix)  # PEP 405 venv
+        or bool(os.environ.get("VIRTUAL_ENV"))
+    )
+    if not in_venv:
+        print("ERROR: lxml is required and you appear to be running system "
+              "Python.\n       Install lxml manually (do NOT run this script "
+              "as root):\n         pip install lxml\n       Or activate a "
+              "virtualenv first:\n         source venv/bin/activate && "
+              "python3 database/load_dailymed_spl.py ...")
+        sys.exit(2)
+
+    import subprocess
+    print("lxml is missing — auto-installing into the active venv "
+          f"({sys.prefix}) via pip...")
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--quiet", "lxml>=5.0.0"],
+            timeout=300,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"ERROR: 'pip install lxml' exited with rc={exc.returncode}. "
+              f"Install manually:\n         pip install lxml")
+        sys.exit(2)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        print(f"ERROR: pip is not available or timed out ({exc}). "
+              f"Install lxml manually:\n         pip install lxml")
+        sys.exit(2)
+
+    import importlib
+    importlib.invalidate_caches()
+    try:
+        from lxml import etree as _etree
+        print("lxml installed; continuing.")
+        return _etree
+    except ImportError:
+        print("ERROR: pip install reported success but the lxml import still "
+              "fails. Inspect the venv at " + sys.prefix)
+        sys.exit(2)
+
+
+etree = _ensure_lxml()
 
 
 SPL_NAMESPACE = "urn:hl7-org:v3"
