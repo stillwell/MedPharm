@@ -354,12 +354,27 @@ def _iter_orange_book_rows(zip_path: Path) -> Iterator[dict]:
 
 def _iter_dsld_pages(page_size: int = 100, max_rows: Optional[int] = None
                      ) -> Iterator[dict]:
+    """Yield DSLD label records from api.ods.od.nih.gov.
+
+    The DSLD v9 API returns ``{"hits": [...flat list...], "stats": {...}}``
+    (NOT the Elasticsearch-style ``{"hits": {"hits": [...]}}``).  Each hit
+    has top-level ``_id`` + ``_index`` + a nested ``_source`` containing
+    the actual label fields (brandName, fullName, allIngredients,
+    physicalState, productType, …). We attach _id into _source under the
+    key ``_id`` so the downstream mapper has a stable unique identifier
+    for the synthetic NDC code.
+
+    The ``q=*`` query is required — without a query string the endpoint
+    returns 0 hits even though stats.count is in the hundreds of
+    thousands. ``status_id`` was a v8 parameter and is ignored / 0-result
+    on v9; left out.
+    """
     fetched = 0
     offset = 0
     while True:
         if max_rows is not None and fetched >= max_rows:
             return
-        params = f"?status_id=2&from={offset}&size={page_size}&sort_by=_score"
+        params = f"?q=*&from={offset}&size={page_size}&sort_by=_score"
         url = DSLD_API + params
         req = urllib.request.Request(url, headers={
             "User-Agent": "MedPharm-ERP/1.7.6 (load_fda_data.py)",
@@ -371,11 +386,28 @@ def _iter_dsld_pages(page_size: int = 100, max_rows: Optional[int] = None
         except urllib.error.HTTPError as exc:
             print(f"  [dsld] HTTP {exc.code} at offset={offset}; stopping")
             return
-        hits = payload.get("hits", {}).get("hits", []) or []
+        # `hits` is a flat list. Old code did .get("hits", {}).get("hits", [])
+        # which works only on Elasticsearch-style nested responses (which
+        # this isn't), and fails with "list has no attribute get" on the
+        # actual v9 response.
+        hits = payload.get("hits") or []
+        if not isinstance(hits, list):
+            print(f"  [dsld] unexpected response shape at offset={offset}; stopping")
+            return
         if not hits:
             return
         for h in hits:
-            yield h.get("_source", h) or {}
+            if not isinstance(h, dict):
+                continue
+            source = h.get("_source") or {}
+            if not isinstance(source, dict):
+                continue
+            # Carry the top-level _id through so the mapper can build a
+            # stable synthetic NDC. Doesn't conflict with _source's own
+            # field names since they don't use leading underscores.
+            if h.get("_id") and "_id" not in source:
+                source["_id"] = h["_id"]
+            yield source
             fetched += 1
             if max_rows is not None and fetched >= max_rows:
                 return
@@ -385,12 +417,56 @@ def _iter_dsld_pages(page_size: int = 100, max_rows: Optional[int] = None
 
 
 def _dsld_row_to_medication_kwargs(row: dict) -> Optional[dict]:
-    name = (row.get("fullName") or row.get("brandName") or "").strip()
+    """Map a DSLD _source dict (with _id attached by the iterator) into the
+    Medication column shape.
+
+    DSLD records describe foods, not drugs, but the schema accommodates
+    them via the synthetic ``DSLD-<id>`` NDC prefix. Several fields that
+    were strings in v8 are now nested dicts in v9:
+        physicalState  → {langualCode, langualCodeDescription}
+        productType    → {langualCode, langualCodeDescription}
+    We extract the human-readable description for storage; the structured
+    LanguaL codes are not preserved (a follow-up could add a column).
+
+    upcSku and id (top-level lowercase) were removed in v9 — the upstream
+    `_id` (e.g. "270355") is the only stable unique key.
+    """
+    def _flat(value) -> str:
+        """Flatten a possibly-nested DSLD field to a clean string."""
+        if isinstance(value, dict):
+            return (value.get("langualCodeDescription")
+                    or value.get("description")
+                    or value.get("name") or "").strip()
+        if isinstance(value, list):
+            # Pick the first non-empty entry; rare, but seen in arrays of dicts.
+            for entry in value:
+                s = _flat(entry)
+                if s:
+                    return s
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        return ""
+
+    name = _flat(row.get("fullName")) or _flat(row.get("brandName"))
     if not name:
         return None
-    upc = (row.get("upcSku") or "").strip()
-    ndc_pseudo = f"DSLD-{upc[:14]}" if upc else f"DSLD-{row.get('id', '')[:14]}"
-    manufacturer = (row.get("brandName") or row.get("companyName") or "").strip()
+
+    # Stable unique key. Prefer the upstream _id; fall back to a hash of
+    # name + brand + entry date so we still get something deterministic
+    # for any record missing _id (shouldn't happen, but be defensive).
+    record_id = str(row.get("_id") or "").strip()
+    if not record_id:
+        import hashlib
+        seed = (name + "|" + _flat(row.get("brandName"))
+                + "|" + _flat(row.get("entryDate")))
+        record_id = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:14]
+    ndc_pseudo = f"DSLD-{record_id[:14]}"
+
+    manufacturer = _flat(row.get("brandName")) or _flat(row.get("companyName"))
+    physical = _flat(row.get("physicalState"))
+    product_subtype = _flat(row.get("productType"))
+
     return dict(
         ndc_code=ndc_pseudo[:20],
         brand_name=name[:200],
@@ -403,9 +479,10 @@ def _dsld_row_to_medication_kwargs(row: dict) -> Optional[dict]:
         is_controlled=False,
         is_active=True,
         data_source="dsld",
-        product_type="DIETARY SUPPLEMENT",
+        product_type=("DIETARY SUPPLEMENT" + (f" — {product_subtype}"
+                                                if product_subtype else ""))[:64],
         marketing_category="DSLD",
-        dosage_form_raw=(row.get("physicalState") or "").strip()[:200] or None,
+        dosage_form_raw=physical[:200] or None,
     )
 
 
