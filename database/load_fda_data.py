@@ -75,8 +75,13 @@ from database.models import (
 )
 
 
+# Source URLs. The FDA reorganises its hosting periodically; if any of these
+# 404 in the future, the most reliable way to find the new location is to
+# follow the listing pages:
+#   NDC:         https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory
+#   Orange Book: https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files
 NDC_URL = "https://www.accessdata.fda.gov/cder/ndctext.zip"
-ORANGE_BOOK_URL = "https://www.accessdata.fda.gov/cder/orangebook.zip"
+ORANGE_BOOK_URL = "https://www.fda.gov/media/76860/download"
 DSLD_API = "https://api.ods.od.nih.gov/dsld/v9/search-filter"
 
 CACHE_DIR_DEFAULT = _ROOT / "data" / "fda-cache"
@@ -185,6 +190,11 @@ def _normalize_ndc(raw: str) -> str:
 
 # ── HTTP / cache helpers ──────────────────────────────────────────────────────
 
+class _DownloadError(Exception):
+    """Raised when a source download fails — caught by the `all` driver so
+    one stale URL doesn't abort an already-loaded source."""
+
+
 def _download_with_cache(url: str, cache_path: Path,
                           force: bool = False, label: str = "download") -> Path:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,16 +206,37 @@ def _download_with_cache(url: str, cache_path: Path,
     req = urllib.request.Request(url, headers={
         "User-Agent": "MedPharm-ERP/1.7.6 (load_fda_data.py; +https://github.com/stillwell/MedPharm)",
     })
-    with urllib.request.urlopen(req, timeout=120) as resp, open(cache_path, "wb") as out:
-        total = 0
-        while True:
-            chunk = resp.read(64 * 1024)
-            if not chunk:
-                break
-            out.write(chunk)
-            total += len(chunk)
-        size_mb = total / 1024 / 1024
-        print(f"  [{label}] downloaded {size_mb:.1f} MB")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp, open(cache_path, "wb") as out:
+            total = 0
+            while True:
+                chunk = resp.read(64 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+                total += len(chunk)
+            size_mb = total / 1024 / 1024
+            print(f"  [{label}] downloaded {size_mb:.1f} MB")
+    except urllib.error.HTTPError as exc:
+        # Remove the partial / empty file so the next run doesn't see it as
+        # a cache hit.
+        try:
+            cache_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise _DownloadError(
+            f"{label}: HTTP {exc.code} fetching {url}. "
+            f"FDA reorganises its hosting periodically; if this URL is "
+            f"stale, find the current one on the FDA listing pages cited "
+            f"in the source-URL constants at the top of this file, then "
+            f"edit and re-run."
+        ) from exc
+    except urllib.error.URLError as exc:
+        try:
+            cache_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise _DownloadError(f"{label}: {exc.reason}") from exc
     return cache_path
 
 
@@ -563,15 +594,49 @@ def main(argv: Optional[list[str]] = None) -> int:
     db.init_db()
 
     started = datetime.now()
+
+    # In `all` mode, treat each source as independent: a stale URL in one
+    # source must not abort the others. The user already paid the time to
+    # download / parse one feed — the others should still get a chance.
+    # Single-source invocations (ndc / orange-book / dsld) propagate the
+    # error normally so the operator sees the full traceback.
+    multi = args.source == "all"
+    failures: list[str] = []
+
+    def _run(label: str, fn) -> None:
+        try:
+            fn(args, db, cache_dir)
+        except _DownloadError as exc:
+            if multi:
+                print(f"\n  [WARN] {label}: skipping — {exc}\n")
+                failures.append(f"{label}: download failed")
+            else:
+                raise
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            if multi:
+                print(f"\n  [WARN] {label}: skipping — {exc}\n")
+                failures.append(f"{label}: {exc}")
+            else:
+                raise
+
     if args.source in ("ndc", "all"):
-        cmd_ndc(args, db, cache_dir)
+        _run("ndc", cmd_ndc)
     if args.source in ("orange-book", "all"):
-        cmd_orange_book(args, db, cache_dir)
+        _run("orange-book", cmd_orange_book)
     if args.source in ("dsld", "all"):
-        cmd_dsld(args, db, cache_dir)
+        _run("dsld", cmd_dsld)
     if args.source == "prune-stale":
         cmd_prune_stale(args, db)
-    print(f"\nDone in {(datetime.now() - started).total_seconds():.1f}s")
+
+    elapsed = (datetime.now() - started).total_seconds()
+    print(f"\nDone in {elapsed:.1f}s")
+    if failures:
+        print(f"  {len(failures)} source(s) failed:")
+        for f in failures:
+            print(f"    - {f}")
+        return 1
     return 0
 
 
