@@ -1,10 +1,23 @@
+<p align="center">
+  <img src="images/medpharm-erp-banner.png" alt="MedPharm ERP — Enlightec Ltd." width="640">
+</p>
+
 # MedPharm ERP
 
 **Medical & Pharmaceutical Enterprise Resource Planning System**
 
 A multi-platform ERP system for medical practices and pharmacies, featuring native clients for Android, iOS, macOS, and Windows, a PyQt6 desktop application for clinical staff, a Flask web portal for patients, and a cloud REST API backend. Built on a unified SQLAlchemy database with 75+ real-world medications, 30+ symptoms, 25+ conditions, drug interaction checking, insurance claims, prescription management, billing, and analytics.
 
-Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlightec.com)
+<p align="left">
+  <a href="https://www.enlightec.com">
+    <img src="images/enlightec-ltd.png" alt="Enlightec Ltd. — Creativity in Productivity" width="180" align="left" style="margin-right: 16px;">
+  </a>
+</p>
+
+Developed by **Robert Andrew Stillwell** at [Enlightec Ltd.](https://www.enlightec.com) — *Creativity in Productivity*.
+
+<br clear="left">
+
 
 ---
 
@@ -1250,5 +1263,11 @@ See the [LICENSE](LICENSE) file for the full license text.
 ---
 
 <p align="center">
+  <a href="https://www.enlightec.com">
+    <img src="images/enlightec-ltd.png" alt="Enlightec Ltd." width="120">
+  </a>
+  <br>
   <strong>MedPharm ERP</strong> — Built by <a href="https://www.enlightec.com">Enlightec Ltd.</a>
+  <br>
+  <em>Creativity in Productivity</em>
 </p>
