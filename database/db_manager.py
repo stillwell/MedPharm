@@ -826,6 +826,7 @@ class DatabaseManager:
             rx = session.get(Prescription, rx_id)
             if not rx:
                 return None
+            patient_id = rx.patient_id
             items = []
             for pi in rx.items:
                 med = session.get(Medication, pi.medication_id)
@@ -845,7 +846,7 @@ class DatabaseManager:
                 "unit_price": 150.00,
                 "total_price": 150.00
             })
-        return self.create_invoice(rx.patient_id, items)
+        return self.create_invoice(patient_id, items)
 
     def get_invoice(self, invoice_id: int) -> dict | None:
         with self.get_session() as session:
