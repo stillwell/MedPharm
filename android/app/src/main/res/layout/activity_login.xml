@@ -33,23 +33,22 @@
         android:orientation="vertical"
         android:padding="32dp">
 
-        <!-- Brand logo -->
+        <!-- Brand: Enlightec mark above the MedPharm wordmark banner -->
         <ImageView
-            android:layout_width="72dp"
-            android:layout_height="72dp"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
             android:layout_marginTop="56dp"
-            android:src="@drawable/ic_heartbeat"
+            android:src="@drawable/enlightec_logo"
             android:contentDescription="@string/app_name" />
 
-        <TextView
+        <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="@string/login_title"
-            android:textColor="@color/primary_light"
-            android:textSize="34sp"
-            android:textStyle="bold"
-            android:letterSpacing="-0.03" />
+            android:adjustViewBounds="true"
+            android:maxWidth="280dp"
+            android:src="@drawable/medpharm_banner"
+            android:contentDescription="@string/login_title" />
 
         <TextView
             android:layout_width="wrap_content"

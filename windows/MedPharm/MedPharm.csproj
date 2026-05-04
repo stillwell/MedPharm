@@ -19,12 +19,23 @@
     <Company>Enlightec Ltd.</Company>
     <Product>MedPharm ERP</Product>
     <Copyright>Copyright (C) 2026 Enlightec Ltd.</Copyright>
+    <!-- Multi-resolution ICO (16/24/32/48/64/128/256) generated from
+         images/enlightec-ltd.png by tools/generate_branding_assets.py.
+         Used for the .exe icon in Explorer, the taskbar, and Alt+Tab. -->
+    <ApplicationIcon>Assets\medpharm-icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Branding PNGs available to XAML at runtime via pack:// URIs. -->
+    <Resource Include="Assets\medpharm-icon.ico" />
+    <Resource Include="Assets\medpharm-banner.png" />
+    <Resource Include="Assets\enlightec-logo.png" />
   </ItemGroup>
 
 </Project>

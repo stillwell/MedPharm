@@ -23,8 +23,11 @@
 {% block content %}
 <div class="auth-container">
     <div class="auth-card">
-        <div class="auth-header">
-            <i class="fas fa-heartbeat auth-logo"></i>
+        <div class="auth-header text-center">
+            <img src="{{ url_for('static', filename='img/medpharm-erp-banner.png') }}"
+                 alt="MedPharm ERP — Enlightec Ltd."
+                 class="img-fluid mb-3"
+                 style="max-width: 320px; height: auto;">
             <h2>MedPharm Portal</h2>
             <p class="text-muted">Patient Self-Service Portal</p>
         </div>

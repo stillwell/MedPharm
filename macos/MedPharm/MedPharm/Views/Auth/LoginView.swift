@@ -23,7 +23,9 @@ struct LoginView: View {
             VStack(spacing: 0) {
                 Spacer().frame(height: 40)
 
-                // Brand
+                // Brand. Enlightec mark in the halo, MedPharm banner as
+                // the wordmark beneath. Falls back to symbol + text labels
+                // if the imagesets are not yet present in the build.
                 ZStack {
                     Circle()
                         .fill(MPGradient.primary)
@@ -33,23 +35,40 @@ struct LoginView: View {
                         .scaleEffect(pulse ? 1.12 : 0.94)
                         .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: pulse)
 
-                    Image(systemName: "cross.case.fill")
-                        .font(.system(size: 72, weight: .semibold))
-                        .foregroundStyle(MPGradient.primary)
-                        .shadow(color: MPColor.primary.opacity(0.55), radius: 18)
+                    if NSImage(named: "EnlightecLogo") != nil {
+                        Image("EnlightecLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 110, height: 110)
+                            .shadow(color: MPColor.primary.opacity(0.45), radius: 18)
+                    } else {
+                        Image(systemName: "cross.case.fill")
+                            .font(.system(size: 72, weight: .semibold))
+                            .foregroundStyle(MPGradient.primary)
+                            .shadow(color: MPColor.primary.opacity(0.55), radius: 18)
+                    }
                 }
                 .frame(height: 120)
 
-                Text("MedPharm ERP")
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(MPGradient.primary)
-                    .padding(.top, 14)
+                if NSImage(named: "MedPharmBanner") != nil {
+                    Image("MedPharmBanner")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 72)
+                        .padding(.top, 14)
+                        .padding(.horizontal, 32)
+                } else {
+                    Text("MedPharm ERP")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundStyle(MPGradient.primary)
+                        .padding(.top, 14)
 
-                Text("MEDICAL · PHARMACEUTICAL · SECURE")
-                    .font(.system(size: 11, weight: .semibold))
-                    .kerning(2.0)
-                    .foregroundColor(MPColor.textMuted)
-                    .padding(.top, 4)
+                    Text("MEDICAL · PHARMACEUTICAL · SECURE")
+                        .font(.system(size: 11, weight: .semibold))
+                        .kerning(2.0)
+                        .foregroundColor(MPColor.textMuted)
+                        .padding(.top, 4)
+                }
 
                 // Form
                 VStack(alignment: .leading, spacing: 16) {

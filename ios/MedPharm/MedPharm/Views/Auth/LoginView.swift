@@ -27,7 +27,11 @@ struct LoginView: View {
                     VStack(spacing: 24) {
                         Spacer().frame(height: 32)
 
-                        // Brand logo with pulsing halo
+                        // Brand logo with pulsing halo. The Enlightec mark
+                        // sits inside the halo; the wide MedPharm banner is
+                        // shown beneath as the wordmark. Both fall back to
+                        // the previous symbol-based placeholders if the
+                        // imagesets are not yet present in the build.
                         ZStack {
                             Circle()
                                 .fill(MPGradient.primary)
@@ -37,21 +41,37 @@ struct LoginView: View {
                                 .scaleEffect(pulse ? 1.15 : 0.95)
                                 .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true), value: pulse)
 
-                            Image(systemName: "heart.text.square.fill")
-                                .font(.system(size: 68, weight: .semibold))
-                                .foregroundStyle(MPGradient.primary)
-                                .shadow(color: MPColor.primary.opacity(0.6), radius: 20)
+                            if UIImage(named: "EnlightecLogo") != nil {
+                                Image("EnlightecLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 96, height: 96)
+                                    .shadow(color: MPColor.primary.opacity(0.45), radius: 20)
+                            } else {
+                                Image(systemName: "heart.text.square.fill")
+                                    .font(.system(size: 68, weight: .semibold))
+                                    .foregroundStyle(MPGradient.primary)
+                                    .shadow(color: MPColor.primary.opacity(0.6), radius: 20)
+                            }
                         }
                         .frame(height: 110)
 
-                        VStack(spacing: 6) {
-                            Text("MedPharm ERP")
-                                .font(.system(size: 34, weight: .bold, design: .default))
-                                .foregroundStyle(MPGradient.primary)
-                            Text("MEDICAL · PHARMACEUTICAL · SECURE")
-                                .font(.system(size: 11, weight: .semibold))
-                                .kerning(1.8)
-                                .foregroundColor(MPColor.textMuted)
+                        if UIImage(named: "MedPharmBanner") != nil {
+                            Image("MedPharmBanner")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxHeight: 64)
+                                .padding(.horizontal, 24)
+                        } else {
+                            VStack(spacing: 6) {
+                                Text("MedPharm ERP")
+                                    .font(.system(size: 34, weight: .bold, design: .default))
+                                    .foregroundStyle(MPGradient.primary)
+                                Text("MEDICAL · PHARMACEUTICAL · SECURE")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .kerning(1.8)
+                                    .foregroundColor(MPColor.textMuted)
+                            }
                         }
 
                         // Glass form card
