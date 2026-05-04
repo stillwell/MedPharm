@@ -4,6 +4,8 @@
 
 # MedPharm ERP
 
+> **MedPharm ERP — Medical & Pharmaceutical Enterprise Resource Planning System.** PyQt6 desktop app, Flask patient portal, Windows app, macOS app, iOS app, Android app, and SQLAlchemy database with 75+ medications (default) and ALL pharmaceutical, medicine, and herbal/vitamins database updates. Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+
 **Medical & Pharmaceutical Enterprise Resource Planning System**
 
 A multi-platform ERP system for medical practices and pharmacies, featuring native clients for Android, iOS, macOS, and Windows, a PyQt6 desktop application for clinical staff, a Flask web portal for patients, and a cloud REST API backend. Built on a unified SQLAlchemy database with 75+ real-world medications, 30+ symptoms, 25+ conditions, drug interaction checking, insurance claims, prescription management, billing, and analytics.
