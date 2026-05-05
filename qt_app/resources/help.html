@@ -1,0 +1,848 @@
+<!--
+MedPharm ERP - Medical & Pharmaceutical Management System
+Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+Author: Robert Andrew Stillwell
+
+User Guide for the PyQt6 Desktop Client. Opened from Help → User Guide.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MedPharm ERP — Desktop Client User Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --teal: #00BCD4;
+  --teal-deep: #0097a7;
+  --navy: #0e1626;
+  --navy-2: #121a2b;
+  --ink: #e9eef7;
+  --ink-2: #b9c2d4;
+  --rule: #1f2a40;
+  --warn: #FB8C00;
+  --good: #43A047;
+  --danger: #E53935;
+  --violet: #7C4DFF;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--navy);
+  color: var(--ink);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+nav.toc {
+  background: var(--navy-2);
+  border-right: 1px solid var(--rule);
+  padding: 24px 18px 60px;
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; overflow-y: auto;
+}
+nav.toc .brand {
+  font-weight: 700; color: var(--teal);
+  font-size: 18px; letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+nav.toc .brand span { color: var(--ink); }
+nav.toc .tag { color: var(--ink-2); font-size: 12px; margin-bottom: 18px; }
+nav.toc h4 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-2); margin: 18px 0 6px;
+}
+nav.toc a {
+  display: block; color: var(--ink); text-decoration: none;
+  padding: 5px 8px; border-radius: 6px; font-size: 13.5px;
+}
+nav.toc a:hover { background: rgba(0,188,212,0.12); color: var(--teal); }
+main {
+  padding: 36px 48px 80px;
+  max-width: 1080px;
+}
+header.cover {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 22px; margin-bottom: 32px;
+}
+header.cover h1 {
+  margin: 0 0 6px; font-size: 32px; color: var(--teal);
+  letter-spacing: 0.2px;
+}
+header.cover .sub { color: var(--ink-2); font-size: 14px; }
+header.cover .meta { color: var(--ink-2); font-size: 12px; margin-top: 14px; }
+section { margin-bottom: 44px; scroll-margin-top: 12px; }
+section h2 {
+  color: var(--teal); font-size: 22px;
+  border-left: 3px solid var(--teal); padding-left: 12px;
+  margin: 0 0 14px;
+}
+section h3 { color: #ffffff; font-size: 17px; margin: 22px 0 8px; }
+section h4 { color: var(--ink); font-size: 15px; margin: 16px 0 6px; }
+p { margin: 0 0 10px; }
+ul, ol { margin: 6px 0 12px 22px; }
+li { margin-bottom: 4px; }
+code, kbd {
+  background: rgba(0,188,212,0.10);
+  color: var(--teal);
+  border: 1px solid rgba(0,188,212,0.25);
+  padding: 1px 6px; border-radius: 4px;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+}
+kbd { color: var(--ink); border-color: var(--rule); background: var(--navy-2); }
+.callout {
+  border: 1px solid var(--rule);
+  background: rgba(255,255,255,0.02);
+  border-left: 4px solid var(--teal);
+  padding: 12px 14px; border-radius: 6px;
+  margin: 12px 0;
+}
+.callout.warn { border-left-color: var(--warn); }
+.callout.danger { border-left-color: var(--danger); }
+.callout.tip { border-left-color: var(--good); }
+.callout strong { color: var(--teal); }
+.callout.warn strong { color: var(--warn); }
+.callout.danger strong { color: var(--danger); }
+.callout.tip strong { color: var(--good); }
+table {
+  width: 100%; border-collapse: collapse; margin: 10px 0 16px;
+  font-size: 13.5px;
+}
+th, td {
+  padding: 8px 10px; border-bottom: 1px solid var(--rule);
+  text-align: left; vertical-align: top;
+}
+th { color: var(--teal); background: rgba(0,188,212,0.06); font-weight: 600; }
+td.k { color: var(--teal); white-space: nowrap; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12.5px; }
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0;
+}
+.kpi-card {
+  background: var(--navy-2); border: 1px solid var(--rule);
+  border-top: 3px solid var(--teal); padding: 12px 14px; border-radius: 6px;
+}
+.kpi-card .name { color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; }
+.kpi-card .desc { color: var(--ink); font-size: 13.5px; margin-top: 4px; }
+.kpi-card.green { border-top-color: var(--good); }
+.kpi-card.orange { border-top-color: var(--warn); }
+.kpi-card.violet { border-top-color: var(--violet); }
+.kpi-card.red { border-top-color: var(--danger); }
+.kpi-card.teal { border-top-color: var(--teal); }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 32px 0; }
+footer {
+  padding: 24px 48px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-2); font-size: 12px;
+  background: var(--navy-2);
+}
+footer a { color: var(--teal); text-decoration: none; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; }
+  main { padding: 24px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="brand">MedPharm <span>ERP</span></div>
+    <div class="tag">Desktop Client User Guide</div>
+
+    <h4>Getting Started</h4>
+    <a href="#overview">Overview</a>
+    <a href="#install">Launching the Client</a>
+    <a href="#login">Signing In</a>
+    <a href="#layout">Window Layout</a>
+
+    <h4>Modules</h4>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#patients">Patients</a>
+    <a href="#prescriptions">Prescriptions</a>
+    <a href="#medications">Medications</a>
+    <a href="#appointments">Appointments</a>
+    <a href="#records">Medical Records</a>
+    <a href="#billing">Billing &amp; Payments</a>
+    <a href="#messages">Secure Messages</a>
+    <a href="#symptoms">Symptoms &amp; Conditions</a>
+    <a href="#analytics">Analytics &amp; Reports</a>
+
+    <h4>Menus</h4>
+    <a href="#menu-file">File Menu</a>
+    <a href="#menu-tools">Tools Menu</a>
+    <a href="#menu-help">Help Menu</a>
+
+    <h4>Reference</h4>
+    <a href="#workflows">Common Workflows</a>
+    <a href="#roles">Roles &amp; Permissions</a>
+    <a href="#data">Data &amp; Storage</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#glossary">Glossary</a>
+    <a href="#about">About &amp; Support</a>
+  </nav>
+
+  <main>
+    <header class="cover">
+      <h1>MedPharm ERP — Desktop Client User Guide</h1>
+      <div class="sub">Medical &amp; Pharmaceutical Enterprise Resource Planning System &middot; PyQt6 Desktop Client</div>
+      <div class="meta">
+        Copyright &copy; 2026 Enlightec Ltd. &middot;
+        <a href="https://www.enlightec.com" style="color: var(--teal);">www.enlightec.com</a> &middot;
+        Licensed under GPL-3.0-or-later
+      </div>
+    </header>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="overview">
+      <h2>1. Overview</h2>
+      <p>
+        The MedPharm ERP <strong>Desktop Client</strong> is the clinical-staff
+        front end of the MedPharm platform. It is built on PyQt6 and runs
+        natively on Linux, macOS, and Windows. The client connects directly to
+        the MedPharm SQLAlchemy database — either to a local SQLite file (the
+        default for single-machine installs) or to the same database used by
+        the Cloud REST API and the Patient Web Portal — so every Desktop
+        action is visible to mobile clients (Android / iOS), the macOS and
+        Windows native clients, and the Flask-based Patient Portal in real
+        time.
+      </p>
+      <p>The Desktop Client is the primary tool for:</p>
+      <ul>
+        <li>Front-desk and clinical staff <strong>workflow</strong>: appointments, intake, documentation.</li>
+        <li><strong>Prescriber</strong> tasks: prescribing, drug-interaction checking, controlled-substance accounting.</li>
+        <li><strong>Pharmacy</strong> tasks: medication catalogue browsing, retail/wholesale pricing, classification, DEA scheduling.</li>
+        <li>Back-office <strong>billing</strong>: invoices, patient payments, insurance claims.</li>
+        <li><strong>Analytics</strong>: revenue trends, demographics, top-prescribed medications, provider activity.</li>
+      </ul>
+      <div class="callout tip">
+        <strong>Tip.</strong>  Every screen refreshes automatically on
+        navigation. Use <kbd>Tools → Refresh Data</kbd> to force a re-read
+        when another user has just changed something on the same database.
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="install">
+      <h2>2. Launching the Client</h2>
+      <p>The desktop client is launched in three supported ways:</p>
+      <table>
+        <tr><th>Platform</th><th>Command</th></tr>
+        <tr><td>Linux (script)</td><td><code>./start_desktop.sh</code> from the project root</td></tr>
+        <tr><td>Direct Python</td><td><code>python3 run_qt.py</code> with the project virtualenv activated</td></tr>
+        <tr><td>Installed service</td><td>Launch from the desktop shortcut created by <code>./install.sh</code></td></tr>
+      </table>
+      <p>
+        On first launch the client creates the local database (default
+        <code>medpharm_erp.db</code>), seeds the catalogue with 75+ default
+        medications, and presents the login dialog.
+      </p>
+      <h3>Connecting to a Remote Database</h3>
+      <p>
+        Set the <code>MEDPHARM_DB_PATH</code> environment variable to point at
+        a different SQLite file, or set <code>MEDPHARM_DATABASE_URL</code> to
+        a full SQLAlchemy URL (PostgreSQL, MySQL) before launching. Multi-user
+        installations typically point all clients at the same database file or
+        the same Postgres instance.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="login">
+      <h2>3. Signing In</h2>
+      <p>
+        The Login dialog appears every time the client starts. It has three
+        fields:
+      </p>
+      <ul>
+        <li><strong>Username</strong> — your assigned account name.</li>
+        <li><strong>Password</strong> — passwords are hashed with Werkzeug PBKDF2 and never stored or transmitted in plain text.</li>
+        <li><strong>Role</strong> — drop-down: <em>Doctor, Nurse, Pharmacist, Receptionist, Administrator, Pharmacy Tech</em>. The client uses this to constrain the menus and module actions you can reach (see <a href="#roles">Roles &amp; Permissions</a>).</li>
+      </ul>
+      <div class="callout warn">
+        <strong>First-time login.</strong> The default seeded administrator
+        account is <code>admin</code> / <code>admin123</code>. Change the
+        password immediately on a fresh deployment.
+      </div>
+      <p>
+        Clicking <strong>Sign In</strong> validates against the
+        <code>users</code> table. On success the main window opens; on failure
+        an inline error is shown and the password field is cleared.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="layout">
+      <h2>4. Window Layout</h2>
+      <p>The main window has four regions:</p>
+      <ol>
+        <li><strong>Menu bar</strong> (top): <em>File</em>, <em>Tools</em>, <em>Help</em>.</li>
+        <li><strong>Side navigation</strong> (left): one button per module — <em>Dashboard, Patients, Prescriptions, Medications, Appointments, Records, Billing, Messages, Symptoms, Analytics</em>. The Enlightec logo and your role appear above the buttons; your sign-in name appears below.</li>
+        <li><strong>Workspace</strong> (center): the currently selected module. Modules are stacked widgets — switching is instantaneous and the previously visible module retains its filter state for this session.</li>
+        <li><strong>Status bar</strong> (bottom): your sign-in display title, live clock (updates every second), and database connection indicator.</li>
+      </ol>
+      <p>
+        Window minimum size is <strong>1400 × 900</strong> pixels — the layout
+        is designed for typical clinical workstations and is not a touch UI.
+      </p>
+    </section>
+
+    <hr>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="dashboard">
+      <h2>5. Dashboard</h2>
+      <p>
+        The first screen shown after login. It is composed of <strong>KPI
+        cards</strong>, <strong>Today's Appointments</strong>, and
+        <strong>Recent Activity</strong>. The dashboard auto-refreshes once a
+        minute and on every navigation back to it.
+      </p>
+
+      <h3>5.1 KPI Cards</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card teal"><div class="name">Total Patients</div><div class="desc">Headcount of patient records in the database.</div></div>
+        <div class="kpi-card green"><div class="name">Active Rx</div><div class="desc">Prescriptions whose status is <em>active</em> and not expired.</div></div>
+        <div class="kpi-card orange"><div class="name">Today's Appts</div><div class="desc">Appointments scheduled for the current calendar date.</div></div>
+        <div class="kpi-card violet"><div class="name">Monthly Revenue</div><div class="desc">Sum of paid invoices for the current month.</div></div>
+        <div class="kpi-card red"><div class="name">Pending Bills</div><div class="desc">Outstanding balance across all unpaid / partial / overdue invoices.</div></div>
+        <div class="kpi-card red"><div class="name">Controlled Rx</div><div class="desc">Active prescriptions for DEA-scheduled medications (II–V).</div></div>
+      </div>
+
+      <h3>5.2 Today's Appointments</h3>
+      <p>
+        Filtered to your provider ID — doctors and nurses see only their own
+        appointments, while administrators and receptionists see the full
+        clinic schedule.  Columns: <em>Time, Patient, Type, Status, Reason</em>.
+      </p>
+
+      <h3>5.3 Recent Activity</h3>
+      <p>
+        Read-only feed of the ten most recent system actions
+        (creations, status changes, payments). Useful as a glance-level
+        timeline and a check that the database connection is alive.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="patients">
+      <h2>6. Patients</h2>
+      <p>
+        Patient demographics, allergies, diagnoses, billing summary and
+        clinical notes — everything attached to a single patient record.
+      </p>
+
+      <h3>6.1 Searching</h3>
+      <p>
+        The search bar at the top of the patient list accepts a name fragment
+        (case-insensitive, ≥2 characters). The list is paginated server-side
+        on remote-database installations. Click any row to load the detail
+        panel on the right.
+      </p>
+
+      <h3>6.2 Detail Panel</h3>
+      <p>The detail panel has the following tabs:</p>
+      <ul>
+        <li><strong>Demographics</strong> — full name, DOB, gender, blood type, BMI, address (street/city/state/ZIP), email, phone, emergency contact.</li>
+        <li><strong>Allergies</strong> — list of allergens, severity, reaction. Surfaced as a <em>red banner</em> in the prescribing dialog when an allergen overlaps with a candidate medication.</li>
+        <li><strong>Diagnoses</strong> — ICD-10-coded diagnoses with date and notes.</li>
+        <li><strong>Billing</strong> — at-a-glance balance, last payment, last invoice date.</li>
+        <li><strong>Notes</strong> — chronologically ordered free-text notes. Each note shows author and timestamp; doctors can <em>edit</em> or <em>delete</em> their own notes.</li>
+      </ul>
+
+      <h3>6.3 Adding a Patient</h3>
+      <p>
+        Click <strong>+ Add Patient</strong>. The dialog enforces the
+        following minimum fields: first name, last name, date of birth,
+        gender, contact (email <em>or</em> phone). Insurance information is
+        optional and can be added later from the Demographics tab.
+      </p>
+      <div class="callout">
+        <strong>Activity logging.</strong> Every patient creation, edit, and
+        deletion writes a row to the <code>activity_log</code> table —
+        visible on the Dashboard <em>Recent Activity</em> feed and exportable
+        from Analytics.
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="prescriptions">
+      <h2>7. Prescriptions</h2>
+      <p>
+        Create, view, fill, cancel, and bill prescriptions. The Prescriptions
+        module shows one row per Rx with status filtering at the top:
+        <em>All, Active, Filled, Cancelled, Expired</em>.
+      </p>
+
+      <h3>7.1 List View</h3>
+      <p>
+        Columns: <em>RX#</em>, <em>Patient</em>, <em>Prescriber</em>,
+        <em>Status</em>, <em>Date</em>, <em>Total</em>. Double-click a row to
+        open the detail dialog.
+      </p>
+
+      <h3>7.2 Detail Dialog</h3>
+      <p>
+        Shows the full prescription header (Rx number, patient, prescriber,
+        status, prescribe date, expiry) and the medication line items
+        (medication name, generic name, dosage, frequency, duration,
+        quantity, refills used / refills allowed, instructions, line cost).
+        The dialog footer carries the action buttons:
+      </p>
+      <ul>
+        <li><strong>Cancel Prescription</strong> — sets status to <em>cancelled</em>. Available only when status is <em>active</em>.</li>
+        <li><strong>Generate Invoice</strong> — creates an invoice line per medication plus a fixed <em>Medical Consultation</em> service line (CPT 99213, $150). The invoice immediately appears under <em>Billing</em> with status <em>draft</em>.</li>
+        <li><strong>Close</strong> — dismisses the dialog without changes.</li>
+      </ul>
+
+      <h3>7.3 Creating a Prescription</h3>
+      <p>
+        Click <strong>+ New Prescription</strong>. The dialog walks through:
+      </p>
+      <ol>
+        <li><strong>Patient</strong> — search by name, choose from the drop-down.</li>
+        <li><strong>Medications</strong> — click <em>+ Add Medication</em> to add a row. Each row has medication search, dosage, frequency (default <em>Once daily</em>), duration, quantity, refills allowed, free-text instructions.</li>
+        <li><strong>Diagnosis</strong> — required free-text justification.</li>
+        <li><strong>Notes</strong> — optional clinical notes.</li>
+      </ol>
+      <p>
+        Before saving, the dialog runs a <strong>drug-interaction check</strong>
+        across every pair of medications in the prescription. Interactions
+        are surfaced with severity bands (severe / moderate / mild) and the
+        prescriber must explicitly accept or amend before the Save button
+        becomes active. With fewer than 2 medications the check is skipped
+        with the message <em>"Add at least 2 medications to check
+        interactions."</em>
+      </p>
+      <div class="callout danger">
+        <strong>Allergy &amp; controlled-substance flags.</strong> If the
+        patient has a recorded allergy to any active ingredient in a candidate
+        medication, the row is highlighted red. DEA-scheduled (II–V)
+        medications produce an additional confirmation prompt with the
+        scheduled-substance disclaimer.
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="medications">
+      <h2>8. Medications</h2>
+      <p>
+        The medication catalogue. Bundles 75+ default medications on first
+        run and can be expanded to ~360 000 entries via the FDA NDC + NIH
+        DSLD bulk loaders, plus DailyMed SPL prescribing-information
+        enrichment. See <em>docs/MEDICATIONS_DATABASE.md</em>.
+      </p>
+
+      <h3>8.1 Browsing &amp; Filtering</h3>
+      <p>The toolbar carries three filters and a search box:</p>
+      <ul>
+        <li><strong>Search</strong> — substring on brand name <em>or</em> generic name.</li>
+        <li><strong>All Classes</strong> — filter by drug class (e.g.&nbsp;Antibiotic, Analgesic, Antihypertensive…).</li>
+        <li><strong>All Schedules</strong> — DEA Schedule II / III / IV / V / non-scheduled.</li>
+      </ul>
+      <p>
+        Catalogue columns: <em>Brand Name</em>, <em>Generic Name</em>,
+        <em>Form</em>, <em>Strength</em>, <em>Class</em>, <em>DEA Schedule</em>,
+        <em>Manufacturer</em>, <em>Average Wholesale Price</em>,
+        <em>Retail Price</em>, <em>Last Updated</em>.
+      </p>
+
+      <h3>8.2 Detail Panel</h3>
+      <p>
+        Selecting a medication row populates the right-hand panel with the
+        full FDA / DailyMed payload: indications, contraindications, warnings,
+        side effects, dosage, NDC code, route of administration, and the
+        <em>data source</em> banner (default seed, FDA NDC, NIH DSLD,
+        DailyMed SPL).
+      </p>
+
+      <h3>8.3 Actions</h3>
+      <ul>
+        <li><strong>🔎 MedlinePlus</strong> — opens the MedlinePlus Drug Information page for the selected medication in your default browser.</li>
+        <li><strong>Simulate Price Update</strong> — pharmacy-team utility that re-runs retail-price calculation against the current wholesale price using the configured margin policy. Writes a row to the audit table.</li>
+        <li><strong>Export CSV</strong> — saves the currently filtered catalogue to a CSV file for spreadsheet review.</li>
+      </ul>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="appointments">
+      <h2>9. Appointments</h2>
+      <p>
+        Schedule, status-track, and document appointments. The screen has
+        two synchronised regions: the calendar widget on the left, the
+        appointment list on the right.
+      </p>
+
+      <h3>9.1 Calendar &amp; List</h3>
+      <p>
+        Click a date on the calendar to filter the right-hand list to that
+        day. Click <em>All Appointments</em> in the toolbar to clear the
+        date filter. Filters available:
+      </p>
+      <ul>
+        <li><strong>Status</strong> — Scheduled, Confirmed, In&nbsp;Progress, Completed, No&nbsp;Show, Cancelled.</li>
+        <li><strong>Type</strong> — Consultation, Follow Up, Procedure, Medication Review, Other.</li>
+      </ul>
+
+      <h3>9.2 Status Transitions</h3>
+      <p>
+        Right-click an appointment to set its status (or use the status
+        buttons in the detail dialog). Status transitions are logged with
+        timestamp and operator name.
+      </p>
+
+      <h3>9.3 New Appointment</h3>
+      <p>
+        Click <strong>+ New Appointment</strong>. The dialog requires:
+        patient (typeahead search), provider (drop-down with specialisation),
+        appointment type, date/time picker, duration (in minutes), reason.
+        The save action checks for double-booking on the chosen provider's
+        calendar and prompts for override if a conflict is detected.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="records">
+      <h2>10. Medical Records</h2>
+      <p>
+        Per-patient clinical record store: lab results, imaging,
+        procedures, referrals, and free-form notes.
+      </p>
+
+      <h3>10.1 Selecting a Patient</h3>
+      <p>
+        Use the <strong>-- Select Patient --</strong> drop-down or the
+        <em>"Search patient…"</em> field. Until a patient is chosen the
+        right-hand pane shows <em>"Select a patient to view records"</em>.
+      </p>
+
+      <h3>10.2 Record Types</h3>
+      <table>
+        <tr><th>Type</th><th>Use For</th></tr>
+        <tr><td>Lab Results</td><td>CBC, BMP, lipid panel, urinalysis, etc. Numeric ranges and units in the body field.</td></tr>
+        <tr><td>Imaging</td><td>X-ray, CT, MRI, ultrasound — typically links the radiologist's narrative.</td></tr>
+        <tr><td>Procedures</td><td>In-clinic procedures performed (sutures, injections, EKG, biopsy).</td></tr>
+        <tr><td>Referrals</td><td>Referring out — name of specialist, reason, date sent.</td></tr>
+        <tr><td>Other</td><td>Free-form structured note for anything outside the categories above.</td></tr>
+      </table>
+
+      <h3>10.3 Creating a Record</h3>
+      <p>
+        Click <strong>+ New Record</strong>. The dialog asks for record
+        type, title, and the body content. The author is the currently
+        logged-in user; the timestamp is set on save.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="billing">
+      <h2>11. Billing &amp; Payments</h2>
+      <p>
+        The accounts-receivable screen. Lists invoices, exposes payment
+        recording, and manages insurance claims end-to-end.
+      </p>
+
+      <h3>11.1 Summary Cards</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card violet"><div class="name">Monthly Revenue</div><div class="desc">Sum of payments dated within the current month.</div></div>
+        <div class="kpi-card red"><div class="name">Pending Bills</div><div class="desc">Outstanding balance across SENT, PARTIAL, and OVERDUE invoices.</div></div>
+        <div class="kpi-card green"><div class="name">Today's Revenue</div><div class="desc">Payments recorded today.</div></div>
+      </div>
+
+      <h3>11.2 Invoice List</h3>
+      <p>
+        Filterable by status: <em>All, Draft, Sent, Partial, Paid, Overdue,
+        Cancelled</em>. Columns: <em>Invoice#, Patient, Date, Due Date,
+        Total, Paid, Balance, Status</em>. Double-click for detail.
+      </p>
+
+      <h3>11.3 Invoice Detail</h3>
+      <p>
+        Shows header (number, date, due date, status), patient block, line
+        items (description, code, quantity, unit price, line total), and the
+        running totals (subtotal, tax, total, amount paid, balance due).
+        Buttons: <em>Record Payment</em>, <em>Submit Insurance Claim</em>,
+        <em>Print</em>, <em>Close</em>.
+      </p>
+
+      <h3>11.4 Recording a Payment</h3>
+      <p>
+        Click <strong>Record Payment</strong>. The dialog accepts amount,
+        payment method (<em>cash, check, credit_card, debit_card, online,
+        insurance</em>), transaction reference (auto-filled with a UUID
+        prefix if blank), and notes. The balance recalculates immediately.
+        When the balance reaches zero the invoice transitions to <em>PAID</em>.
+      </p>
+
+      <h3>11.5 Insurance Claims</h3>
+      <p>
+        From the invoice detail, click <strong>Submit Insurance Claim</strong>
+        to create a claim against the patient's primary insurance. From the
+        toolbar <strong>Insurance Claims</strong> button you reach the claim
+        management screen — list of all submitted claims, with actions to
+        record claim payments (the payer's portion plus the patient's
+        co-pay) and to attach claim notes (diagnosis codes, procedure codes).
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="messages">
+      <h2>12. Secure Messages</h2>
+      <p>
+        Patient ↔ provider messaging. The same threads are visible in the
+        Patient Web Portal and the mobile clients, so a reply sent here is
+        immediately delivered to the patient's portal inbox.
+      </p>
+
+      <h3>12.1 Threads</h3>
+      <p>
+        Left panel lists threads, filterable by patient name or subject.
+        Each thread row shows patient, subject, last-message timestamp, and
+        an indicator badge if there are unread incoming messages.
+      </p>
+
+      <h3>12.2 Thread View</h3>
+      <p>
+        Selecting a thread opens the conversation on the right with a reply
+        composer at the bottom. Type a reply and press <strong>Send</strong>.
+        Use <strong>Close Thread</strong> to mark a conversation as resolved
+        (it stays archived and searchable, but moves out of the active
+        inbox).
+      </p>
+      <div class="callout">
+        <strong>HIPAA note.</strong> Messages are stored encrypted at rest
+        when the database is configured with field-level encryption. The
+        full audit trail (read, reply, close) is recorded for compliance.
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="symptoms">
+      <h2>13. Symptoms &amp; Conditions Reference</h2>
+      <p>
+        A clinician's <em>reference</em> module — read-only library of
+        symptoms and conditions used to populate diagnosis pickers and
+        triage workflows. Two tabs:
+      </p>
+
+      <h3>13.1 Symptoms Tab</h3>
+      <p>
+        ~30 default symptoms with category and body-system filters.
+        Selecting a row shows description, related conditions, and triage
+        flags (Emergency / Urgent / Routine). Search by name or description.
+      </p>
+
+      <h3>13.2 Conditions Tab</h3>
+      <p>
+        ~25 default conditions, each with ICD-10 code, body system,
+        category (Acute / Chronic / Emergency), description, common
+        symptoms, and treatment overview. Search by name, ICD-10 code, or
+        description. The same library backs the diagnosis picker on the
+        Patient and Records modules.
+      </p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="analytics">
+      <h2>14. Analytics &amp; Reports</h2>
+      <p>
+        Read-only dashboard for management metrics. Refreshed on
+        navigation; charts are drawn directly with QPainter (no external
+        chart library, so the module loads instantly).
+      </p>
+
+      <h3>14.1 Stat Strip</h3>
+      <ul>
+        <li><strong>Patient Count</strong></li>
+        <li><strong>Active Prescriptions</strong></li>
+        <li><strong>Monthly Revenue</strong></li>
+        <li><strong>Top Prescribed Medication</strong> (by occurrence in active Rx)</li>
+      </ul>
+
+      <h3>14.2 Charts</h3>
+      <ul>
+        <li><strong>Revenue (last 6 months)</strong> — bar chart of paid invoices, month over month.</li>
+        <li><strong>Patient Demographics</strong> — pie chart of patient distribution by age band.</li>
+        <li><strong>Top Prescribed Medications</strong> — horizontal bar chart of the ten most-prescribed medications in the past 90 days.</li>
+        <li><strong>Provider Activity</strong> — bar chart of appointments completed per provider in the current month.</li>
+      </ul>
+    </section>
+
+    <hr>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="menu-file">
+      <h2>15. File Menu</h2>
+      <table>
+        <tr><th>Item</th><th>Action</th></tr>
+        <tr><td class="k">Logout</td><td>Confirms, then closes the main window. The next launch returns to the Login dialog.</td></tr>
+        <tr><td class="k">Exit</td><td>Closes the application. Any unsaved data in open dialogs is discarded — open dialogs prompt with their own confirmation when they have a dirty form.</td></tr>
+      </table>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="menu-tools">
+      <h2>16. Tools Menu</h2>
+      <table>
+        <tr><th>Item</th><th>Action</th></tr>
+        <tr><td class="k">Refresh Data</td><td>Re-reads the database for the currently visible module. Useful when another user has just inserted or modified a record on the same database.</td></tr>
+      </table>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="menu-help">
+      <h2>17. Help Menu</h2>
+      <table>
+        <tr><th>Item</th><th>Action</th></tr>
+        <tr><td class="k">User Guide</td><td>Opens this document in your default web browser.</td></tr>
+        <tr><td class="k">About</td><td>Shows the application version, build date, copyright and the Enlightec branding panel. Click the link in the dialog to visit the Enlightec website.</td></tr>
+      </table>
+    </section>
+
+    <hr>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="workflows">
+      <h2>18. Common Workflows</h2>
+
+      <h3>18.1 New Patient → First Visit → Invoice</h3>
+      <ol>
+        <li><strong>Patients → + Add Patient</strong> — capture demographics + insurance.</li>
+        <li><strong>Appointments → + New Appointment</strong> — schedule the visit.</li>
+        <li>On the day of the visit, set the appointment status to <em>In Progress</em> from the Dashboard.</li>
+        <li><strong>Records → + New Record</strong> — document encounter (visit note + any orders).</li>
+        <li><strong>Prescriptions → + New Prescription</strong> — prescribe (interaction + allergy check fires automatically).</li>
+        <li>From the prescription detail, click <strong>Generate Invoice</strong>.</li>
+        <li>Mark the appointment <em>Completed</em>.</li>
+        <li><strong>Billing</strong> → record payment <em>or</em> submit insurance claim.</li>
+      </ol>
+
+      <h3>18.2 Refilling a Prescription</h3>
+      <ol>
+        <li>Open the prescription's detail dialog from the Prescriptions list.</li>
+        <li>Increment <em>refills used</em> on the relevant line item.</li>
+        <li>Click <strong>Save</strong>; status remains <em>active</em> until refills allowed is exhausted, at which point it transitions to <em>filled</em>.</li>
+      </ol>
+
+      <h3>18.3 Recording an Insurance Claim Payment</h3>
+      <ol>
+        <li><strong>Billing → Insurance Claims</strong>.</li>
+        <li>Select the claim row.</li>
+        <li>Click <strong>Record Claim Payment</strong>; enter the payer's amount and optionally the patient's co-pay.</li>
+        <li>The associated invoice's balance is recalculated; if both halves are received the invoice transitions to <em>PAID</em>.</li>
+      </ol>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="roles">
+      <h2>19. Roles &amp; Permissions</h2>
+      <p>The role you select at sign-in constrains what you can do:</p>
+      <table>
+        <tr><th>Role</th><th>Patients</th><th>Prescriptions</th><th>Records</th><th>Billing</th><th>Admin</th></tr>
+        <tr><td><strong>Doctor</strong></td><td>R/W</td><td>R/W (prescribe)</td><td>R/W</td><td>R</td><td>—</td></tr>
+        <tr><td><strong>Nurse</strong></td><td>R/W</td><td>R</td><td>R/W</td><td>R</td><td>—</td></tr>
+        <tr><td><strong>Pharmacist</strong></td><td>R</td><td>R/W (fill, dispense)</td><td>R</td><td>R</td><td>Medications R/W</td></tr>
+        <tr><td><strong>Pharmacy Tech</strong></td><td>R</td><td>R</td><td>—</td><td>—</td><td>Medications R</td></tr>
+        <tr><td><strong>Receptionist</strong></td><td>R/W</td><td>R</td><td>R</td><td>R/W (payments)</td><td>—</td></tr>
+        <tr><td><strong>Administrator</strong></td><td>R/W</td><td>R/W</td><td>R/W</td><td>R/W</td><td>Users, Roles, Settings</td></tr>
+      </table>
+      <p>R = read, R/W = read &amp; write. Roles whose cells are empty (—) cannot reach those modules' edit actions; the buttons are disabled or hidden.</p>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="data">
+      <h2>20. Data &amp; Storage</h2>
+      <p>
+        The Desktop Client speaks to the same SQLAlchemy schema as the Cloud
+        REST API and the Patient Web Portal. The default deployment is
+        SQLite (<code>medpharm_erp.db</code> in the project root); the cloud
+        and multi-clinic deployments are typically PostgreSQL.
+      </p>
+      <ul>
+        <li><strong>Default seed:</strong> 75+ medications, 30+ symptoms, 25+ conditions, sample users, and a demo patient panel.</li>
+        <li><strong>Bulk loaders</strong> (<code>database/load_fda_data.py</code>): FDA NDC + NIH DSLD ingest expanding the catalogue to ~360 000 entries.</li>
+        <li><strong>Prescribing-information enrichment</strong> (<code>database/load_dailymed_spl.py</code>): adds indications, contraindications, side effects, dosage, warnings.</li>
+        <li><strong>Backups:</strong> <code>./update.sh</code> writes a timestamped database backup before pulling new releases. For unattended deployments use <code>./update.sh --auto --install-schedule</code>.</li>
+      </ul>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="troubleshooting">
+      <h2>21. Troubleshooting</h2>
+      <table>
+        <tr><th>Symptom</th><th>Likely cause &amp; fix</th></tr>
+        <tr>
+          <td>Login dialog accepts credentials but main window never appears</td>
+          <td>Database schema is out-of-date. Run <code>./update.sh</code>; it rebases the schema and migrates safely.</td>
+        </tr>
+        <tr>
+          <td><em>"Database: Disconnected"</em> in the status bar</td>
+          <td>Check <code>MEDPHARM_DB_PATH</code> / <code>MEDPHARM_DATABASE_URL</code>. For Postgres, verify the server is reachable from this host.</td>
+        </tr>
+        <tr>
+          <td>Generate Invoice raises a SQLAlchemy <em>DetachedInstanceError</em></td>
+          <td>Fixed in 1.7.6 (May 2026). Update to the latest release; the Prescription is now eager-loaded before the session closes.</td>
+        </tr>
+        <tr>
+          <td>Charts in Analytics show empty axes</td>
+          <td>You don't have enough historical data for the chart's window (Revenue needs 6 months, Top Meds needs 90 days). The empty-state is a placeholder, not an error.</td>
+        </tr>
+        <tr>
+          <td>Drug interaction check returns <em>"No known interactions found."</em> for a known dangerous pair</td>
+          <td>The interaction table only ships with default seed pairs. Run <code>database/load_dailymed_spl.py</code> for the full prescribing-information enrichment.</td>
+        </tr>
+        <tr>
+          <td>Help → User Guide does nothing</td>
+          <td>Verify <code>qt_app/resources/help.html</code> exists. On Linux, the system needs <code>xdg-open</code>; on macOS and Windows the default URL handler is used automatically.</td>
+        </tr>
+      </table>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="glossary">
+      <h2>22. Glossary</h2>
+      <table>
+        <tr><th>Term</th><th>Meaning</th></tr>
+        <tr><td class="k">AWP</td><td>Average Wholesale Price — the manufacturer's list price used as the basis for retail mark-up.</td></tr>
+        <tr><td class="k">DEA Schedule</td><td>U.S. controlled-substance scheduling: II (highest restriction) through V. Non-scheduled medications carry no schedule.</td></tr>
+        <tr><td class="k">EHR / EMR</td><td>Electronic Health Record / Electronic Medical Record. The Patients + Records modules collectively form the EHR.</td></tr>
+        <tr><td class="k">ERP</td><td>Enterprise Resource Planning — clinical EHR + pharmacy + billing in one system.</td></tr>
+        <tr><td class="k">HIPAA</td><td>U.S. Health Insurance Portability and Accountability Act. See the docs/HIPAA_COMPLIANCE.md for the platform's controls.</td></tr>
+        <tr><td class="k">ICD-10</td><td>International Classification of Diseases, 10th revision — the diagnosis-coding system used throughout the Records module.</td></tr>
+        <tr><td class="k">NDC</td><td>National Drug Code — 10-/11-digit FDA product identifier. Surfaced on every medication's detail panel.</td></tr>
+        <tr><td class="k">SPL</td><td>Structured Product Labeling — HL7 V3 XML format for FDA-mandated medication labels. Source of the indications/contraindications/warnings text.</td></tr>
+        <tr><td class="k">CPT</td><td>Current Procedural Terminology — AMA's procedure-coding system used on invoice lines (e.g.&nbsp;99213 office visit).</td></tr>
+      </table>
+    </section>
+
+    <!-- ──────────────────────────────────────── -->
+    <section id="about">
+      <h2>23. About &amp; Support</h2>
+      <p>
+        <strong>MedPharm ERP</strong> is built and maintained by Robert
+        Andrew Stillwell at <strong>Enlightec Ltd.</strong>
+      </p>
+      <ul>
+        <li>Website: <a href="https://www.enlightec.com" style="color: var(--teal);">www.enlightec.com</a></li>
+        <li>Issues / feature requests: see the project README for the current GitHub issue tracker.</li>
+        <li>Three companion manuals (PDF) live in <code>docs/</code>: Volume I (Technical Reference), Volume II (Service Manual), Volume III (Developer Manual).</li>
+      </ul>
+      <p>
+        This software is licensed under the GNU General Public License,
+        version 3, or (at your option) any later version. The full licence
+        is at <code>LICENSE</code> in the project root.
+      </p>
+    </section>
+  </main>
+</div>
+
+<footer>
+  MedPharm ERP &middot; Desktop Client User Guide &middot;
+  Copyright &copy; 2026
+  <a href="https://www.enlightec.com">Enlightec Ltd.</a> &middot;
+  Distributed under GPL-3.0-or-later
+</footer>
+</body>
+</html>
