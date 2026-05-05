@@ -29,6 +29,14 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# run_web.py serves the portal directly with Flask's built-in server over plain
+# HTTP. Browsers refuse to send a Secure-flagged cookie back over HTTP, which
+# would wipe the session between GET /login and POST /login and surface as
+# "CSRF token missing or invalid". Default the TLS-coupled cookie flags off
+# unless the operator has explicitly opted in (the production server stack at
+# server/Dockerfile keeps the secure default since it terminates TLS at nginx).
+os.environ.setdefault("MEDPHARM_REQUIRE_TLS", "false")
+
 from database.db_manager import DatabaseManager
 from database.seed_data import seed_database
 from web.app import create_app
