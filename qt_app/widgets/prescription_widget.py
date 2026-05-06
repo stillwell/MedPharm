@@ -161,11 +161,15 @@ class PrescriptionWidget(QWidget):
         info_layout.addRow("Rx Number:", QLabel(rx["rx_number"]))
         info_layout.addRow("Patient:", QLabel(rx["patient_name"]))
         info_layout.addRow("Prescriber:", QLabel(rx["prescriber_name"]))
+        if rx.get("prescriber_npi"):
+            info_layout.addRow("NPI #:", QLabel(rx["prescriber_npi"]))
         info_layout.addRow("Status:", QLabel(rx["status"].title()))
         info_layout.addRow("Prescribed:", QLabel(rx.get("prescribed_date", "")))
         info_layout.addRow("Expires:", QLabel(rx.get("expiry_date", "")))
         if rx.get("diagnosis"):
-            info_layout.addRow("Diagnosis:", QLabel(rx["diagnosis"]))
+            dx_label = QLabel(rx["diagnosis"])
+            dx_label.setWordWrap(True)
+            info_layout.addRow("Diagnosis:", dx_label)
         clayout.addWidget(info)
 
         # Items
@@ -257,6 +261,56 @@ class PrescriptionWidget(QWidget):
         pat_layout.addWidget(pat_combo)
         clayout.addWidget(pat_group)
 
+        # Prescriber identity (read-only; NPI is required for HIPAA-covered
+        # prescriptions, so surface it explicitly rather than burying it).
+        prov_group = QGroupBox("Prescriber")
+        prov_layout = QFormLayout(prov_group)
+        prov_name = self.current_user.get("display_title") or self.current_user.get("full_name", "")
+        prov_layout.addRow("Provider:", QLabel(prov_name or "—"))
+        prov_npi = self.current_user.get("npi")
+        npi_label = QLabel(prov_npi if prov_npi else "Not on file — prescriptions can still be created, but assign an NPI in User Settings.")
+        if not prov_npi:
+            npi_label.setStyleSheet("color: #FB8C00;")
+        npi_label.setWordWrap(True)
+        prov_layout.addRow("NPI #:", npi_label)
+        clayout.addWidget(prov_group)
+
+        # Diagnosis selection — pick from this patient's existing diagnoses,
+        # or open the inline "+ New Diagnosis" form. The combo refreshes
+        # whenever the patient changes so we never show another patient's Dx.
+        dx_group = QGroupBox("Diagnosis")
+        dx_layout = QVBoxLayout(dx_group)
+        dx_combo = QComboBox()
+        dx_combo.setMinimumHeight(36)
+        dx_combo.addItem("— No diagnosis linked —", None)
+        dx_layout.addWidget(dx_combo)
+
+        new_dx_btn = QPushButton("+ New Diagnosis for this Patient")
+        new_dx_btn.setEnabled(False)
+        dx_layout.addWidget(new_dx_btn)
+        clayout.addWidget(dx_group)
+
+        def reload_diagnoses(patient_id):
+            dx_combo.clear()
+            dx_combo.addItem("— No diagnosis linked —", None)
+            new_dx_btn.setEnabled(bool(patient_id))
+            if not patient_id:
+                return
+            try:
+                dxs = self.db_manager.get_patient_diagnoses(patient_id, active_only=True)
+            except TypeError:
+                dxs = self.db_manager.get_patient_diagnoses(patient_id)
+            for d in dxs:
+                code = d.get("icd10_code") or ""
+                desc = d.get("description") or ""
+                label = f"[{code}] {desc}" if code else desc
+                dx_combo.addItem(label, d["id"])
+
+        new_dx_btn.clicked.connect(lambda: self._new_diagnosis_dialog(
+            patient_id=pat_combo.currentData(),
+            on_created=reload_diagnoses,
+        ))
+
         def search_pat(text):
             pat_combo.clear()
             if len(text) >= 2:
@@ -264,6 +318,7 @@ class PrescriptionWidget(QWidget):
                 for p in results:
                     pat_combo.addItem(f"{p['full_name']} (ID: {p['id']})", p["id"])
         pat_search.textChanged.connect(search_pat)
+        pat_combo.currentIndexChanged.connect(lambda _i: reload_diagnoses(pat_combo.currentData()))
 
         # Medications
         med_group = QGroupBox("Medications")
@@ -371,7 +426,7 @@ class PrescriptionWidget(QWidget):
 
         save_btn = QPushButton("Create Prescription")
         save_btn.setObjectName("primary_button")
-        save_btn.clicked.connect(lambda: self._save_prescription(dialog, pat_combo, med_items, notes_edit))
+        save_btn.clicked.connect(lambda: self._save_prescription(dialog, pat_combo, med_items, notes_edit, dx_combo))
         btn_row.addWidget(save_btn)
         layout.addLayout(btn_row)
 
@@ -399,7 +454,7 @@ class PrescriptionWidget(QWidget):
             self.interaction_label.setText("\n\n".join(msgs))
             self.interaction_label.setStyleSheet("color: #E53935; font-weight: bold;")
 
-    def _save_prescription(self, dialog, pat_combo, med_items, notes_edit):
+    def _save_prescription(self, dialog, pat_combo, med_items, notes_edit, dx_combo=None):
         patient_id = pat_combo.currentData()
         if not patient_id:
             QMessageBox.warning(dialog, "Error", "Please select a patient.")
@@ -424,11 +479,13 @@ class PrescriptionWidget(QWidget):
         if not items:
             QMessageBox.warning(dialog, "Error", "Please add at least one medication.")
             return
+        diagnosis_id = dx_combo.currentData() if dx_combo is not None else None
         try:
             self.db_manager.create_prescription(
                 patient_id=patient_id,
                 prescriber_id=self.current_user.get("id", 1),
                 items=items,
+                diagnosis_id=diagnosis_id,
                 notes=notes_edit.toPlainText().strip()
             )
             dialog.accept()
@@ -436,3 +493,70 @@ class PrescriptionWidget(QWidget):
             QMessageBox.information(self, "Success", "Prescription created successfully.")
         except Exception as e:
             QMessageBox.warning(dialog, "Error", f"Failed to create prescription: {e}")
+
+    def _new_diagnosis_dialog(self, patient_id, on_created):
+        """Inline diagnosis-creation dialog launched from the prescription
+        form. The new diagnosis is owned by the current user (who must be a
+        prescriber); the parent form refreshes its dropdown via on_created."""
+        if not patient_id:
+            QMessageBox.warning(self, "Select a patient first",
+                                "Pick the patient before adding a diagnosis.")
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("New Diagnosis")
+        dlg.setMinimumWidth(480)
+        form = QFormLayout(dlg)
+
+        prov_name = self.current_user.get("display_title") or self.current_user.get("full_name", "")
+        npi = self.current_user.get("npi") or "—"
+        form.addRow("Diagnosed by:", QLabel(f"{prov_name}  (NPI: {npi})"))
+
+        icd_input = QLineEdit()
+        icd_input.setPlaceholderText("e.g. E11.9")
+        icd_input.setMaxLength(10)
+        form.addRow("ICD-10 code:", icd_input)
+
+        desc_input = QLineEdit()
+        desc_input.setPlaceholderText("Diagnosis description (required)")
+        form.addRow("Description:", desc_input)
+
+        status_combo = QComboBox()
+        status_combo.addItems(["active", "chronic", "resolved"])
+        form.addRow("Status:", status_combo)
+
+        notes_input = QTextEdit()
+        notes_input.setMaximumHeight(80)
+        form.addRow("Notes:", notes_input)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        cancel = QPushButton("Cancel")
+        cancel.clicked.connect(dlg.reject)
+        btn_row.addWidget(cancel)
+        save = QPushButton("Save Diagnosis")
+        save.setObjectName("primary_button")
+        btn_row.addWidget(save)
+        form.addRow(btn_row)
+
+        def do_save():
+            description = desc_input.text().strip()
+            if not description:
+                QMessageBox.warning(dlg, "Error", "Description is required.")
+                return
+            try:
+                self.db_manager.create_diagnosis(
+                    patient_id=patient_id,
+                    diagnosed_by_id=self.current_user.get("id", 1),
+                    description=description,
+                    icd10_code=icd_input.text().strip(),
+                    status=status_combo.currentText(),
+                    notes=notes_input.toPlainText().strip(),
+                )
+                dlg.accept()
+                on_created(patient_id)
+            except Exception as e:
+                QMessageBox.warning(dlg, "Error", f"Failed to save diagnosis: {e}")
+
+        save.clicked.connect(do_save)
+        dlg.exec()

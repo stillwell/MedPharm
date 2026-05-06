@@ -33,7 +33,10 @@
         <div class="d-flex justify-content-between align-items-start">
             <div>
                 <h3 class="text-primary">{{ rx.rx_number }}</h3>
-                <p class="text-muted mb-0">Prescribed by {{ rx.prescriber_name }}</p>
+                <p class="text-muted mb-0">
+                    Prescribed by {{ rx.prescriber_name }}
+                    {% if rx.prescriber_npi %}<span class="ms-2 badge bg-light text-dark border">NPI {{ rx.prescriber_npi }}</span>{% endif %}
+                </p>
             </div>
             <span class="badge bg-{{ {'active':'success','pending':'warning','filled':'info','expired':'danger','cancelled':'secondary'}[rx.status] }} fs-6">{{ rx.status | title }}</span>
         </div>

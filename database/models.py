@@ -210,6 +210,11 @@ class User(Base):
     email = Column(String(200), unique=True, nullable=False)
     phone = Column(String(20))
     license_number = Column(String(50))
+    # National Provider Identifier — 10-digit CMS-issued ID required for HIPAA
+    # transactions. Nullable because non-clinical roles (admin, pharmacist
+    # assistant) don't carry one; uniqueness is enforced at the DB level only
+    # when populated, since SQL treats multiple NULLs as distinct.
+    npi = Column(String(10), unique=True, nullable=True, index=True)
     specialization = Column(String(200))
     created_at = Column(DateTime, default=_naive_utc_now)
     is_active = Column(Boolean, default=True)

@@ -46,18 +46,24 @@ def seed_database(db_manager: DatabaseManager):
     with db_manager.get_session() as session:
         # ── Users ──────────────────────────────────────────────────────
         users = [
+            # NPIs below are synthetic but pass the official NPPES Luhn check
+            # (prefix '80840' + body, see DatabaseManager.validate_npi). Use
+            # only for demo data — production records must come from NPPES.
             User(username="dr.carter", password_hash=generate_password_hash("doctor123"),
                  role=UserRole.DOCTOR, first_name="James", last_name="Carter",
                  email="james.carter@medpharm.com", phone="555-0101",
-                 license_number="MD-12345", specialization="Internal Medicine"),
+                 license_number="MD-12345", npi="1000000004",
+                 specialization="Internal Medicine"),
             User(username="dr.chen", password_hash=generate_password_hash("doctor123"),
                  role=UserRole.DOCTOR, first_name="Lisa", last_name="Chen",
                  email="lisa.chen@medpharm.com", phone="555-0102",
-                 license_number="MD-12346", specialization="Family Medicine"),
+                 license_number="MD-12346", npi="1234567893",
+                 specialization="Family Medicine"),
             User(username="dr.brooks", password_hash=generate_password_hash("doctor123"),
                  role=UserRole.PSYCHIATRIST, first_name="Michael", last_name="Brooks",
                  email="michael.brooks@medpharm.com", phone="555-0103",
-                 license_number="MD-12347", specialization="Psychiatry"),
+                 license_number="MD-12347", npi="1472583693",
+                 specialization="Psychiatry"),
             User(username="pharm.davis", password_hash=generate_password_hash("pharm123"),
                  role=UserRole.PHARMACIST, first_name="Sarah", last_name="Davis",
                  email="sarah.davis@medpharm.com", phone="555-0104",

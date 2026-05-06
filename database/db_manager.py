@@ -128,6 +128,20 @@ class DatabaseManager:
                 "ix_medications_generic_name": "generic_name",
             }
 
+        # users.npi was added to support assigning prescriber NPI on
+        # prescriptions/diagnoses. Reflect the column list once and only ADD
+        # what's missing — same idempotent pattern as the medications block.
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore", SAWarning)
+            users_cols = (
+                {c["name"] for c in insp.get_columns("users")}
+                if "users" in insp.get_table_names() else set()
+            )
+            users_idx = (
+                {i["name"] for i in insp.get_indexes("users")}
+                if "users" in insp.get_table_names() else set()
+            )
+
         with self.engine.begin() as conn:
             for col_name, col_type in new_cols:
                 if col_name not in existing_cols:
@@ -138,6 +152,16 @@ class DatabaseManager:
                     conn.execute(text(
                         f"CREATE INDEX IF NOT EXISTS {idx_name} "
                         f"ON medications ({idx_expr})"))
+
+            if users_cols and "npi" not in users_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN npi VARCHAR(10)"))
+            if users_cols and "ix_users_npi" not in users_idx:
+                # Plain (non-unique) index — uniqueness on a nullable column
+                # behaves inconsistently when retrofitted via ALTER TABLE
+                # across SQLite/Postgres/MySQL, and the application enforces
+                # the format check before insert anyway.
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_users_npi ON users (npi)"))
 
     @contextmanager
     def get_session(self):
@@ -224,10 +248,56 @@ class DatabaseManager:
             "full_name": user.full_name, "display_title": user.display_title,
             "email": user.email, "phone": user.phone,
             "license_number": user.license_number,
+            "npi": user.npi,
             "specialization": user.specialization,
             "is_active": user.is_active,
             "created_at": user.created_at.isoformat() if user.created_at else None
         }
+
+    @staticmethod
+    def normalize_npi(npi: str | None) -> str | None:
+        """Strip whitespace/dashes and return the digits-only form, or None."""
+        if not npi:
+            return None
+        digits = "".join(ch for ch in str(npi) if ch.isdigit())
+        return digits or None
+
+    @staticmethod
+    def validate_npi(npi: str | None) -> bool:
+        """Validate a CMS NPI: 10 digits passing the Luhn-mod-10 check with
+        the constant prefix '80840' (per the NPPES check-digit specification).
+        Empty/None is treated as 'not provided' and returns True so callers
+        can keep NPI optional without branching."""
+        if npi in (None, ""):
+            return True
+        digits = DatabaseManager.normalize_npi(npi)
+        if not digits or len(digits) != 10:
+            return False
+        # Per CMS: prepend '80840' before applying Luhn to the first 9 digits,
+        # then compare against digit 10.
+        body = "80840" + digits[:9]
+        total = 0
+        # Walk right-to-left, doubling every second digit (the rightmost is
+        # position 1 — i.e. the last char of `body`).
+        for i, ch in enumerate(reversed(body)):
+            d = int(ch)
+            if i % 2 == 0:  # rightmost is position 1, doubled
+                d *= 2
+                if d > 9:
+                    d -= 9
+            total += d
+        check = (10 - (total % 10)) % 10
+        return check == int(digits[9])
+
+    def get_user_by_npi(self, npi: str) -> dict | None:
+        digits = self.normalize_npi(npi)
+        if not digits:
+            return None
+        with self.get_session() as session:
+            user = session.query(User).filter_by(npi=digits, is_active=True).first()
+            if user:
+                return self._user_to_dict(user)
+        return None
 
     # ── Patient CRUD ───────────────────────────────────────────────────────
 
@@ -626,14 +696,24 @@ class DatabaseManager:
                 "unit_price": float(item.unit_price) if item.unit_price else 0,
                 "total_price": price
             })
+        diagnosis_label = ""
+        if rx.diagnosis:
+            if rx.diagnosis.icd10_code:
+                diagnosis_label = f"{rx.diagnosis.icd10_code} — {rx.diagnosis.description}"
+            else:
+                diagnosis_label = rx.diagnosis.description
         return {
             "id": rx.id, "rx_number": rx.rx_number,
             "patient_id": rx.patient_id,
             "patient_name": rx.patient.full_name if rx.patient else "",
             "prescriber_id": rx.prescriber_id,
             "prescriber_name": rx.prescriber.display_title if rx.prescriber else "",
+            "prescriber_npi": rx.prescriber.npi if rx.prescriber else None,
             "status": rx.status.value,
-            "diagnosis": rx.diagnosis.description if rx.diagnosis else "",
+            "diagnosis_id": rx.diagnosis_id,
+            "diagnosis": diagnosis_label,
+            "diagnosis_icd10": rx.diagnosis.icd10_code if rx.diagnosis else None,
+            "diagnosis_description": rx.diagnosis.description if rx.diagnosis else None,
             "notes": rx.notes,
             "prescribed_date": rx.prescribed_date.isoformat() if rx.prescribed_date else None,
             "expiry_date": rx.expiry_date.isoformat() if rx.expiry_date else None,
@@ -734,17 +814,63 @@ class DatabaseManager:
             session.flush()
             return dx.id
 
-    def get_patient_diagnoses(self, patient_id: int) -> list[dict]:
+    def create_diagnosis(self, patient_id: int, diagnosed_by_id: int,
+                         description: str, icd10_code: str = "",
+                         status: str = "active", notes: str = "",
+                         diagnosis_date: date = None) -> int:
+        """UI-facing wrapper that takes plain strings (matching what the Qt
+        form collects), normalizes them into model values, and returns the
+        new diagnosis id."""
+        from database.models import DiagnosisStatus
+        try:
+            status_enum = DiagnosisStatus(status.lower()) if status else DiagnosisStatus.ACTIVE
+        except ValueError:
+            status_enum = DiagnosisStatus.ACTIVE
         with self.get_session() as session:
-            dxs = session.query(Diagnosis).filter_by(patient_id=patient_id)\
-                .order_by(desc(Diagnosis.diagnosis_date)).all()
-            return [{
-                "id": d.id, "icd10_code": d.icd10_code,
-                "description": d.description, "status": d.status.value,
-                "diagnosis_date": d.diagnosis_date.isoformat() if d.diagnosis_date else None,
-                "diagnosed_by": d.diagnosed_by.display_title if d.diagnosed_by else "",
-                "notes": d.notes
-            } for d in dxs]
+            dx = Diagnosis(
+                patient_id=patient_id,
+                diagnosed_by_id=diagnosed_by_id,
+                description=description.strip(),
+                icd10_code=(icd10_code or "").strip().upper() or None,
+                status=status_enum,
+                notes=notes.strip() if notes else None,
+                diagnosis_date=diagnosis_date or date.today(),
+            )
+            session.add(dx)
+            session.flush()
+            return dx.id
+
+    def get_diagnosis(self, diagnosis_id: int) -> dict | None:
+        with self.get_session() as session:
+            d = session.get(Diagnosis, diagnosis_id)
+            if d:
+                return self._diagnosis_to_dict(d)
+        return None
+
+    def get_patient_diagnoses(self, patient_id: int,
+                              active_only: bool = False) -> list[dict]:
+        with self.get_session() as session:
+            from database.models import DiagnosisStatus
+            q = session.query(Diagnosis).filter_by(patient_id=patient_id)
+            if active_only:
+                q = q.filter(Diagnosis.status != DiagnosisStatus.RESOLVED)
+            dxs = q.order_by(desc(Diagnosis.diagnosis_date)).all()
+            return [self._diagnosis_to_dict(d) for d in dxs]
+
+    @staticmethod
+    def _diagnosis_to_dict(d: Diagnosis) -> dict:
+        return {
+            "id": d.id,
+            "patient_id": d.patient_id,
+            "icd10_code": d.icd10_code,
+            "description": d.description,
+            "status": d.status.value if d.status else None,
+            "diagnosis_date": d.diagnosis_date.isoformat() if d.diagnosis_date else None,
+            "diagnosed_by_id": d.diagnosed_by_id,
+            "diagnosed_by": d.diagnosed_by.display_title if d.diagnosed_by else "",
+            "diagnosed_by_npi": d.diagnosed_by.npi if d.diagnosed_by else None,
+            "notes": d.notes,
+        }
 
     # ── Allergy CRUD ───────────────────────────────────────────────────────
 
