@@ -173,6 +173,39 @@ The API is mounted at `/api/v1`. Breaking changes will increment the path segmen
 
 ---
 
+## Prescription response shape
+
+Both `/patient/prescriptions[/...]` and `/staff/prescriptions` return the same prescription object:
+
+```json
+{
+  "id": 12,
+  "rx_number": "RX-3F9A12B0",
+  "patient_id": 7,
+  "patient_name": "Jane Roe",
+  "prescriber_id": 2,
+  "prescriber_name": "Dr. Carter",
+  "prescriber_npi": "1000000004",
+  "status": "active",
+  "diagnosis_id": 4,
+  "diagnosis": "E11.9 — Type 2 diabetes mellitus",
+  "diagnosis_icd10": "E11.9",
+  "diagnosis_description": "Type 2 diabetes mellitus",
+  "notes": "...",
+  "prescribed_date": "2026-05-01",
+  "expiry_date": "2027-05-01",
+  "items": [ /* PrescriptionItem rows */ ],
+  "total": 42.00
+}
+```
+
+* **`prescriber_npi`** — the prescriber's 10-digit National Provider Identifier (CMS / NPPES). `null` if the user record carries no NPI. Validated with the official Luhn-mod-10 + `'80840'`-prefix check on write.
+* **`diagnosis_id`** — foreign key to the linked `Diagnosis`, or `null` for prescriptions written without a linked diagnosis.
+* **`diagnosis`** — convenience label combining ICD-10 and description (e.g. `"E11.9 — Type 2 diabetes mellitus"`); falls back to description-only when no ICD-10 is present, or empty string when `diagnosis_id` is `null`.
+* **`diagnosis_icd10` / `diagnosis_description`** — the underlying components for clients that prefer to format the label themselves.
+
+---
+
 ## Worked Examples
 
 ### Patient login + dashboard

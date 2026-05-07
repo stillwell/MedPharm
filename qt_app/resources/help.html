@@ -347,7 +347,7 @@ footer a { color: var(--teal); text-decoration: none; }
       <ul>
         <li><strong>Demographics</strong> — full name, DOB, gender, blood type, BMI, address (street/city/state/ZIP), email, phone, emergency contact.</li>
         <li><strong>Allergies</strong> — list of allergens, severity, reaction. Surfaced as a <em>red banner</em> in the prescribing dialog when an allergen overlaps with a candidate medication.</li>
-        <li><strong>Diagnoses</strong> — ICD-10-coded diagnoses with date and notes.</li>
+        <li><strong>Diagnoses</strong> — ICD-10-coded diagnoses with date, status (<em>active / chronic / resolved</em>), the diagnosing provider's name and <strong>NPI</strong>, and free-text notes. Diagnoses recorded here are also offered in the diagnosis picker on the New Prescription dialog (see §7.3).</li>
         <li><strong>Billing</strong> — at-a-glance balance, last payment, last invoice date.</li>
         <li><strong>Notes</strong> — chronologically ordered free-text notes. Each note shows author and timestamp; doctors can <em>edit</em> or <em>delete</em> their own notes.</li>
       </ul>
@@ -385,11 +385,13 @@ footer a { color: var(--teal); text-decoration: none; }
 
       <h3>7.2 Detail Dialog</h3>
       <p>
-        Shows the full prescription header (Rx number, patient, prescriber,
-        status, prescribe date, expiry) and the medication line items
-        (medication name, generic name, dosage, frequency, duration,
-        quantity, refills used / refills allowed, instructions, line cost).
-        The dialog footer carries the action buttons:
+        Shows the full prescription header (Rx number, patient, prescriber
+        and <strong>NPI #</strong>, status, prescribe date, expiry, the
+        linked <strong>diagnosis</strong> with its ICD-10 code) and the
+        medication line items (medication name, generic name, dosage,
+        frequency, duration, quantity, refills used / refills allowed,
+        instructions, line cost). The dialog footer carries the action
+        buttons:
       </p>
       <ul>
         <li><strong>Cancel Prescription</strong> — sets status to <em>cancelled</em>. Available only when status is <em>active</em>.</li>
@@ -403,8 +405,25 @@ footer a { color: var(--teal); text-decoration: none; }
       </p>
       <ol>
         <li><strong>Patient</strong> — search by name, choose from the drop-down.</li>
+        <li><strong>Prescriber</strong> — read-only summary of the signed-in
+          provider plus their <strong>NPI #</strong> (10-digit National
+          Provider Identifier issued by CMS). If your account has no NPI on
+          file an amber warning appears here; prescriptions can still be
+          saved, but ask an administrator to populate the NPI in
+          <em>User Settings</em>.</li>
+        <li><strong>Diagnosis</strong> — pick from the dropdown of the
+          patient's existing <em>active</em> or <em>chronic</em> diagnoses
+          (auto-refreshes when the patient changes). If the right diagnosis
+          isn't there, click <strong>+ New Diagnosis for this Patient</strong>
+          to open the inline form: <em>ICD-10 code</em> (optional, e.g.
+          <code>E11.9</code>; auto-uppercased), <em>description</em>
+          (required), <em>status</em>, <em>notes</em>. The new diagnosis is
+          owned by the signed-in provider (NPI shown for confirmation) and
+          is linked to the prescription on save. Leaving the picker on
+          <em>"— No diagnosis linked —"</em> creates the prescription
+          without a linked diagnosis (legal but not recommended for
+          insurance billing).</li>
         <li><strong>Medications</strong> — click <em>+ Add Medication</em> to add a row. Each row has medication search, dosage, frequency (default <em>Once daily</em>), duration, quantity, refills allowed, free-text instructions.</li>
-        <li><strong>Diagnosis</strong> — required free-text justification.</li>
         <li><strong>Notes</strong> — optional clinical notes.</li>
       </ol>
       <p>

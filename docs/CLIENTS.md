@@ -69,6 +69,7 @@ qt_app/
 
 * 9 feature widgets (dashboard, patients, Rx, meds, appointments, records, billing, symptoms, analytics)
 * Drug-drug interaction checking at prescription save time
+* Diagnosis picker on the New Prescription dialog — selects from the patient's active/chronic ICD-10 diagnoses, with an inline "+ New Diagnosis" form; the prescriber's NPI (10-digit NPPES identifier) is shown on every prescription header
 * matplotlib analytics embedded in the Qt widget tree
 * Role-based visibility (admin sees all, pharmacist sees Rx/meds, etc.)
 

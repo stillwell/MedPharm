@@ -871,7 +871,10 @@ def build_document():
         ["search_patients", "(query) → list[dict]", "Search by name/email/phone (ILIKE)"],
         ["search_medications", "(query, class, schedule, form) → list", "Multi-filter medication search"],
         ["check_interactions", "(medication_ids) → list[dict]", "Pairwise drug interaction check"],
-        ["create_prescription", "(patient, prescriber, items, ...) → int", "Create Rx with line items + pricing"],
+        ["create_prescription", "(patient, prescriber, items, diagnosis_id=…, …) → int", "Create Rx with line items + pricing; optional FK to diagnoses table"],
+        ["create_diagnosis", "(patient, diagnosed_by, description, icd10_code=…, status=…, …) → int", "Add an ICD-10 diagnosis tied to the prescriber"],
+        ["validate_npi", "(npi: str) → bool", "Luhn-mod-10 + '80840' prefix check (NPPES spec)"],
+        ["get_user_by_npi", "(npi: str) → dict|None", "Look up a prescriber by 10-digit NPI"],
         ["create_invoice_from_prescription", "(rx_id) → int|None", "Auto-generate invoice from Rx items"],
         ["record_payment", "(invoice_id, amount, method, ...) → int", "Process payment, update balance"],
         ["get_dashboard_stats", "() → dict", "KPIs: patients, Rx, revenue, appointments"],
@@ -1170,11 +1173,13 @@ def build_document():
     rx_steps = [
         ["Step", "UI Component", "Action"],
         ["1. Select Patient", "QLineEdit + QComboBox", "Type-ahead search populates combo with matching patients"],
-        ["2. Add Medications", "Dynamic QFrame rows", "Each row: medication search, dosage, frequency, qty, refills, instructions"],
-        ["3. Check Interactions", "QPushButton (orange)", "Calls check_interactions() with selected med IDs; shows results in QLabel"],
-        ["4. Review Warnings", "QLabel (red/green)", "MAJOR/CONTRAINDICATED shown in red; safe combinations in green"],
-        ["5. Create Rx", "QPushButton (teal)", "Calls create_prescription() → generates Rx with items + pricing"],
-        ["6. Generate Invoice", "Detail dialog button", "Calls create_invoice_from_prescription() for billing"],
+        ["2. Confirm Prescriber", "QFormLayout (read-only)", "Shows the signed-in provider + their 10-digit NPI; amber warning if NPI missing"],
+        ["3. Pick Diagnosis", "QComboBox + inline form", "Lists patient's active/chronic diagnoses; '+ New Diagnosis' opens an ICD-10 + description form"],
+        ["4. Add Medications", "Dynamic QFrame rows", "Each row: medication search, dosage, frequency, qty, refills, instructions"],
+        ["5. Check Interactions", "QPushButton (orange)", "Calls check_interactions() with selected med IDs; shows results in QLabel"],
+        ["6. Review Warnings", "QLabel (red/green)", "MAJOR/CONTRAINDICATED shown in red; safe combinations in green"],
+        ["7. Create Rx", "QPushButton (teal)", "Calls create_prescription(diagnosis_id=…) → Rx with items + pricing + linked Dx"],
+        ["8. Generate Invoice", "Detail dialog button", "Calls create_invoice_from_prescription() for billing"],
     ]
     story.append(make_table(rx_steps[0], rx_steps[1:], [1.0*inch, 1.5*inch, 3.5*inch]))
 
@@ -2009,7 +2014,13 @@ def build_document():
     story.append(code_block(textwrap.dedent("""\
     # Response: [
     #   { "id": 1, "rx_number": "RX-00000001", "status": "active",
-    #     "patient_name": "John Smith", "prescriber_name": "Dr. Carter",
+    #     "patient_name": "John Smith",
+    #     "prescriber_name": "Dr. Carter",
+    #     "prescriber_npi":  "1000000004",
+    #     "diagnosis_id":    4,
+    #     "diagnosis":       "E11.9 — Type 2 diabetes mellitus",
+    #     "diagnosis_icd10": "E11.9",
+    #     "diagnosis_description": "Type 2 diabetes mellitus",
     #     "prescribed_date": "2026-02-15", "expiry_date": "2026-12-12",
     #     "items": [{ "medication_name": "Lisinopril", "dosage": "10mg",
     #                 "frequency": "Once daily", "refills_remaining": 2 }],

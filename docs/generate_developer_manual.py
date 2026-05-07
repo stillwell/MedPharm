@@ -1900,6 +1900,7 @@ class User(Base):
     email = Column(String(200), unique=True, nullable=False)
     phone = Column(String(20))
     license_number = Column(String(50))
+    npi = Column(String(10), unique=True, nullable=True, index=True)
     specialization = Column(String(200))
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
@@ -2079,11 +2080,18 @@ def chapter_07_clinical_models(styles):
                 "structure", styles))
     s.append(p(
         "A prescription is a header (patient, prescriber, status, "
-        "date, notes) that carries one or more line items (specific "
-        "medications, dosages, quantities, refills). This two-level "
-        "structure follows the invoice pattern described in "
-        "Chapter 8 and makes it natural to add a second medication "
-        "to an existing script.",
+        "date, notes, optional " + c("diagnosis_id") + ") that "
+        "carries one or more line items (specific medications, "
+        "dosages, quantities, refills). This two-level structure "
+        "follows the invoice pattern described in Chapter 8 and "
+        "makes it natural to add a second medication to an existing "
+        "script. The " + c("diagnosis_id") + " foreign key links "
+        "the prescription to the ICD-10 diagnosis the prescriber "
+        "selected on the New Prescription dialog (or " + c("NULL")
+        + " if no diagnosis was attached); the prescriber's "
+        + c("npi") + " — a 10-digit CMS National Provider "
+        "Identifier validated against the NPPES Luhn-mod-10 check — "
+        "is read off the joined " + c("User") + " row.",
         styles))
     s.extend(code_block("""class Prescription(Base):
     __tablename__ = "prescriptions"
@@ -2092,6 +2100,7 @@ def chapter_07_clinical_models(styles):
     rx_number = Column(String(30), unique=True, nullable=False, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
     prescriber_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    diagnosis_id = Column(Integer, ForeignKey("diagnoses.id"), nullable=True)
     status = Column(Enum(PrescriptionStatus),
                     default=PrescriptionStatus.PENDING)
     prescribed_date = Column(Date, default=date.today)
@@ -2100,6 +2109,7 @@ def chapter_07_clinical_models(styles):
 
     patient = relationship("Patient", back_populates="prescriptions")
     prescriber = relationship("User", back_populates="prescriptions_written")
+    diagnosis = relationship("Diagnosis", back_populates="prescriptions")
     items = relationship("PrescriptionItem", back_populates="prescription",
                          cascade="all, delete-orphan")
 
