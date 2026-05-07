@@ -3582,6 +3582,41 @@ def chapter_16_web_portal(styles):
         "insurance id) against an existing Patient row.",
         styles))
 
+    s.append(h2("In-portal User Guide", styles))
+    s.append(p(
+        "The portal ships its own User Guide at "
+        + c("web/templates/help.html") + ", a 17-section "
+        "patient-focused walkthrough that mirrors the desktop "
+        "client's bundled "
+        + c("qt_app/resources/help.html") + ". The route is "
+        + c("GET /help") + " (handler "
+        + c("portal.help_page") + " in "
+        + c("web/routes.py") + "). It is intentionally <i>not</i> "
+        "decorated with " + c("@login_required") + " so the URL "
+        "can be shared with patients before their first sign-in. "
+        "The link sits in the top-right user dropdown rendered by "
+        + c("base.html") + ", between Profile and Logout.",
+        styles))
+    s.extend(code_block("""@portal_bp.route("/help")
+def help_page():
+    \"\"\"In-portal user guide. Linked from the right-hand user dropdown.\"\"\"
+    return render_template("help.html")""",
+        language="python",
+        caption="Listing 16-2. /help route — no auth, returns the bundled guide."))
+    s.append(p(
+        "The template extends " + c("base.html") + " so the navbar "
+        "stays in place, then injects its own scoped stylesheet that "
+        "borrows the portal's design tokens "
+        "(" + c("--mp-primary") + ", " + c("--mp-surface") + ", "
+        + c("--mp-border") + ", and the gradient set). A sticky "
+        "left-rail table of contents tracks the active section; on "
+        "screens narrower than 992 px the rail collapses inline above "
+        "the content. When you add a new portal screen, add a "
+        "matching numbered section to the guide and a link in the "
+        "TOC — the file is checked into source control alongside the "
+        "feature, so the docs cannot drift away from the code.",
+        styles))
+
     s.append(PageBreak())
     return s
 
@@ -3701,6 +3736,24 @@ def chapter_17_qt_desktop(styles):
         + c("main_window.py") + ", add a tuple to "
         + c("NAV_ITEMS") + ", add the instantiation to the stack, "
         "done.",
+        styles))
+
+    s.append(h2("Bundled User Guide", styles))
+    s.append(p(
+        "The desktop ships a self-contained 23-section User Guide at "
+        + c("qt_app/resources/help.html") + ", reached from "
+        "<b>Help &rarr; User&nbsp;Guide</b> (<b>F1</b>). The "
+        + c("Help") + " menu is built in "
+        + c("MainWindow.setup_menu") + "; the action is wired to "
+        + c("show_user_guide") + ", which delegates to "
+        + c("QDesktopServices.openUrl(QUrl.fromLocalFile(...))") + " "
+        "so the operator's default browser handles rendering. If the "
+        "bundled file is missing — for example, a partial install — "
+        "the handler falls back to a "
+        + c("QMessageBox") + " warning rather than failing silently. "
+        "The web portal carries an analogous "
+        + c("/help") + " route documented in Chapter 16; both files "
+        "are versioned alongside the code that they describe.",
         styles))
 
     s.append(PageBreak())

@@ -1,0 +1,733 @@
+{#
+  MedPharm ERP - Medical & Pharmaceutical Management System
+  Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+  Author: Robert Andrew Stillwell
+  Email: Andrew.Stillwell@enlightec.com
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+  Patient Web Portal User Guide. Linked from the user dropdown
+  (right-hand "hamburger" menu) on every authenticated page.
+#}
+
+{% extends "base.html" %}
+{% block title %}User Guide - MedPharm Portal{% endblock %}
+
+{% block content %}
+<style>
+.help-shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 28px;
+    margin: 16px 0 48px;
+}
+.help-toc {
+    position: sticky;
+    top: 84px;
+    align-self: start;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-border);
+    border-radius: 12px;
+    padding: 18px 14px;
+    backdrop-filter: var(--glass-blur);
+}
+.help-toc h6 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--mp-text-muted);
+    margin: 14px 0 6px;
+}
+.help-toc h6:first-child { margin-top: 0; }
+.help-toc a {
+    display: block;
+    color: var(--mp-text);
+    text-decoration: none;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 13.5px;
+}
+.help-toc a:hover {
+    background: rgba(0, 229, 208, 0.10);
+    color: var(--mp-primary);
+}
+.help-content {
+    max-width: 920px;
+}
+.help-cover {
+    border-bottom: 1px solid var(--mp-border);
+    padding-bottom: 22px;
+    margin-bottom: 28px;
+}
+.help-cover h1 {
+    background: var(--grad-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 32px;
+    margin: 0 0 6px;
+    letter-spacing: 0.2px;
+}
+.help-cover .sub {
+    color: var(--mp-text-muted);
+    font-size: 14px;
+}
+.help-cover .meta {
+    color: var(--mp-text-muted);
+    font-size: 12px;
+    margin-top: 12px;
+}
+.help-section {
+    margin-bottom: 38px;
+    scroll-margin-top: 90px;
+}
+.help-section h2 {
+    color: var(--mp-primary);
+    font-size: 22px;
+    border-left: 3px solid var(--mp-primary);
+    padding-left: 12px;
+    margin: 0 0 14px;
+}
+.help-section h3 {
+    color: var(--mp-text);
+    font-size: 17px;
+    margin: 22px 0 8px;
+}
+.help-section p { margin: 0 0 10px; }
+.help-section ul, .help-section ol { margin: 6px 0 12px 22px; }
+.help-section li { margin-bottom: 4px; }
+.help-section code, .help-section kbd {
+    background: rgba(0, 229, 208, 0.10);
+    color: var(--mp-primary);
+    border: 1px solid rgba(0, 229, 208, 0.25);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+    font-size: 13px;
+}
+.help-section kbd {
+    color: var(--mp-text);
+    border-color: var(--mp-border);
+    background: var(--mp-surface-solid);
+}
+.help-callout {
+    border: 1px solid var(--mp-border);
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 4px solid var(--mp-primary);
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin: 12px 0;
+}
+.help-callout.warn { border-left-color: var(--mp-warning); }
+.help-callout.danger { border-left-color: var(--mp-danger); }
+.help-callout.tip { border-left-color: var(--mp-success); }
+.help-callout strong { color: var(--mp-primary); }
+.help-callout.warn strong { color: var(--mp-warning); }
+.help-callout.danger strong { color: var(--mp-danger); }
+.help-callout.tip strong { color: var(--mp-success); }
+.help-section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 16px;
+    font-size: 13.5px;
+}
+.help-section th, .help-section td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mp-border);
+    text-align: left;
+    vertical-align: top;
+}
+.help-section th {
+    color: var(--mp-primary);
+    background: rgba(0, 229, 208, 0.06);
+    font-weight: 600;
+}
+.help-section td.k {
+    color: var(--mp-primary);
+    white-space: nowrap;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 12.5px;
+}
+.help-section hr {
+    border: 0;
+    border-top: 1px solid var(--mp-border);
+    margin: 28px 0;
+}
+@media (max-width: 992px) {
+    .help-shell { grid-template-columns: 1fr; }
+    .help-toc {
+        position: static;
+        max-height: none;
+    }
+}
+</style>
+
+<div class="help-shell">
+    <nav class="help-toc" aria-label="Contents">
+        <h6>Getting Started</h6>
+        <a href="#overview">Overview</a>
+        <a href="#login">Signing In</a>
+        <a href="#register">Creating an Account</a>
+        <a href="#layout">Navigating the Portal</a>
+
+        <h6>Your Health</h6>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#prescriptions">Prescriptions &amp; Refills</a>
+        <a href="#medications">My Medications</a>
+        <a href="#appointments">Appointments</a>
+        <a href="#records">Medical Records</a>
+
+        <h6>Billing &amp; Messaging</h6>
+        <a href="#billing">Bills &amp; Payments</a>
+        <a href="#messages">Secure Messages</a>
+
+        <h6>Account</h6>
+        <a href="#profile">My Profile</a>
+        <a href="#notifications">Notifications</a>
+        <a href="#menu">User Menu</a>
+
+        <h6>Reference</h6>
+        <a href="#privacy">Privacy &amp; Security</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#about">About &amp; Support</a>
+    </nav>
+
+    <div class="help-content">
+        <header class="help-cover">
+            <h1>MedPharm Portal — Patient User Guide</h1>
+            <div class="sub">A walkthrough of every screen and action available to you in the patient web portal.</div>
+            <div class="meta">
+                Copyright &copy; 2026 Enlightec Ltd. &middot;
+                <a href="https://www.enlightec.com" style="color: var(--mp-primary);">www.enlightec.com</a> &middot;
+                Licensed under GPL-3.0-or-later
+            </div>
+        </header>
+
+        <section id="overview" class="help-section">
+            <h2>1. Overview</h2>
+            <p>
+                The <strong>MedPharm Patient Portal</strong> is your secure
+                online window into your care. From any browser you can:
+            </p>
+            <ul>
+                <li>View your active prescriptions and request refills.</li>
+                <li>See your full medication list with dosing instructions.</li>
+                <li>Read your medical records, lab results, imaging reports, procedures, and referrals.</li>
+                <li>Track upcoming and past appointments.</li>
+                <li>Pay bills online and review payment history.</li>
+                <li>Send secure messages to your providers and read their replies.</li>
+                <li>Keep your contact details, insurance, and emergency contact information up to date.</li>
+            </ul>
+            <p>
+                Everything you do here is mirrored in the same database used
+                by your clinic's staff (the desktop and mobile clinical
+                clients), so a refill request, payment, or message you send
+                appears for your care team in real time.
+            </p>
+            <div class="help-callout tip">
+                <strong>Tip.</strong> The portal is responsive — it works
+                comfortably on phones, tablets, and desktops. On small
+                screens the top navigation collapses behind the
+                <i class="fas fa-bars"></i> icon next to the MedPharm logo.
+            </div>
+        </section>
+
+        <section id="login" class="help-section">
+            <h2>2. Signing In</h2>
+            <p>
+                The first page you see is the login screen. Enter the
+                <strong>username</strong> and <strong>password</strong> you
+                created during registration, then click
+                <strong>Sign In</strong>.
+            </p>
+            <ul>
+                <li>Passwords are checked against a hashed value — your real password is never stored or transmitted in plain text.</li>
+                <li>After several failed attempts in a row your account is temporarily locked. The on-screen message tells you how many attempts remain and, if locked, how many minutes to wait.</li>
+                <li>Sessions time out automatically after a period of inactivity. If you walk away from your computer, you'll be returned to the login screen on your next click.</li>
+            </ul>
+            <div class="help-callout warn">
+                <strong>Forgot your password?</strong> The portal does not
+                offer self-service password reset. Call your clinic and the
+                front-desk staff will reset it for you.
+            </div>
+        </section>
+
+        <section id="register" class="help-section">
+            <h2>3. Creating an Account</h2>
+            <p>
+                If you've never used the portal before, click
+                <strong>Create Account</strong> from the login page. The
+                portal will verify your identity against the patient record
+                your clinic already has on file.
+            </p>
+            <p>You'll be asked for:</p>
+            <ul>
+                <li><strong>First and last name</strong> — exactly as the clinic has them.</li>
+                <li><strong>Date of birth</strong>.</li>
+                <li><strong>Last 4 digits of your SSN</strong> — used only to confirm it's really you. The full SSN is never requested.</li>
+                <li><strong>Username</strong> — what you'll log in with.</li>
+                <li><strong>Email</strong> — for portal correspondence.</li>
+                <li><strong>Password</strong> and confirmation — must meet the minimum length and complexity shown on the page.</li>
+            </ul>
+            <p>
+                If the four identity fields don't match a clinic record,
+                registration is declined. Call the office and ask them to
+                confirm your demographics — a small mismatch (a hyphen, a
+                middle initial) is usually all it takes.
+            </p>
+        </section>
+
+        <section id="layout" class="help-section">
+            <h2>4. Navigating the Portal</h2>
+            <p>Once signed in, every page shares the same layout:</p>
+            <ol>
+                <li>
+                    <strong>Top navigation bar.</strong> The MedPharm logo on
+                    the left returns you to the dashboard. The center links
+                    take you to each module: <em>Dashboard, Prescriptions,
+                    Billing, Records, Appointments, Medications, Messages</em>.
+                    On narrow screens these collapse behind the
+                    <i class="fas fa-bars"></i> icon.
+                </li>
+                <li>
+                    <strong>Notification bell</strong>
+                    (<i class="fas fa-bell"></i>) on the right shows a
+                    red badge when something needs attention — see
+                    <a href="#notifications">§11 Notifications</a>.
+                </li>
+                <li>
+                    <strong>User menu</strong> on the far right shows your
+                    name with a <i class="fas fa-user-circle"></i> icon.
+                    Clicking it opens the dropdown with <em>Profile</em>,
+                    <em>User Guide</em> (this document), and
+                    <em>Logout</em>.
+                </li>
+                <li>
+                    <strong>Workspace</strong> — the main content area where
+                    each module displays its content.
+                </li>
+                <li>
+                    <strong>Footer</strong> — copyright and HIPAA-compliance
+                    confirmation.
+                </li>
+            </ol>
+        </section>
+
+        <hr>
+
+        <section id="dashboard" class="help-section">
+            <h2>5. Dashboard</h2>
+            <p>
+                The first screen after sign-in. It summarises everything that
+                needs your attention — active prescriptions, outstanding
+                balances, upcoming appointments, and recent invoices.
+            </p>
+            <h3>5.1 Summary Cards</h3>
+            <ul>
+                <li><strong>Active Prescriptions</strong> — count of prescriptions currently active.</li>
+                <li><strong>Upcoming Appointments</strong> — count of scheduled or confirmed visits.</li>
+                <li><strong>Outstanding Balance</strong> — total amount due across all unpaid invoices (sent, partial, or overdue).</li>
+            </ul>
+            <h3>5.2 Quick Sections</h3>
+            <ul>
+                <li><strong>Active Prescriptions</strong> — a peek at what's currently prescribed; click any row to open the full detail.</li>
+                <li><strong>Upcoming Appointments</strong> — the next five visits with date, provider, and reason.</li>
+                <li><strong>Recent Invoices</strong> — the five newest bills, with status and balance.</li>
+            </ul>
+            <p>
+                Click any item to jump straight to its detail page. The full
+                lists live under the <em>Prescriptions</em>,
+                <em>Appointments</em>, and <em>Billing</em> menus.
+            </p>
+        </section>
+
+        <section id="prescriptions" class="help-section">
+            <h2>6. Prescriptions &amp; Refills</h2>
+            <p>
+                The <strong>Prescriptions</strong> page shows every
+                prescription written for you, split into <em>Active</em> and
+                <em>Past</em> tabs. <em>Past</em> includes prescriptions that
+                are filled, cancelled, or expired.
+            </p>
+
+            <h3>6.1 Reading a Prescription</h3>
+            <p>Click any prescription to open the detail page. You'll see:</p>
+            <ul>
+                <li><strong>Header</strong> — Rx number, prescriber name and NPI, prescribe date, expiry, and the linked diagnosis (with its ICD-10 code, where one is on file).</li>
+                <li><strong>Medication line items</strong> — drug name, dosage, frequency, duration, quantity, refills used and refills allowed, and your prescriber's instructions.</li>
+                <li><strong>Notes</strong> — any clinical notes the prescriber attached to the order.</li>
+            </ul>
+
+            <h3>6.2 Requesting a Refill</h3>
+            <p>
+                On a prescription's detail page, click
+                <strong>Request Refill</strong>. The portal walks every
+                line item with refills remaining and submits a refill
+                request to your clinic. You'll see a green confirmation
+                banner; if no items had refills left you'll see an amber
+                <em>"No refills remaining"</em> message instead.
+            </p>
+            <div class="help-callout">
+                <strong>What happens next.</strong> Your refill request
+                appears immediately in your clinic's pharmacy queue. The
+                pharmacy fills it on their next pass — controlled
+                substances (DEA Schedule II–V) may need a fresh
+                prescription instead of a refill, in which case you'll
+                receive a secure message asking you to schedule a quick
+                follow-up.
+            </div>
+        </section>
+
+        <section id="medications" class="help-section">
+            <h2>7. My Medications</h2>
+            <p>
+                The <strong>Medications</strong> page collapses every active
+                prescription into a single list of drugs you are currently
+                taking, with dosing, frequency, and your prescriber's name
+                next to each one. This is the screen to use as a refresher
+                before a visit, or to share with another provider.
+            </p>
+            <p>For each medication you'll see:</p>
+            <ul>
+                <li>Brand name and generic name.</li>
+                <li>Form (tablet, capsule, liquid, injection…).</li>
+                <li>Strength.</li>
+                <li>Dosage and frequency from your prescription.</li>
+                <li>Refills remaining and instructions.</li>
+                <li>Prescribing provider.</li>
+            </ul>
+            <div class="help-callout warn">
+                <strong>Allergies.</strong> If your <em>Profile</em> lists an
+                allergy, the prescribing system flags any new prescription
+                that conflicts with it before your provider signs it. The
+                allergies your clinic has on file are shown on the Profile
+                page — keep them current.
+            </div>
+        </section>
+
+        <section id="appointments" class="help-section">
+            <h2>8. Appointments</h2>
+            <p>
+                The <strong>Appointments</strong> page lists every visit
+                scheduled for you, separated into <em>Upcoming</em> (status
+                <em>scheduled</em> or <em>confirmed</em>) and <em>Past</em>
+                (<em>completed</em>, <em>cancelled</em>, or <em>no-show</em>).
+            </p>
+            <p>Each row shows date and time, provider, type, status, and reason.</p>
+            <h3>8.1 Scheduling, Cancelling, Rescheduling</h3>
+            <p>
+                Appointment scheduling is handled by your clinic's
+                front-desk staff. To book, change, or cancel an
+                appointment, send a secure message (see
+                <a href="#messages">§10</a>) or call the office. Your
+                clinic's actions appear on this page in real time.
+            </p>
+        </section>
+
+        <section id="records" class="help-section">
+            <h2>9. Medical Records</h2>
+            <p>
+                The <strong>Records</strong> page shows every clinical
+                record your clinic has shared with you. Use the
+                <strong>Type</strong> filter at the top to narrow by:
+            </p>
+            <table>
+                <tr><th>Type</th><th>What it contains</th></tr>
+                <tr><td>Lab Results</td><td>Blood work, urinalysis, lipid panel, etc., including the lab's reference ranges.</td></tr>
+                <tr><td>Imaging</td><td>X-ray, CT, MRI, and ultrasound reports — the radiologist's narrative.</td></tr>
+                <tr><td>Procedures</td><td>In-clinic procedures performed during a visit (sutures, injections, biopsies, EKG).</td></tr>
+                <tr><td>Referrals</td><td>Outgoing referrals to a specialist.</td></tr>
+                <tr><td>Other</td><td>Free-form clinical notes that don't fit the categories above.</td></tr>
+            </table>
+            <p>
+                Each record shows its title, type, the author, the date it
+                was created, and the body content. Records are read-only —
+                if you spot something that looks wrong, message your
+                provider and they will correct it from their side.
+            </p>
+            <div class="help-callout">
+                <strong>What's not shown here.</strong> Some clinics
+                deliberately hold sensitive results (genetic tests, mental
+                health notes, and similar) out of the portal until a
+                provider has reviewed them with you in person. If you're
+                expecting a result that isn't visible yet, that's why.
+            </div>
+        </section>
+
+        <section id="billing" class="help-section">
+            <h2>10. Bills &amp; Payments</h2>
+            <p>
+                The <strong>Billing</strong> page consolidates your
+                financial relationship with the clinic.
+            </p>
+
+            <h3>10.1 Outstanding Balance</h3>
+            <p>
+                The card at the top shows the total you owe across all
+                unpaid invoices. This is the same number that appears on
+                the dashboard.
+            </p>
+
+            <h3>10.2 Invoice List</h3>
+            <p>
+                Every invoice you've been issued, with status:
+            </p>
+            <ul>
+                <li><strong>Draft</strong> — drawn up by your clinic but not yet released.</li>
+                <li><strong>Sent</strong> — released and awaiting payment.</li>
+                <li><strong>Partial</strong> — partly paid, with a remaining balance.</li>
+                <li><strong>Paid</strong> — settled in full.</li>
+                <li><strong>Overdue</strong> — past the due date and still unpaid.</li>
+                <li><strong>Cancelled</strong> — voided by the clinic.</li>
+            </ul>
+
+            <h3>10.3 Paying a Bill</h3>
+            <p>
+                Click <strong>Pay</strong> next to an unpaid invoice. The
+                payment page lets you enter:
+            </p>
+            <ul>
+                <li><strong>Amount</strong> — defaults to the full balance; you can pay less for a partial payment.</li>
+                <li><strong>Payment method</strong> — credit card, debit card, or online (ACH).</li>
+            </ul>
+            <p>
+                On a successful payment the balance recalculates instantly.
+                If the balance reaches zero, the invoice transitions to
+                <strong>Paid</strong>; otherwise it becomes
+                <strong>Partial</strong>.
+            </p>
+            <div class="help-callout danger">
+                <strong>Receipts.</strong> Each successful payment is
+                recorded with a transaction reference, which you can review
+                in <em>Payment History</em> below the invoice list. Save
+                that page or take a screenshot for your records.
+            </div>
+
+            <h3>10.4 Payment History</h3>
+            <p>
+                Below the invoices, you'll find a chronological list of
+                every payment you've made through the portal — date,
+                amount, method, and reference number. This is the page
+                your accountant will probably want a print of.
+            </p>
+        </section>
+
+        <section id="messages" class="help-section">
+            <h2>11. Secure Messages</h2>
+            <p>
+                The <strong>Messages</strong> page is your direct line to
+                your care team. It is HIPAA-compliant and end-to-end
+                tracked, so it's the right channel for anything more
+                clinical than a scheduling question.
+            </p>
+
+            <h3>11.1 The Inbox</h3>
+            <p>
+                Each row is one conversation thread, showing the subject,
+                the provider, the timestamp of the most recent message, and
+                an <strong>unread indicator</strong> if there's a reply you
+                haven't read yet.
+            </p>
+
+            <h3>11.2 Starting a Thread</h3>
+            <p>
+                Click <strong>+ New Message</strong>. Pick the provider
+                (optional — leave blank if you don't know who handles your
+                question and the clinic will route it), type a
+                <strong>subject</strong>, write the <strong>body</strong>,
+                and click <strong>Send</strong>. The new thread appears at
+                the top of your inbox.
+            </p>
+
+            <h3>11.3 Reading and Replying</h3>
+            <p>
+                Click any thread to open the full conversation. The reply
+                box at the bottom is for sending a follow-up — write,
+                click <strong>Send</strong>, and your message is delivered
+                instantly. The portal marks every incoming message read as
+                soon as you open the thread.
+            </p>
+            <div class="help-callout warn">
+                <strong>Not for emergencies.</strong> Secure messages are
+                read during clinic hours. If you are experiencing a medical
+                emergency, call <strong>911</strong> (or your local
+                emergency number) — do not send a portal message.
+            </div>
+            <p>
+                Threads can be <strong>closed</strong> by either side once a
+                question is resolved. A closed thread stays in your inbox
+                and is searchable, but it can no longer accept replies — if
+                you need to follow up, start a new thread.
+            </p>
+        </section>
+
+        <section id="profile" class="help-section">
+            <h2>12. My Profile</h2>
+            <p>
+                The <strong>Profile</strong> page (in the user dropdown,
+                top right) shows the personal information your clinic has
+                on file. Some sections are display-only; others are
+                editable from here.
+            </p>
+
+            <h3>12.1 Personal Information</h3>
+            <p>
+                Read-only — name, date of birth, gender, blood type. If any
+                of this is wrong, ask the clinic to correct it; this data
+                affects clinical decisions and is changed in person.
+            </p>
+
+            <h3>12.2 Contact Information</h3>
+            <p>
+                Editable. Update your email, phone, address, city, state,
+                and ZIP, then click <strong>Save</strong>. Your update
+                propagates immediately to the clinic's records.
+            </p>
+
+            <h3>12.3 Insurance</h3>
+            <p>
+                Read-only summary of the insurance carrier(s) the clinic
+                has on file for billing. To swap insurance or add a new
+                policy, send a secure message with the new card details
+                (front and back), or call the office.
+            </p>
+
+            <h3>12.4 Allergies</h3>
+            <p>
+                Read-only list of allergens, severity, and reaction the
+                clinic has recorded for you. The prescribing system warns
+                your provider if a candidate medication conflicts with
+                anything on this list — so keeping it accurate is
+                important. Ask your provider to update it during your
+                next visit, or send a secure message.
+            </p>
+        </section>
+
+        <section id="notifications" class="help-section">
+            <h2>13. Notifications</h2>
+            <p>
+                The bell <i class="fas fa-bell"></i> in the top-right
+                navigation shows a red badge when something needs
+                attention. The badge counts:
+            </p>
+            <ul>
+                <li><strong>Overdue invoices</strong> — flagged in red.</li>
+                <li><strong>Outstanding invoices</strong> with a remaining balance — flagged in amber.</li>
+                <li><strong>Upcoming appointments</strong> — informational reminders.</li>
+            </ul>
+            <p>
+                Clicking the bell shows the most recent ten notifications.
+                The list refreshes automatically while the page is open.
+            </p>
+        </section>
+
+        <section id="menu" class="help-section">
+            <h2>14. User Menu</h2>
+            <p>
+                Click your name in the top-right corner of the navigation
+                bar to open the user menu. It contains:
+            </p>
+            <table>
+                <tr><th>Item</th><th>What it does</th></tr>
+                <tr><td class="k">Profile</td><td>Opens your profile page (see <a href="#profile">§12</a>).</td></tr>
+                <tr><td class="k">User Guide</td><td>Opens this document.</td></tr>
+                <tr><td class="k">Logout</td><td>Ends your session and returns you to the login screen. Always log out when you're finished, especially on a shared computer.</td></tr>
+            </table>
+        </section>
+
+        <hr>
+
+        <section id="privacy" class="help-section">
+            <h2>15. Privacy &amp; Security</h2>
+            <p>
+                The portal is built to comply with the U.S. Health Insurance
+                Portability and Accountability Act (HIPAA). Practical things
+                that means for you:
+            </p>
+            <ul>
+                <li><strong>Encryption in transit.</strong> Every page is served over TLS — look for the padlock in your browser's address bar.</li>
+                <li><strong>Hashed passwords.</strong> Your password is stored as a one-way hash. Even the clinic's IT staff can't read it.</li>
+                <li><strong>Session timeout.</strong> If you walk away from your computer, your session ends automatically and you'll need to log back in.</li>
+                <li><strong>Brute-force protection.</strong> Repeated failed logins lock the account temporarily.</li>
+                <li><strong>CSRF tokens.</strong> Every form submission carries a one-time token, so links from outside the portal can't act on your behalf.</li>
+                <li><strong>Audit log.</strong> Every action you take and every message you read is logged for compliance.</li>
+            </ul>
+            <p>
+                Your clinic's responsibilities (Business Associate Agreement
+                with the platform vendor, breach-notification policy, and
+                so on) are documented separately — ask the office for their
+                Notice of Privacy Practices.
+            </p>
+        </section>
+
+        <section id="troubleshooting" class="help-section">
+            <h2>16. Troubleshooting</h2>
+            <table>
+                <tr><th>Symptom</th><th>Likely cause &amp; what to try</th></tr>
+                <tr>
+                    <td><em>"Invalid username or password"</em> on a password I'm sure is correct</td>
+                    <td>Check Caps Lock. Usernames are case-insensitive but passwords are case-sensitive. After several failed attempts, the account locks for a few minutes — wait, then try again, or call the office to reset.</td>
+                </tr>
+                <tr>
+                    <td><em>"Too many failed login attempts"</em></td>
+                    <td>Wait the number of minutes shown on the screen, then sign in again. The cool-down resets the counter.</td>
+                </tr>
+                <tr>
+                    <td>Login works but I'm immediately back at the login page</td>
+                    <td>Your browser is blocking cookies. Allow cookies for this site (or remove an aggressive privacy extension), then try again.</td>
+                </tr>
+                <tr>
+                    <td>Can't see a recent lab result</td>
+                    <td>Some clinics hold sensitive results until a provider has reviewed them with you. Send a secure message if you've been waiting more than a few business days.</td>
+                </tr>
+                <tr>
+                    <td>Refill button is greyed out / not visible</td>
+                    <td>The prescription has no refills remaining, or the medication is a controlled substance that requires a fresh prescription. Send a secure message asking your prescriber.</td>
+                </tr>
+                <tr>
+                    <td>Payment was charged but the invoice still shows a balance</td>
+                    <td>Refresh the page; if the balance still hasn't updated, check <em>Payment History</em> for the transaction reference and forward it to the office in a secure message.</td>
+                </tr>
+                <tr>
+                    <td>Couldn't verify identity at registration</td>
+                    <td>One of the four fields (name, DOB, last 4 of SSN) doesn't match the clinic's record. Call the office to confirm what they have on file.</td>
+                </tr>
+                <tr>
+                    <td>Page looks broken / styles missing</td>
+                    <td>Hard-refresh: <kbd>Ctrl+F5</kbd> on Windows / Linux, or <kbd>Cmd+Shift+R</kbd> on macOS. Your browser may be serving a cached copy from before a portal upgrade.</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="about" class="help-section">
+            <h2>17. About &amp; Support</h2>
+            <p>
+                <strong>MedPharm ERP</strong> is built and maintained by
+                <strong>Enlightec Ltd.</strong>
+            </p>
+            <ul>
+                <li>Website: <a href="https://www.enlightec.com" style="color: var(--mp-primary);">www.enlightec.com</a></li>
+                <li>For account, billing, or clinical questions: contact your clinic directly — they own your patient record.</li>
+                <li>For software bugs: see the project README for the current issue tracker.</li>
+            </ul>
+            <p>
+                This software is licensed under the GNU General Public
+                License, version 3, or (at your option) any later version.
+            </p>
+        </section>
+    </div>
+</div>
+{% endblock %}

@@ -588,6 +588,7 @@ def build_document():
     ├── qt_app/                         # ── Desktop Application ────────
     │   ├── main_window.py              # QMainWindow + sidebar navigation
     │   ├── styles.py                   # 400+ line Qt stylesheet
+    │   ├── resources/help.html         # Bundled Desktop Client User Guide (F1)
     │   └── widgets/                    # 9 feature widgets
     │       ├── billing_widget.py       # Invoices + insurance claims
     │       ├── symptoms_widget.py      # Symptoms & conditions browser
@@ -596,7 +597,8 @@ def build_document():
     ├── web/                            # ── Web Portal ─────────────────
     │   ├── app.py                      # Flask application factory
     │   ├── routes.py                   # All HTTP routes
-    │   └── templates/                  # 14 Jinja2 HTML templates
+    │   └── templates/                  # 15 Jinja2 HTML templates
+    │       └── help.html               # In-portal Patient User Guide (/help)
     │
     ├── android/                        # ── Android (Kotlin MVVM) ──────
     │   └── app/src/main/java/          # Retrofit, OkHttp, Coroutines
@@ -1282,6 +1284,7 @@ def build_document():
         ["/appointments", "GET", "Yes", "Upcoming + past appointments"],
         ["/medications", "GET", "Yes", "Current active medications with drug info"],
         ["/profile", "GET, POST", "Yes", "View/edit contact info, insurance, allergies"],
+        ["/help", "GET", "No", "In-portal Patient User Guide (also linked from the top-right user dropdown)"],
         ["/api/notifications", "GET", "Yes", "JSON: overdue bills, upcoming appointments"],
         ["/api/prescriptions", "GET", "Yes", "JSON: all patient prescriptions"],
         ["/api/invoices/outstanding", "GET", "Yes", "JSON: unpaid invoices"],
@@ -1441,6 +1444,49 @@ def build_document():
             if patient and not patient.portal_account:                  # No duplicate accounts
                 return patient.id
         return None"""), styles))
+
+    story.append(Paragraph("14.4 In-Portal User Guide", styles["H2"]))
+    story.append(Paragraph(
+        "The Flask Patient Portal ships a self-contained, 17-section User Guide rendered "
+        "by the route <b>GET /help</b> from <i>web/templates/help.html</i>. The guide is "
+        "linked from the right-hand user dropdown in <i>base.html</i> (the same menu that "
+        "holds Profile and Logout) so it is one click away from any authenticated page; "
+        "the URL is also reachable directly without a session, so administrators can "
+        "share the link out-of-band when onboarding new patients.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph(
+        "The template extends <i>base.html</i> and reuses the portal's design tokens "
+        "(<i>--mp-primary</i>, <i>--mp-surface</i>, etc.) so the guide blends visually with "
+        "the rest of the portal. A sticky table of contents on the left tracks scroll "
+        "position; on screens narrower than 992&nbsp;px the TOC collapses inline above "
+        "the content. Sections cover overview, signing in, registering, the navigation "
+        "layout, dashboard, prescriptions and refills, the medications list, "
+        "appointments, medical records, billing and payments, secure messages, profile, "
+        "notifications, the user menu, privacy &amp; HIPAA controls, troubleshooting, "
+        "and an About panel.",
+        styles["BodyText2"]))
+
+    story.append(code_block(textwrap.dedent("""\
+    # web/routes.py — guide is intentionally NOT @login_required so the URL
+    # can be shared out-of-band when onboarding new patients.
+    @portal_bp.route("/help")
+    def help_page():
+        \"\"\"In-portal user guide. Linked from the right-hand user dropdown.\"\"\"
+        return render_template("help.html")
+
+    # web/templates/base.html — the user dropdown sits between Profile and Logout
+    <li><a class="dropdown-item" href="{{ url_for('portal.help_page') }}">
+        <i class="fas fa-question-circle me-2"></i>User Guide
+    </a></li>"""), styles))
+
+    story.append(Paragraph(
+        "The Qt6 desktop client carries an analogous bundled guide at "
+        "<i>qt_app/resources/help.html</i>, opened from <b>Help &rarr; User Guide</b> "
+        "(<b>F1</b>) via <i>QDesktopServices.openUrl(QUrl.fromLocalFile(...))</i>. "
+        "Both guides are themed to match their host UI and are versioned with the "
+        "rest of the source tree, so a feature change ships with its docs.",
+        styles["BodyText2"]))
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════

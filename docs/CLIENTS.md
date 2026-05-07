@@ -72,6 +72,7 @@ qt_app/
 * Diagnosis picker on the New Prescription dialog — selects from the patient's active/chronic ICD-10 diagnoses, with an inline "+ New Diagnosis" form; the prescriber's NPI (10-digit NPPES identifier) is shown on every prescription header
 * matplotlib analytics embedded in the Qt widget tree
 * Role-based visibility (admin sees all, pharmacist sees Rx/meds, etc.)
+* Bundled **Desktop Client User Guide** at [`qt_app/resources/help.html`](../qt_app/resources/help.html), reached from <kbd>Help → User Guide</kbd> (<kbd>F1</kbd>)
 
 ### Runtime
 
@@ -125,6 +126,7 @@ web/
 | `/records`, `/appointments` | Medical history |
 | `/medications` | Current meds |
 | `/profile` | Demographics, insurance, allergies |
+| `/help` | In-portal User Guide (linked from the right-hand user dropdown) |
 
 ---
 

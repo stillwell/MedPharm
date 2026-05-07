@@ -42,6 +42,7 @@ The 1.7.6 product line carries a series of operator- and engineer-facing improve
 - **Native systemd services** via [`./install-services.sh`](install-services.sh). Migrates the tree to `/opt/medpharm`, creates the `medpharm` system user (UID 1000, `/usr/sbin/nologin`), installs sandboxed `medpharm-api.service` + `medpharm-web.service` units. Aligned with the Docker image and k8s deployment so all three deployment paths converge on the same security model (`runAsNonRoot`, `capabilities.drop=[ALL]`, `seccompProfile: RuntimeDefault`).
 - **Medications catalogue bulk loaders.** [`database/load_fda_data.py`](database/load_fda_data.py) ingests the FDA NDC Directory + NIH DSLD (~360k Rx + OTC + dietary-supplement entries). [`database/load_dailymed_spl.py`](database/load_dailymed_spl.py) enriches existing rows with prescribing information (indications, contraindications, side effects, dosage, warnings) extracted from HL7 V3 SPL XML by LOINC section code. Idempotent, streaming, resumable. Schema gains `data_source` + 7 other columns and three indexes; `search_medications` and `/medications/search` paginate. Full operator guide: [`docs/MEDICATIONS_DATABASE.md`](docs/MEDICATIONS_DATABASE.md).
 - **Code-health pass.** `datetime.utcnow()` (deprecated in Python 3.12, removed in 3.14) replaced across 35 call sites with a centralised `_naive_utc_now()` helper. Schema migration is now dialect-aware (functional `lower(col)` indexes on SQLite + Postgres, plain indexes on MySQL/other). SAWarning noise from functional-index reflection silenced. Android `MedicationsResponse` carries optional pagination metadata so the new "Showing N of M — refine your search" footer can fire when the catalogue overflows the page.
+- **In-app user guides.** Every long-lived client now ships its own bundled User Guide. The Qt desktop opens [`qt_app/resources/help.html`](qt_app/resources/help.html) from <kbd>Help → User Guide</kbd> (<kbd>F1</kbd>); the Flask Patient Portal renders [`web/templates/help.html`](web/templates/help.html) at `GET /help` and links it from the right-hand user dropdown alongside Profile and Logout. Both documents are themed to match their host UI (dark navy + teal), use a sticky table of contents, and cover every screen, action, role/permission boundary, and troubleshooting recipe a user is likely to need.
 
 ---
 
@@ -124,6 +125,7 @@ The 1.7.6 product line carries a series of operator- and engineer-facing improve
 - **Appointments** — View upcoming and past appointment history
 - **Medication Info** — Current medications with dosage, frequency, and drug information
 - **Profile Management** — Update contact info, insurance details, and allergy records
+- **In-Portal User Guide** — A 17-section walkthrough of every screen, action, and notification, accessible from the user dropdown (top-right, next to Profile and Logout)
 
 ### Database & Backend
 - **23 SQLAlchemy ORM models** with 18 Python enums and full relationship mapping
@@ -1053,6 +1055,8 @@ All endpoints require a `Bearer <token>` Authorization header except `/health`, 
 8. **Medications** — See your current medications with full details: dosage, frequency, drug class, manufacturer, and special instructions.
 
 9. **Profile** — Update your phone number, email, and address. View insurance information and manage allergy records.
+
+10. **User Guide** — Click your name in the top-right corner and select **User Guide** from the dropdown to open an in-portal walkthrough covering every page, the notification bell, refill requests, online payment, secure messaging, privacy/HIPAA controls, and a troubleshooting checklist. The same guide is also reachable directly at `/help`.
 
 ---
 

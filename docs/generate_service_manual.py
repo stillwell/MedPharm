@@ -2080,6 +2080,31 @@ def chapter_10_users_credentials(styles):
             "verification is indistinguishable, from MedPharm's point "
             "of view, from an account takeover.",
             styles),
+        p(
+            "Patients who arrive at the portal for the first time and "
+            "ask the front desk \"how does this work?\" should be "
+            "directed to the in-portal User Guide. From any "
+            "authenticated page they click their name in the top-right "
+            "corner of the navigation bar and select <b>User&nbsp;Guide</b> "
+            "from the dropdown; the URL is also "
+            f"{c('/help')} and is reachable without a session, so "
+            "operators can paste it directly into an email or text "
+            "message during onboarding. The guide covers signing in, "
+            "self-registration, refill requests, online bill pay, "
+            "secure messaging, the notification bell, profile edits, "
+            "privacy controls, and a troubleshooting checklist that "
+            "answers most front-desk calls without further escalation.",
+            styles),
+        p(
+            "Clinical staff have an equivalent bundled guide in the "
+            "PyQt desktop. It is reached from <b>Help &rarr; "
+            "User&nbsp;Guide</b> (<b>F1</b>) and opens "
+            f"{c('qt_app/resources/help.html')} in the operator's "
+            "default browser. The desktop guide carries the role and "
+            "permission matrix, every menu and module, common clinical "
+            "workflows, and the diagnosis-on-prescription workflow "
+            "introduced in 1.7.6.",
+            styles),
         h2("JWT and refresh tokens", styles),
         p(
             "Mobile and desktop clients authenticate against the API "

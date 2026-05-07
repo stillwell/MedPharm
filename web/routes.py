@@ -447,6 +447,14 @@ def message_thread(thread_id):
                            patient_name=session.get("patient_name", ""))
 
 
+# ── Help / User Guide ──────────────────────────────────────────────────────────
+
+@portal_bp.route("/help")
+def help_page():
+    """In-portal user guide. Linked from the right-hand user dropdown."""
+    return render_template("help.html")
+
+
 @portal_bp.route("/api/notifications")
 @login_required
 def api_notifications():
