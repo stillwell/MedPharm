@@ -78,6 +78,20 @@ from security.emergency import (
     EmergencyAccessGrant,
     log_emergency_access,
 )
+from security.deidentify import (
+    SafeHarborOptions,
+    safe_harbor,
+    redact_text,
+)
+from security.rate_limit import (
+    RateLimitExceeded,
+    RateLimiter,
+    flask_rate_limit,
+)
+from security.log_redaction import (
+    PHIRedactionFilter,
+    install_phi_redaction_filter,
+)
 
 __all__ = [
     "SecurityConfig",
@@ -107,4 +121,12 @@ __all__ = [
     "verify_totp_code",
     "EmergencyAccessGrant",
     "log_emergency_access",
+    "SafeHarborOptions",
+    "safe_harbor",
+    "redact_text",
+    "RateLimitExceeded",
+    "RateLimiter",
+    "flask_rate_limit",
+    "PHIRedactionFilter",
+    "install_phi_redaction_filter",
 ]

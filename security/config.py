@@ -34,6 +34,14 @@ class SecurityConfig:
     cors_origins: str = ""
     environment: str = "development"
     allowed_hosts: list = field(default_factory=list)
+    # Hard ceiling on a single session's lifetime, regardless of activity.
+    # 0 means "8 × idle_timeout_seconds" — the historical default.
+    absolute_session_lifetime_seconds: int = 0
+    # Strict CSP drops 'unsafe-inline' for scripts; opt-in because it
+    # requires every inline <script> in the templates to be moved out.
+    strict_csp: bool = False
+    # Default per-IP rate limit for unauthenticated endpoints.
+    rate_limit_per_minute: int = 60
 
     @property
     def is_production(self) -> bool:
@@ -90,6 +98,10 @@ def load_security_config() -> SecurityConfig:
         cors_origins=_env("MEDPHARM_CORS_ORIGINS") or "",
         environment=env,
         allowed_hosts=(_env("MEDPHARM_ALLOWED_HOSTS") or "").split(","),
+        absolute_session_lifetime_seconds=_env_int(
+            "MEDPHARM_ABSOLUTE_SESSION_LIFETIME", 0),
+        strict_csp=_env_bool("MEDPHARM_STRICT_CSP", False),
+        rate_limit_per_minute=_env_int("MEDPHARM_RATE_LIMIT_PER_MIN", 60),
     )
     return cfg
 

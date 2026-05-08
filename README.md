@@ -43,6 +43,7 @@ The 1.7.6 product line carries a series of operator- and engineer-facing improve
 - **Medications catalogue bulk loaders.** [`database/load_fda_data.py`](database/load_fda_data.py) ingests the FDA NDC Directory + NIH DSLD (~360k Rx + OTC + dietary-supplement entries). [`database/load_dailymed_spl.py`](database/load_dailymed_spl.py) enriches existing rows with prescribing information (indications, contraindications, side effects, dosage, warnings) extracted from HL7 V3 SPL XML by LOINC section code. Idempotent, streaming, resumable. Schema gains `data_source` + 7 other columns and three indexes; `search_medications` and `/medications/search` paginate. Full operator guide: [`docs/MEDICATIONS_DATABASE.md`](docs/MEDICATIONS_DATABASE.md).
 - **Code-health pass.** `datetime.utcnow()` (deprecated in Python 3.12, removed in 3.14) replaced across 35 call sites with a centralised `_naive_utc_now()` helper. Schema migration is now dialect-aware (functional `lower(col)` indexes on SQLite + Postgres, plain indexes on MySQL/other). SAWarning noise from functional-index reflection silenced. Android `MedicationsResponse` carries optional pagination metadata so the new "Showing N of M — refine your search" footer can fire when the catalogue overflows the page.
 - **In-app user guides.** Every long-lived client now ships its own bundled User Guide. The Qt desktop opens [`qt_app/resources/help.html`](qt_app/resources/help.html) from <kbd>Help → User Guide</kbd> (<kbd>F1</kbd>); the Flask Patient Portal renders [`web/templates/help.html`](web/templates/help.html) at `GET /help` and links it from the right-hand user dropdown alongside Profile and Logout. Both documents are themed to match their host UI (dark navy + teal), use a sticky table of contents, and cover every screen, action, role/permission boundary, and troubleshooting recipe a user is likely to need.
+- **HIPAA documentation expansion.** Eight new policy + playbook documents under [`docs/`](docs/) — Notice of Privacy Practices, Risk Analysis, Contingency Plan, Sanctions Policy, Workforce Training, Minimum Necessary, Patient Rights, Data Retention — paired with a substantially expanded [`docs/HIPAA_COMPLIANCE.md`](docs/HIPAA_COMPLIANCE.md) hub that maps every Security Rule standard to its implementation or its policy doc and ships a deployment checklist. New runtime helpers in [`security/`](security/): `deidentify.py` (Safe Harbor 18-identifier removal per § 164.514(b)(2)), `rate_limit.py` (sliding-window rate limiter), `log_redaction.py` (PHI redaction logging filter). `encryption.py` now refuses to boot in production without the `cryptography` package and `MEDPHARM_FIELD_KEY`; `sessions.py` adds an absolute-session-lifetime cap and an opt-in strict CSP (`MEDPHARM_STRICT_CSP=1`).
 
 ---
 
@@ -61,6 +62,7 @@ The 1.7.6 product line carries a series of operator- and engineer-facing improve
 - [Remote Access via ngrok](#remote-access-via-ngrok)
 - [Usage Guide](#usage-guide)
 - [Documentation](#documentation)
+  - [HIPAA Compliance & Privacy Documentation](#hipaa-compliance--privacy-documentation)
 - [Default Credentials](#default-credentials)
 - [License](#license)
 
@@ -1157,6 +1159,43 @@ python3 docs/generate_developer_manual.py
 The output is written to `docs/MedPharm_ERP_Developer_Manual.pdf` and opens cleanly in Adobe Acrobat Reader, Apple Preview, or any modern browser PDF viewer. Hyperlinks in the manual (mailto: and https://) are clickable.
 
 > **Tip:** A new engineer should expect to spend three to five working days reading Volume III end-to-end while opening the real source files alongside. After the first pass, the table of contents becomes the index. Part VII (Extending MedPharm) is the right starting point if you are about to land a substantial change.
+
+### HIPAA Compliance & Privacy Documentation
+
+MedPharm ERP is built and documented for deployment by U.S. HIPAA-covered entities and their business associates. The technical safeguards in code (45 CFR § 164.312) are paired with administrative, physical, and organisational documentation under [`docs/`](docs/). The hub is [`docs/HIPAA_COMPLIANCE.md`](docs/HIPAA_COMPLIANCE.md), which maps every Security Rule standard to its implementation or its policy doc and ships a deployment checklist.
+
+| Document | What it covers | HIPAA reference |
+|----------|----------------|-----------------|
+| [`HIPAA_COMPLIANCE.md`](docs/HIPAA_COMPLIANCE.md) | Master control map + deployment checklist | 45 CFR § 164.302 et seq. |
+| [`NOTICE_OF_PRIVACY_PRACTICES.md`](docs/NOTICE_OF_PRIVACY_PRACTICES.md) | Patient-facing notice template | § 164.520 |
+| [`RISK_ANALYSIS_TEMPLATE.md`](docs/RISK_ANALYSIS_TEMPLATE.md) | Annual risk analysis & risk-management plan | § 164.308(a)(1)(ii)(A)–(B) |
+| [`CONTINGENCY_PLAN.md`](docs/CONTINGENCY_PLAN.md) | Backup, disaster recovery, emergency-mode operation | § 164.308(a)(7) |
+| [`SANCTIONS_POLICY.md`](docs/SANCTIONS_POLICY.md) | Workforce sanctions framework with violation categories A–D | § 164.308(a)(1)(ii)(C) |
+| [`WORKFORCE_TRAINING.md`](docs/WORKFORCE_TRAINING.md) | Onboarding + annual refresh + incident-driven training | § 164.308(a)(5) |
+| [`MINIMUM_NECESSARY.md`](docs/MINIMUM_NECESSARY.md) | RBAC + minimum-necessary policy | § 164.502(b) / § 164.514(d) |
+| [`PATIENT_RIGHTS.md`](docs/PATIENT_RIGHTS.md) | Access, amendment, accounting, restriction, complaints — front-desk playbook | §§ 164.522–528 |
+| [`DATA_RETENTION_POLICY.md`](docs/DATA_RETENTION_POLICY.md) | Retention windows, destruction methods, legal-hold workflow | § 164.316(b)(2), § 164.530(j) |
+| [`BREACH_NOTIFICATION.md`](docs/BREACH_NOTIFICATION.md) | Five-stage incident workflow + notification timelines | §§ 164.400–414 |
+| [`BAA_TEMPLATE.md`](docs/BAA_TEMPLATE.md) | Business Associate Agreement template | § 164.504(e) |
+
+The implementation lives under [`security/`](security/). Each module names the regulatory section it implements in its docstring:
+
+| Module | Standard | What it does |
+|--------|----------|--------------|
+| `security/audit.py` | § 164.312(b), (c)(1) | Hash-chained `audit_log`; `verify_audit_chain()` recomputes the chain to detect tampering. |
+| `security/phi.py` | § 164.312(b) | `@log_phi_access` decorator stamps `phi_access_log` for every PHI read; powers § 164.528 accounting. |
+| `security/encryption.py` | § 164.312(a)(2)(iv), (e)(2)(ii) | Fernet `FieldCipher` for marked PHI columns; refuses to boot in production without `cryptography` and `MEDPHARM_FIELD_KEY`. |
+| `security/passwords.py` | § 164.312(d) | Complexity, history, rotation. PBKDF2-HMAC-SHA256 via Werkzeug. |
+| `security/totp.py` | § 164.312(d) | TOTP MFA. |
+| `security/lockout.py` | § 164.308(a)(5)(ii)(C) | Failed-login monitoring & temporary lockout. |
+| `security/sessions.py` | § 164.312(a)(2)(iii) | Idle timeout + absolute lifetime cap; HSTS, CSP, `SameSite=Lax`, security headers. |
+| `security/csrf.py` | § 164.312(c)(2) | CSRF tokens on every state-changing portal route. |
+| `security/emergency.py` | § 164.312(a)(2)(ii) | Break-glass emergency-access grant with mandatory justification + audit entry. |
+| `security/deidentify.py` | § 164.514(b)(2) | Safe Harbor 18-identifier removal + free-text redaction for analytics export. |
+| `security/rate_limit.py` | § 164.308(a)(1)(ii)(B), defence-in-depth | Sliding-window per-IP rate limiter for unauthenticated and hot endpoints. |
+| `security/log_redaction.py` | Defence-in-depth around (b) | Logging filter that scrubs SSN, phone, email, IP, URL, dates, MRN, ages > 89, and JWTs from log records. |
+
+> **Reminder.** Code is one of three pillars. Without the policy and process documents above (and the workforce training and signed BAAs they reference), MedPharm is **not** HIPAA-compliant in itself — it is a HIPAA-aligned platform that a covered entity *can use to be compliant.*
 
 ---
 

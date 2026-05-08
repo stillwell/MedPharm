@@ -2723,6 +2723,104 @@ def chapter_16_hipaa(styles):
             "a filing discipline around BAAs early — their value "
             "lies in being producible on demand during an audit.",
             styles["SM_Legend"]),
+        h2("Companion documents (administrative + organisational)", styles),
+        p(
+            "MedPharm 1.7.6 ships an expanded set of companion "
+            "documents under "
+            f"{c('docs/')} that the operator and the practice's "
+            "Privacy and Security Officers should read together. "
+            "Each is a working template — fill in bracketed fields, "
+            "adapt to local law, and have counsel review the final "
+            "version before publication. The hub is "
+            f"{c('docs/HIPAA_COMPLIANCE.md')}.",
+            styles),
+        make_table(
+            ["Companion document", "Topic", "Standard"],
+            [
+                ["NOTICE_OF_PRIVACY_PRACTICES.md",
+                 "Patient-facing notice template",
+                 "§ 164.520"],
+                ["RISK_ANALYSIS_TEMPLATE.md",
+                 "Annual risk analysis & risk-management plan",
+                 "§ 164.308(a)(1)(ii)(A)–(B)"],
+                ["CONTINGENCY_PLAN.md",
+                 "Backup, DR, emergency mode",
+                 "§ 164.308(a)(7)"],
+                ["SANCTIONS_POLICY.md",
+                 "Workforce sanctions framework, categories A–D",
+                 "§ 164.308(a)(1)(ii)(C)"],
+                ["WORKFORCE_TRAINING.md",
+                 "Onboarding + annual refresh + targeted modules",
+                 "§ 164.308(a)(5)"],
+                ["MINIMUM_NECESSARY.md",
+                 "RBAC + minimum-necessary policy",
+                 "§ 164.502(b)"],
+                ["PATIENT_RIGHTS.md",
+                 "Access, amendment, accounting, restriction, complaints",
+                 "§§ 164.522–528"],
+                ["DATA_RETENTION_POLICY.md",
+                 "Retention, disposal, legal-hold workflow",
+                 "§ 164.316(b)(2), § 164.530(j)"],
+                ["BREACH_NOTIFICATION.md",
+                 "Five-stage incident workflow + notification timelines",
+                 "§§ 164.400–414"],
+                ["BAA_TEMPLATE.md",
+                 "Business Associate Agreement template",
+                 "§ 164.504(e)"],
+            ],
+            col_widths=[1.95 * inch, 2.6 * inch, 1.75 * inch]),
+        h2("Production-grade defences in code", styles),
+        p(
+            "Three new modules under "
+            f"{c('security/')} provide defence-in-depth controls the "
+            "operator should activate as part of the production "
+            "boot:",
+            styles),
+        bullets(
+            [
+                f"{c('security/deidentify.safe_harbor(record)')} — "
+                "removes the 18 Safe Harbor identifiers (45 CFR § 164.514(b)(2)) "
+                "from a record dict, coarsens dates to year, truncates "
+                "ZIP codes to 3 digits (replacing HHS-restricted prefixes "
+                "with '000'), caps ages > 89 to 90+. Use before exporting "
+                "any analytics dataset that you wish to retain "
+                "indefinitely or share without authorisation.",
+                f"{c('security/rate_limit.RateLimiter')} + "
+                f"{c('@flask_rate_limit')} — sliding-window per-IP / "
+                "per-scope rate limiter. Apply to the unauthenticated "
+                "endpoints (/login, /register, /auth/*) and to the "
+                "expensive search endpoints. Default 60 req/min/IP, "
+                f"tuned via {c('MEDPHARM_RATE_LIMIT_PER_MIN')}.",
+                f"{c('security/log_redaction.install_phi_redaction_filter()')} — "
+                "logging.Filter that scrubs SSN, phone, email, IP, "
+                "URL, dates, MRN, ages > 89, and JWTs from log records. "
+                "Install once at process start; it sits underneath every "
+                "handler and rewrites records before they leave the "
+                "process. Defence-in-depth around the no-PHI-in-logs "
+                "rule.",
+            ],
+            styles),
+        h2("Hardened defaults in 1.7.6", styles),
+        bullets(
+            [
+                f"{c('security/encryption.py')} refuses production boot "
+                f"if the {c('cryptography')} package is missing or "
+                f"{c('MEDPHARM_FIELD_KEY')} is unset. The fallback "
+                "HMAC+XOR construction is for development only.",
+                f"{c('security/sessions.py')} adds an absolute "
+                "session-lifetime cap (default 8 × idle = 2 h) "
+                f"separate from idle timeout, configurable via "
+                f"{c('MEDPHARM_ABSOLUTE_SESSION_LIFETIME')}.",
+                f"Optional strict CSP via {c('MEDPHARM_STRICT_CSP=1')} "
+                "drops 'unsafe-inline' for scripts. Opt-in because "
+                "the bundled templates use inline &lt;script&gt; tags; "
+                "switch on after auditing the templates.",
+                f"{c('security/config.py')} surfaces the new knobs "
+                f"as {c('absolute_session_lifetime_seconds')}, "
+                f"{c('strict_csp')}, and "
+                f"{c('rate_limit_per_minute')}.",
+            ],
+            styles),
         PageBreak(),
     ]
     return s

@@ -1666,6 +1666,114 @@ def build_document():
     story.append(PageBreak())
 
     # ═══════════════════════════════════════════════════════════════════════════
+    # SECTION 18b: HIPAA SAFEGUARDS — TECHNICAL + ADMINISTRATIVE + PHYSICAL
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    story.append(Paragraph(
+        "18b. HIPAA Safeguards — Technical, Administrative, Physical",
+        styles["H1"]))
+    story.append(SectionDivider())
+
+    story.append(Paragraph(
+        "MedPharm ERP implements the HIPAA Security Rule's technical "
+        "safeguards (45 CFR § 164.312) in code; the deployment "
+        "covered entity is responsible for the administrative "
+        "(§ 164.308), physical (§ 164.310), and organisational "
+        "(§ 164.314, § 164.316) safeguards. The full mapping is in "
+        "<i>docs/HIPAA_COMPLIANCE.md</i>; the policy and operational "
+        "templates ship as companion documents.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("18b.1 Technical Safeguards (§ 164.312)", styles["H2"]))
+
+    tech_rows = [
+        ["Standard", "Implementation"],
+        ["(a)(1) Access control",
+         "RBAC, @login_required, JWT scope checks (security/lockout, security/sessions, api/auth)"],
+        ["(a)(2)(ii) Emergency access",
+         "Break-glass with mandatory ≥ 20-char justification (security/emergency)"],
+        ["(a)(2)(iii) Auto logoff",
+         "Idle 15 min + absolute lifetime cap 2 h (security/sessions)"],
+        ["(a)(2)(iv) Encryption at rest",
+         "Fernet FieldCipher; production refuses without 'cryptography' (security/encryption)"],
+        ["(b) Audit controls",
+         "Hash-chained audit_log + phi_access_log (security/audit, security/phi)"],
+        ["(c)(1) Integrity",
+         "verify_audit_chain() detects post-hoc tampering"],
+        ["(d) Authentication",
+         "PBKDF2 passwords + TOTP MFA (security/passwords, security/totp)"],
+        ["(e)(2)(ii) Encryption in transit",
+         "TLS 1.2+ at nginx; HSTS preload; HTTP → 301 → HTTPS"],
+    ]
+    story.append(make_table(tech_rows[0], tech_rows[1:],
+                            [1.6*inch, 4.4*inch]))
+
+    story.append(Paragraph(
+        "18b.2 Administrative + Physical + Organisational — companion docs",
+        styles["H2"]))
+
+    admin_rows = [
+        ["Topic", "Document", "Standard"],
+        ["Patient-facing notice", "NOTICE_OF_PRIVACY_PRACTICES.md", "§ 164.520"],
+        ["Risk analysis", "RISK_ANALYSIS_TEMPLATE.md", "§ 164.308(a)(1)(ii)(A)"],
+        ["Contingency / DR / emergency mode", "CONTINGENCY_PLAN.md", "§ 164.308(a)(7)"],
+        ["Sanctions policy", "SANCTIONS_POLICY.md", "§ 164.308(a)(1)(ii)(C)"],
+        ["Workforce training", "WORKFORCE_TRAINING.md", "§ 164.308(a)(5)"],
+        ["Minimum necessary", "MINIMUM_NECESSARY.md", "§ 164.502(b)"],
+        ["Patient rights", "PATIENT_RIGHTS.md", "§§ 164.522–528"],
+        ["Retention & disposal", "DATA_RETENTION_POLICY.md", "§ 164.316(b)(2), § 164.530(j)"],
+        ["Breach notification", "BREACH_NOTIFICATION.md", "§§ 164.400–414"],
+        ["BAA template", "BAA_TEMPLATE.md", "§ 164.504(e)"],
+    ]
+    story.append(make_table(admin_rows[0], admin_rows[1:],
+                            [1.6*inch, 2.6*inch, 1.8*inch]))
+
+    story.append(Paragraph("18b.3 Production-grade defences in code", styles["H2"]))
+    story.append(Paragraph(
+        "Three defence-in-depth helpers shipped in 1.7.6:",
+        styles["BodyText2"]))
+    story.append(Paragraph(
+        f'<bullet>&bull;</bullet> {bold("security/deidentify.py")} — Safe Harbor 18-identifier '
+        "removal (45 CFR § 164.514(b)(2)). Coarsens dates to year, ZIPs to 3 digits "
+        "(replacing the HHS restricted-prefix list with '000'), strips names, "
+        "addresses, identifiers, biometrics. Plus <i>redact_text()</i> for "
+        "free-text scrubs of SSN, phone, email, IP, URL, dates, MRN, ages > 89.",
+        styles["BodyText2"]))
+    story.append(Paragraph(
+        f'<bullet>&bull;</bullet> {bold("security/rate_limit.py")} — sliding-window '
+        "per-IP / per-scope rate limiter. Default 60 req/min/IP (configurable via "
+        "<i>MEDPHARM_RATE_LIMIT_PER_MIN</i>). Apply with the "
+        "<i>flask_rate_limit</i> decorator to login, register, and "
+        "expensive-search endpoints.",
+        styles["BodyText2"]))
+    story.append(Paragraph(
+        f'<bullet>&bull;</bullet> {bold("security/log_redaction.py")} — '
+        "logging.Filter that scrubs SSN, phone, email, IP, URL, dates, MRN, ages > 89, "
+        "and JWTs from log records. Defence-in-depth around the "
+        "no-PHI-in-logs rule.",
+        styles["BodyText2"]))
+
+    story.append(Paragraph("18b.4 Hardened defaults in 1.7.6", styles["H2"]))
+    hard_rows = [
+        ["Module", "Change", "Why"],
+        ["security/encryption.py",
+         "Refuse production boot without 'cryptography' or MEDPHARM_FIELD_KEY",
+         "HIPAA encryption guidance assumes FIPS-aligned primitives"],
+        ["security/sessions.py",
+         "Add absolute session-lifetime cap (default 2 h, env-tunable)",
+         "Defence-in-depth for sessions left open after shift end"],
+        ["security/sessions.py",
+         "Optional strict CSP (drop 'unsafe-inline' for scripts)",
+         "Stronger XSS posture; opt-in via MEDPHARM_STRICT_CSP=1"],
+        ["security/config.py",
+         "Add rate_limit_per_minute, strict_csp, absolute_session_lifetime_seconds",
+         "First-class config for the new helpers"],
+    ]
+    story.append(make_table(hard_rows[0], hard_rows[1:],
+                            [1.6*inch, 2.4*inch, 2.0*inch]))
+    story.append(PageBreak())
+
+    # ═══════════════════════════════════════════════════════════════════════════
     # SECTION 19: DEPLOYMENT
     # ═══════════════════════════════════════════════════════════════════════════
 

@@ -4197,6 +4197,55 @@ def chapter_22_audit(styles):
         "expected to honour it.",
         styles))
 
+    s.append(h2("Defence-in-depth helpers (1.7.6)", styles))
+    s.append(p(
+        "MedPharm 1.7.6 adds three production-grade defences. They "
+        "are first-class members of the security package and are "
+        "imported the same way as " + c("@login_required") + ":",
+        styles))
+    s.extend(code_block("""from security import (
+    safe_harbor, redact_text,                  # security.deidentify
+    RateLimiter, flask_rate_limit,             # security.rate_limit
+    install_phi_redaction_filter,              # security.log_redaction
+)
+
+# Safe Harbor de-identification (45 CFR § 164.514(b)(2))
+de_identified = safe_harbor(patient_record)
+clean_text = redact_text(clinical_note)
+
+# Per-IP rate limit on the unauthenticated portal endpoints
+rl = RateLimiter()
+@portal_bp.route("/login", methods=["POST"])
+@flask_rate_limit(rl, scope="login", capacity=10, window_seconds=60)
+def login(): ...
+
+# Defence-in-depth PHI scrub on application logs
+import logging
+install_phi_redaction_filter(logging.getLogger())""",
+        language="python",
+        caption="Listing 22-2. Importing and applying the defence-in-depth helpers."))
+
+    s.append(h2("Hardened defaults", styles))
+    s.append(bullets([
+        c("security/encryption.py") +
+        " refuses production boot when the cryptography package is "
+        "not installed or " + c("MEDPHARM_FIELD_KEY") + " is unset. "
+        "The fallback HMAC+XOR construction is for development only.",
+        c("security/sessions.py") +
+        " adds an absolute session-lifetime cap (default 8 × idle "
+        "= 2 h) separate from the idle timeout. Tunable via " +
+        c("MEDPHARM_ABSOLUTE_SESSION_LIFETIME") + ".",
+        "Optional strict CSP (drop 'unsafe-inline' for scripts) "
+        "via " + c("MEDPHARM_STRICT_CSP=1") + ". Opt-in because the "
+        "bundled templates contain inline &lt;script&gt; tags; "
+        "switch on after auditing them.",
+        c("security/config.py") +
+        " surfaces the new knobs as " +
+        c("absolute_session_lifetime_seconds") + ", " +
+        c("strict_csp") + ", and " +
+        c("rate_limit_per_minute") + ".",
+    ], styles))
+
     s.append(PageBreak())
     return s
 

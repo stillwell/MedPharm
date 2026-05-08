@@ -122,10 +122,27 @@ def _singleton() -> FieldCipher:
     if _SINGLETON is None:
         key = os.environ.get("MEDPHARM_FIELD_KEY", "").strip()
         legacy = [k for k in os.environ.get("MEDPHARM_FIELD_KEY_LEGACY", "").split(",") if k.strip()]
+        env = os.environ.get("MEDPHARM_ENV", "").strip().lower()
+        is_production = env in ("production", "prod")
+        if not _HAVE_CRYPTO and is_production:
+            # The fallback is suitable for development only; HIPAA Safe Harbor
+            # encryption guidance assumes FIPS 140-3 compliant primitives, and
+            # the cryptography package gives us those. Refuse to run.
+            raise FieldEncryptionError(
+                "MEDPHARM_ENV=production but the 'cryptography' package is not "
+                "installed. Install it (pip install cryptography) and restart. "
+                "See docs/HIPAA_COMPLIANCE.md §1.1 for the rationale."
+            )
         if not key:
+            if is_production:
+                # require_production_secrets normally catches this earlier;
+                # the redundancy is defence-in-depth.
+                raise FieldEncryptionError(
+                    "MEDPHARM_FIELD_KEY is required in production. Generate "
+                    "one with `python -m security.encryption generate-key` "
+                    "and store it in your secret manager."
+                )
             # Deterministic dev key so the module is usable in local development.
-            # Production boot aborts early in require_production_secrets() when
-            # MEDPHARM_FIELD_KEY is missing.
             key = base64.urlsafe_b64encode(
                 hashlib.sha256(b"medpharm-dev-field-key-do-not-use-in-production").digest()
             ).decode("ascii")
