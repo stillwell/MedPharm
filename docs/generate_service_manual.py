@@ -652,7 +652,9 @@ def build_foreword(styles):
     s.append(Paragraph(
         "MedPharm ERP is a deliberately modest piece of software. It "
         "runs on ordinary Linux hosts, it stores its data in a single "
-        "SQLite file, and it speaks a small, well-understood REST "
+        "SQLite file by default — or, when several components must "
+        "share one database, in a PostgreSQL server reached over the "
+        "network — and it speaks a small, well-understood REST "
         "dialect to its mobile and desktop clients. That modesty is a "
         "design position: the more moving parts a system has, the more "
         "opportunities it offers for misconfiguration, and the more "
@@ -894,15 +896,18 @@ def chapter_01_platform_overview(styles):
             "From an operator's vantage, the MedPharm deployment is "
             "best thought of as a constellation of six user-facing "
             "surfaces that all attach to a single, shared backend. The "
-            "backend consists of a SQLite database and the SQLAlchemy "
+            "backend consists of a relational database — SQLite by "
+            "default, or a shared PostgreSQL server when one is "
+            "configured — and the SQLAlchemy "
             "ORM layer (together, the <i>DatabaseManager</i>), plus a "
             "Flask REST API that presents a JWT-authenticated HTTP "
             "interface on port 8080. Five of the six user-facing "
             "surfaces speak to the REST API over the network; the "
             "sixth — the PyQt6 desktop application for clinical staff "
             "— speaks to the DatabaseManager directly, which is "
-            "appropriate only when it runs on the same host as the "
-            "database file.",
+            "appropriate when it runs on the same host as a SQLite "
+            "database file, or whenever it can reach a shared "
+            "PostgreSQL server over the network.",
             styles),
         h2("The six user-facing surfaces", styles),
         p(
@@ -916,7 +921,7 @@ def chapter_01_platform_overview(styles):
             ["Surface", "Audience", "Runtime", "Network Dependence"],
             [
                 ["PyQt6 Desktop", "Clinical staff", "Python 3.10+ on Linux / macOS / Windows",
-                 "None (reads SQLite directly)"],
+                 "None for local SQLite; DB network for shared PostgreSQL"],
                 ["Flask Web Portal", "Patients", "Gunicorn behind Nginx, port 5000",
                  "Same host or reverse-proxied"],
                 ["Cloud REST API", "Mobile/desktop clients", "Gunicorn with gevent, port 8080",
@@ -950,6 +955,23 @@ def chapter_01_platform_overview(styles):
             "higher concurrency; see Chapter 5 for the sizing envelope "
             "within which SQLite comfortably serves, and Chapter 18 "
             "for the tuning parameters that extend that envelope.",
+            styles),
+        p(
+            "Where more than one component must share a single "
+            "database — for example, the REST API, the patient portal, "
+            "and a co-located desktop all reading and writing the same "
+            "records — the DatabaseManager can instead be pointed at a "
+            "PostgreSQL server by setting "
+            f"{c('MEDPHARM_DATABASE_URL')} to a "
+            f"{c('postgresql+psycopg://')} connection string. When "
+            "that variable is set it takes precedence over the SQLite "
+            "path; when it is unset, behaviour is exactly as before. "
+            "PostgreSQL lifts SQLite's concurrency ceiling and lets "
+            "the Docker and Kubernetes deployments run more than one "
+            "application replica against one database, at the cost of "
+            "operating a database daemon and securing the network "
+            "surface it exposes at the storage layer (Chapters 13 "
+            "and 18).",
             styles),
         p(
             "The ORM is SQLAlchemy 2.0, configured in the modern "
@@ -1153,7 +1175,12 @@ def chapter_03_topology(styles):
             "reverse-proxies to the two Gunicorn instances. All three "
             "processes share access to the SQLite database file at "
             f"{c('/data/medpharm_erp.db')} via a named Docker volume, "
-            f"{c('medpharm-data')}.",
+            f"{c('medpharm-data')}. Where "
+            f"{c('MEDPHARM_DATABASE_URL')} is set, those processes "
+            "instead share a PostgreSQL server — bundled as a "
+            f"{c('db')} service in the Compose stack and as the "
+            f"{c('medpharm-postgres')} StatefulSet in Kubernetes — "
+            "and the Docker volume holds only transient state.",
             styles),
         p(
             "Every client — whether an Android phone across the "
@@ -1188,7 +1215,9 @@ def chapter_03_topology(styles):
                                ┌─▼──────────▼─┐
                                │   SQLite DB  │
                                │  medpharm_erp.db
-                               └──────────────┘""", styles),
+                               └──────────────┘
+                  (or, when MEDPHARM_DATABASE_URL is set, a shared
+                   PostgreSQL server reached over the network at :5432)""", styles),
         h2("Two-host deployment", styles),
         p(
             "Once traffic exceeds the single-host envelope (see "
@@ -1199,7 +1228,12 @@ def chapter_03_topology(styles):
             "must enforce that the backend is not reachable from "
             "outside the private subnet. The Kubernetes manifests in "
             f"{c('k8s/')} implement this pattern and are recommended "
-            "as the path of least resistance for the two-host case.",
+            "as the path of least resistance for the two-host case. "
+            "When those manifests run against the bundled "
+            f"{c('medpharm-postgres')} StatefulSet, the application "
+            "is no longer pinned to a single replica: several "
+            "application pods may serve traffic concurrently against "
+            "the one shared database.",
             styles),
         h2("Control planes", styles),
         p(
@@ -1512,7 +1546,13 @@ git checkout v1.7.6    # pin to a tagged release for production""", styles),
 export MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
 # Store these fingerprints in the Commissioning Record:
 echo "$MEDPHARM_JWT_SECRET" | sha256sum
-echo "$MEDPHARM_SECRET_KEY" | sha256sum""", styles),
+echo "$MEDPHARM_SECRET_KEY" | sha256sum
+
+# Optional: to share one PostgreSQL database across components,
+# generate a database password and point the app at the server.
+export MEDPHARM_DB_PASSWORD="$(openssl rand -base64 36)"
+export MEDPHARM_DATABASE_URL="postgresql+psycopg://medpharm:${MEDPHARM_DB_PASSWORD}@db:5432/medpharm"
+echo "$MEDPHARM_DB_PASSWORD" | sha256sum   # fingerprint into the Record""", styles),
         Paragraph(
             "<b>Danger.</b> Record the fingerprints of the secrets, "
             "not the secrets themselves. Secrets stored in commissioning "
@@ -1531,7 +1571,8 @@ echo "$MEDPHARM_SECRET_KEY" | sha256sum""", styles),
             "perform the equivalent inside a container image.",
             styles),
         code_block(
-            """# Bare-host install (single Python venv + SQLite file)
+            """# Bare-host install (single Python venv + SQLite file by default;
+# set MEDPHARM_DATABASE_URL first to use a shared PostgreSQL server)
 ./install.sh
 
 # Docker-based install — full stack (recommended for production)
@@ -1603,7 +1644,9 @@ sudo ./install-services.sh install""", styles),
             "shell), out of " + c("/opt/medpharm") + ", with the SQLite "
             "database at " + c("/opt/medpharm/medpharm_erp.db") + " "
             "(or the equivalent volume mount in container/k8s "
-            "deployments). Choosing between Docker, Kubernetes, and "
+            "deployments) unless " + c("MEDPHARM_DATABASE_URL") + " "
+            "directs the application at a shared PostgreSQL server "
+            "instead. Choosing between Docker, Kubernetes, and "
             "native systemd is therefore a question of fleet "
             "management, not of security model.",
             styles["SM_Note"]),
@@ -1980,6 +2023,8 @@ docker compose -f docker-compose.hub.yml stop -t 30""", styles),
             """MedPharm ERP API Server v1.7.6
 Binding 0.0.0.0:8080  (TLS: require)
 Database: /data/medpharm_erp.db (connected, WAL mode)
+  # on a shared backend this reads, e.g.:
+  # Database: postgresql://medpharm@db:5432/medpharm (connected)
 Seeded: 23 models, 75 medications, 30 symptoms, 25 conditions
 Worker PID 17 started.
 Worker PID 18 started.
@@ -2274,7 +2319,7 @@ def chapter_12_log_management(styles):
                  "minimal",
                  "1 year online"],
                 ["Audit log (database)",
-                 "audit_log table in SQLite",
+                 "audit_log table in SQLite or PostgreSQL",
                  "variable",
                  "6 years online (HIPAA)"],
             ],
@@ -2394,11 +2439,20 @@ def chapter_13_security_handbook(styles):
         p(
             "Least privilege governs every identity in the system. "
             "At the operating-system layer, the container runs under "
-            "an unprivileged user. At the database layer, SQLite has "
+            "an unprivileged user. At the database layer, a SQLite "
+            "deployment has "
             "no network surface and therefore no remote accounts "
             "— the only privilege boundary is filesystem permissions "
             "on "
-            f"{c('medpharm_erp.db')}. At the application layer, the "
+            f"{c('medpharm_erp.db')}. A shared PostgreSQL backend "
+            "trades that property for a network-reachable database: "
+            "its account must be scoped to the "
+            f"{c('medpharm')} database only, its password "
+            "(supplied via "
+            f"{c('MEDPHARM_DB_PASSWORD')}) held in a secret rather "
+            "than a compose file, and its listener confined to the "
+            "private network the application shares with it. At the "
+            "application layer, the "
             "Admin role is the only role capable of creating other "
             "Admin accounts, and the audit log records every role "
             "change. The operator's task is to preserve this posture "
@@ -2675,8 +2729,8 @@ def chapter_16_hipaa(styles):
                  "AuditLog table captures all sensitive actions; "
                  "weekly Security Officer review mandated by this manual"],
                 ["164.312(c)", "Integrity",
-                 "SQLite journaling; backup verification; TLS "
-                 "prevents in-transit tampering"],
+                 "SQLite WAL or PostgreSQL write-ahead logging; backup "
+                 "verification; TLS prevents in-transit tampering"],
                 ["164.312(d)", "Person or entity authentication",
                  "Four-factor registration; password + JWT for "
                  "subsequent access"],
@@ -2942,7 +2996,8 @@ def chapter_18_database_admin(styles):
     s = chapter_header("18", "Database Administration", styles)
     s += [
         p(
-            "SQLite's charm as a backend for MedPharm is that it "
+            "SQLite's charm as the default backend for MedPharm is "
+            "that it "
             "requires so little administration. There is no server "
             "daemon to monitor, no authentication to manage, no "
             "network surface to lock down, and no cluster to keep "
@@ -2953,6 +3008,25 @@ def chapter_18_database_admin(styles):
             "changes, concurrent writers) have to be approached "
             "carefully here. This chapter is the operator's working "
             "familiarity with that envelope.",
+            styles),
+        p(
+            "Deployments that set "
+            f"{c('MEDPHARM_DATABASE_URL')} to a "
+            f"{c('postgresql+psycopg://')} string move to a shared "
+            "PostgreSQL server, which reverses several of those "
+            "trade-offs: there is now a daemon to monitor and a "
+            "network account to manage, but concurrent writers and "
+            "multiple application replicas become routine. The "
+            "SQLite-specific guidance below — WAL journaling, the "
+            f"{c('sqlite3')} shell, the PRAGMA cadence — applies "
+            "only to the file-based default; on PostgreSQL the "
+            "equivalent work is done with "
+            f"{c('psql')}, the server's own logging, and "
+            f"{c('VACUUM')} / "
+            f"{c('ANALYZE')} run by the server's autovacuum. The "
+            "client requirement is the "
+            f"{c('psycopg[binary]')} driver (version 3.1 or later), "
+            "which ships in MedPharm's requirements.",
             styles),
         h2("Connection mode and journaling", styles),
         p(
@@ -2969,6 +3043,17 @@ def chapter_18_database_admin(styles):
             "have ever copied a running database file without its "
             "sidecars are familiar with the confused results; the "
             "backup procedures in Chapter 19 handle this correctly.",
+            styles),
+        p(
+            "A shared PostgreSQL backend sidesteps this discussion: "
+            "it has no on-disk sidecar files for the operator to "
+            "manage and, because writes are serialised by the "
+            "server rather than by a single-writer file lock, it "
+            "removes the single-writer constraint that bounds "
+            "SQLite's write concurrency. The "
+            "\"database is locked\" condition described in Chapters "
+            "27 and 29 is a SQLite phenomenon and does not arise on "
+            "PostgreSQL.",
             styles),
         h2("Inspecting the database from the shell", styles),
         p(
@@ -3146,6 +3231,35 @@ find "$BACKUP_DIR" -name 'medpharm_*.gz.gpg' -mtime +30 -delete""", styles),
             "independent custodians of the private key, and test "
             "decryption from both custodians quarterly.",
             styles["SM_Danger"]),
+        h2("Backing up a shared PostgreSQL database", styles),
+        p(
+            "When the deployment uses a shared PostgreSQL server "
+            "(<font name='Courier'>MEDPHARM_DATABASE_URL</font> set), "
+            "the "
+            + c("sqlite3 .backup") + " step does not apply. Substitute "
+            + c("pg_dump") + " for the snapshot and "
+            + c("pg_restore") + " on the recovery side; the surrounding "
+            "compression, encryption, off-site shipping, retention, "
+            "and verification discipline are identical. A custom "
+            "format dump is preferred because it restores "
+            "selectively and in parallel.",
+            styles),
+        code_block(
+            """# Consistent online dump of the shared PostgreSQL database
+docker exec medpharm-db \\
+  pg_dump -U medpharm -Fc medpharm > "$BACKUP_FILE"
+# (then compress, encrypt, and ship exactly as for the SQLite path)
+
+# Restore (into an empty database) during recovery:
+pg_restore -U medpharm -d medpharm --clean --if-exists "$BACKUP_FILE" """, styles),
+        Paragraph(
+            "<b>Note.</b> "
+            "<font name='Courier'>pg_dump</font> takes a consistent "
+            "snapshot without stopping writers, so it is as safe to "
+            "run against a live database as the SQLite online backup "
+            "is. The 3-2-1 rule, the encryption requirement, and the "
+            "Wednesday restore rehearsal below apply unchanged.",
+            styles["SM_Note"]),
         h2("Schedule", styles),
         p(
             "Cron is sufficient for most deployments. The nightly "
@@ -3223,6 +3337,16 @@ def chapter_20_restore(styles):
                 "operator's journal.",
             ],
             styles),
+        Paragraph(
+            "<b>Note.</b> On a shared PostgreSQL deployment, steps 6 "
+            "and 7 change: rather than replacing a database file, "
+            "restore the dump into an empty database with "
+            "<font name='Courier'>pg_restore -d medpharm --clean "
+            "--if-exists</font> (Chapter 19) and point the fresh "
+            "application at it via "
+            "<font name='Courier'>MEDPHARM_DATABASE_URL</font> before "
+            "starting it. Every other step is unchanged.",
+            styles["SM_Note"]),
         h2("Incident restore (production)", styles),
         p(
             "When a production restore is the correct response to an "
@@ -3344,7 +3468,11 @@ def chapter_21_retention(styles):
             "information essentially unreadable, indecipherable, and "
             "otherwise cannot be reconstructed.' For SQLite "
             "data this means a DELETE followed by a VACUUM (which "
-            "overwrites the freed pages) on the live database, and "
+            "overwrites the freed pages) on the live database; on a "
+            "shared PostgreSQL backend the equivalent is a DELETE "
+            "followed by "
+            f"{c('VACUUM (FULL)')} on the affected table. Either way "
+            "it must be paired with "
             "cryptographic destruction of any surviving backup — "
             "typically by destroying the GPG private key that "
             "decrypts it, if the backup is encrypted.",
@@ -3554,7 +3682,11 @@ def chapter_23_upgrades(styles):
             "is taken before any code change is applied, the "
             "rollback path is the corresponding " + c(".db") + " "
             "file plus a " + c("git reset --hard <previous-sha>") +
-            " — the same one-minute drill as the Docker rollback.",
+            " — the same one-minute drill as the Docker rollback. "
+            "On a shared PostgreSQL deployment the data snapshot is "
+            "instead a " + c("pg_dump") + " (Chapter 19) rather than "
+            "a " + c(".db") + " file; the git half of the rollback "
+            "is identical.",
             styles),
         p(
             "For unattended sites, " + c("./update.sh "
@@ -3922,7 +4054,10 @@ def chapter_27_server_symptoms(styles):
             "to enumerate holders, then consider terminating the "
             "longest-running holder. Be careful: a terminated "
             "writer mid-transaction leaves SQLite in a state it "
-            "must recover from on next open.",
+            "must recover from on next open. This symptom is "
+            "specific to the file-based SQLite backend; a shared "
+            "PostgreSQL server has no single-writer file lock and "
+            "does not raise it.",
             styles),
         h2("Disk fills unexpectedly", styles),
         p(
@@ -4148,6 +4283,19 @@ def chapter_29_db_faults(styles):
             "happen the right response is to open a ticket with "
             "the SQLite maintainers.",
             styles),
+        p(
+            "The faults below are specific to the file-based SQLite "
+            "backend. A deployment running against a shared "
+            "PostgreSQL server "
+            "(<font name='Courier'>MEDPHARM_DATABASE_URL</font> set) "
+            "will not see \"database is locked\", \"disk image is "
+            "malformed\", or unbounded WAL growth; its failure modes "
+            "are connection exhaustion, authentication failures "
+            "against the database account, and the server being "
+            "unreachable on the private network — diagnosed with "
+            "<font name='Courier'>psql</font> and the PostgreSQL "
+            "server's own logs rather than with the recipes here.",
+            styles),
         h2("Disk I/O error", styles),
         p(
             "SQLite reports <i>disk I/O error</i> when a call to "
@@ -4185,12 +4333,16 @@ mv medpharm_erp.db.new /data/medpharm_erp.db""", styles),
             styles["SM_Danger"]),
         h2("Database is locked", styles),
         p(
-            "Already discussed in Chapter 27. Here the diagnostic "
+            "Already discussed in Chapter 27, and specific to "
+            "SQLite. Here the diagnostic "
             "deepens: after identifying the holding process, use "
             f"{c('pragma busy_timeout = 5000')} in application "
             "code if the contention is benign and short-lived, or "
             "restructure the offending query if the contention is "
-            "long-lived.",
+            "long-lived. On a shared PostgreSQL backend this fault "
+            "does not arise; the analogous condition is a query "
+            "blocked on a row lock, inspected via the server's "
+            f"{c('pg_locks')} view.",
             styles),
         h2("WAL file grows without bound", styles),
         p(
@@ -4658,6 +4810,10 @@ def appendix_a_commands(styles):
                  "Nightly backup script", "Ch. 19"],
                 ["sqlite3 SRC \".backup 'DST'\"",
                  "Hot snapshot a SQLite database", "Ch. 19"],
+                ["pg_dump -U medpharm -Fc medpharm > DST",
+                 "Hot dump a shared PostgreSQL database", "Ch. 19"],
+                ["pg_restore -U medpharm -d medpharm --clean SRC",
+                 "Restore a PostgreSQL dump", "Ch. 20"],
                 ["gpg --decrypt foo.db.gz.gpg > foo.db.gz",
                  "Decrypt a GPG-encrypted backup", "Ch. 20"],
                 ["gunzip foo.db.gz",
@@ -4700,10 +4856,26 @@ def appendix_b_env(styles):
             "variables are not strongly typed; a misspelt name "
             "is silently ignored.",
             styles),
+        p(
+            "Two of these variables select the datastore, in a "
+            "fixed order of precedence: an explicit URL passed to "
+            "the DatabaseManager wins; failing that, "
+            + c('MEDPHARM_DATABASE_URL') + " is used if set; failing "
+            "that, the application falls back to a local SQLite file "
+            "at "
+            + c('MEDPHARM_DB_PATH') + ". A deployment that leaves "
+            + c('MEDPHARM_DATABASE_URL') + " unset therefore behaves "
+            "exactly as earlier single-file installations did.",
+            styles),
         make_table(
             ["Variable", "Default", "Purpose"],
             [
-                ["MEDPHARM_DB_PATH", "medpharm_erp.db", "Path to SQLite database file"],
+                ["MEDPHARM_DATABASE_URL", "(unset)", "SQLAlchemy URL of a shared database "
+                 "(e.g. postgresql+psycopg://...); overrides MEDPHARM_DB_PATH when set"],
+                ["MEDPHARM_DB_PATH", "medpharm_erp.db", "Path to SQLite database file "
+                 "(used only when MEDPHARM_DATABASE_URL is unset)"],
+                ["MEDPHARM_DB_PASSWORD", "(unset)", "PostgreSQL password for the bundled "
+                 "db service / medpharm-postgres StatefulSet"],
                 ["MEDPHARM_SECRET_KEY", "(auto-generated)", "Flask session signing key"],
                 ["MEDPHARM_JWT_SECRET", "(dev default)", "HMAC-SHA256 key for JWTs"],
                 ["MEDPHARM_TOKEN_EXPIRY", "86400", "Access-token lifetime (seconds)"],
@@ -4784,6 +4956,7 @@ def appendix_c_ports(styles):
                 ["Nginx", "Gunicorn (API)", "8080/tcp", "Proxy HTTP"],
                 ["Nginx", "Gunicorn (Web)", "5000/tcp", "Proxy HTTP"],
                 ["Gunicorn", "SQLite (on disk)", "n/a", "File I/O"],
+                ["Gunicorn", "PostgreSQL (db)", "5432/tcp", "Shared DB (when configured)"],
                 ["Supervisor", "All managed processes", "n/a", "Lifecycle"],
             ],
             col_widths=[1.4 * inch, 1.6 * inch, 0.8 * inch, 2.8 * inch]),
@@ -4806,7 +4979,8 @@ def appendix_d_layout(styles):
         make_table(
             ["Path", "Owner", "Purpose"],
             [
-                ["/data/medpharm_erp.db ●", "app user", "Live SQLite database"],
+                ["/data/medpharm_erp.db ●", "app user", "Live SQLite database "
+                 "(default backend; absent when MEDPHARM_DATABASE_URL points at PostgreSQL)"],
                 ["/data/medpharm_erp.db-wal", "app user", "Write-ahead log sidecar"],
                 ["/data/medpharm_erp.db-shm", "app user", "Shared-memory sidecar"],
                 ["/etc/ssl/medpharm/fullchain.pem ●",
@@ -4884,6 +5058,10 @@ def appendix_e_glossary(styles):
                  "data."],
                 ["Post-mortem", "Written review of an incident, its timeline, and "
                  "its lessons. Blameless by convention."],
+                ["PostgreSQL", "Client-server relational database; MedPharm's optional "
+                 "shared backend, selected via MEDPHARM_DATABASE_URL."],
+                ["psycopg", "PostgreSQL driver for Python (psycopg 3). Installed as "
+                 "psycopg[binary] >= 3.1; required only for the PostgreSQL backend."],
                 ["RPO", "Recovery Point Objective. The maximum tolerable data loss."],
                 ["RTO", "Recovery Time Objective. The maximum tolerable outage "
                  "duration."],
@@ -4895,8 +5073,8 @@ def appendix_e_glossary(styles):
                  "SEV-1 is most severe."],
                 ["Supervisor", "Process manager running inside the MedPharm "
                  "container; launches Nginx, Gunicorn, and sidecars."],
-                ["WAL", "Write-Ahead Log. SQLite journaling mode under which "
-                 "readers do not block writers and vice versa."],
+                ["WAL", "Write-Ahead Log. Journaling mode (used by both SQLite and "
+                 "PostgreSQL) under which readers do not block writers and vice versa."],
             ],
             col_widths=[1.3 * inch, 5.1 * inch]),
         PageBreak(),
@@ -4937,7 +5115,13 @@ def appendix_f_revision(styles):
                  "(data_source, lower(brand_name), lower(generic_name)). "
                  "search_medications and the /medications/search route "
                  "are now paginated; unbounded queries clamp at 5000 "
-                 "rows with a logged warning."],
+                 "rows with a logged warning. Also documents the optional "
+                 "shared PostgreSQL backend selected via "
+                 "MEDPHARM_DATABASE_URL (precedence over MEDPHARM_DB_PATH; "
+                 "MEDPHARM_DB_PASSWORD for the bundled db service / "
+                 "medpharm-postgres StatefulSet), with pg_dump / pg_restore "
+                 "backup guidance and the removal of the SQLite "
+                 "single-writer lock on a networked database."],
                 ["1.7.6-D", "27 Apr 2026",
                  "R. Stillwell",
                  "Documented the install-services.sh native-systemd "

@@ -16,28 +16,24 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: medpharm
-
-labels:
-  - pairs:
-      app.kubernetes.io/name: medpharm
-      app.kubernetes.io/part-of: medpharm-erp
-    includeSelectors: false
-
-resources:
-  - namespace.yaml
-  - configmap.yaml
-  - secret.example.yaml
-  - pvc.yaml
-  - postgres-statefulset.yaml
-  - postgres-service.yaml
-  - deployment.yaml
-  - service.yaml
-  - ingress.yaml
-
-images:
-  - name: enlightec/medpharm-server
-    newTag: "1.7.6"
+#
+# Stable in-cluster address for the PostgreSQL StatefulSet. The app reaches
+# the database at medpharm-postgres:5432 (full DNS:
+# medpharm-postgres.medpharm.svc.cluster.local) via MEDPHARM_DATABASE_URL.
+apiVersion: v1
+kind: Service
+metadata:
+  name: medpharm-postgres
+  namespace: medpharm
+  labels:
+    app.kubernetes.io/name: medpharm
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: medpharm
+    app.kubernetes.io/component: database
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

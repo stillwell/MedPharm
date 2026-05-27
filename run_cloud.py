@@ -51,7 +51,8 @@ from api.app import create_cloud_app
 
 # Database setup
 db_path = os.environ.get("MEDPHARM_DB_PATH", "medpharm_erp.db")
-db_manager = DatabaseManager(db_path)
+database_url = os.environ.get("MEDPHARM_DATABASE_URL")
+db_manager = DatabaseManager(db_path=db_path, database_url=database_url)
 db_manager.init_db()
 
 # Seed with sample data if empty, then expanded reference data
@@ -95,6 +96,7 @@ if __name__ == "__main__":
 ║  Server:   {scheme}://{host}:{port:<5}                            ║
 ║  API Base: {scheme}://{host}:{port:<5}/api/v1                     ║
 ║  Health:   {scheme}://{host}:{port:<5}/api/v1/health              ║
+║  Database: {db_manager.safe_target}
 ║                                                               ║
 ║  TLS:        {'ON (cert at ' + tls_dir + ')' if ssl_context else 'OFF'}
 ║  Debug Mode: {'ON ' if debug else 'OFF'}                                            ║

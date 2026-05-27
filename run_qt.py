@@ -38,7 +38,15 @@ from database.seed_data import seed_database
 from qt_app.main_window import MainWindow
 
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db")
+DB_PATH = os.environ.get(
+    "MEDPHARM_DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db"),
+)
+# When MEDPHARM_DATABASE_URL is set (e.g. a PostgreSQL URL) the desktop app
+# attaches to that shared server database instead of its private SQLite file,
+# so clinical staff see the same patients/prescriptions as the web portal, the
+# REST API, and every mobile client. Unset = standalone single-file SQLite.
+DATABASE_URL = os.environ.get("MEDPHARM_DATABASE_URL")
 
 
 def main():
@@ -53,9 +61,13 @@ def main():
     font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
     app.setFont(font)
 
-    db_manager = DatabaseManager(DB_PATH)
+    db_manager = DatabaseManager(db_path=DB_PATH, database_url=DATABASE_URL)
     db_manager.init_db()
+    print(f"MedPharm ERP — connected to {db_manager.safe_target}")
 
+    # seed_database() no-ops on a populated database, so a desktop client
+    # pointed at an already-seeded shared server leaves it untouched; a fresh
+    # standalone SQLite file still gets the demo data on first launch.
     seed_database(db_manager)
 
     window = MainWindow(db_manager)

@@ -1,0 +1,120 @@
+# MedPharm ERP - Medical & Pharmaceutical Management System
+# Copyright (C) 2026 Enlightec Ltd. (www.enlightec.com)
+# Author: Robert Andrew Stillwell
+# Email: Andrew.Stillwell@enlightec.com
+# License: GNU General Public License v3.0
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Shared PostgreSQL database for the MedPharm server. Every component
+# (REST API, web portal, and — via the API — every mobile client) connects
+# to this one database through MEDPHARM_DATABASE_URL, so they all read and
+# write the same data. This is what lets the app Deployment scale past a
+# single replica (SQLite could not).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: medpharm-postgres
+  namespace: medpharm
+  labels:
+    app.kubernetes.io/name: medpharm
+    app.kubernetes.io/component: database
+    app.kubernetes.io/version: "1.7.6"
+spec:
+  serviceName: medpharm-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: medpharm
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: medpharm
+        app.kubernetes.io/component: database
+        app.kubernetes.io/version: "1.7.6"
+    spec:
+      # postgres:16-alpine runs as uid/gid 70 ("postgres"). Pin the pod to
+      # that identity so it never runs as root, and set fsGroup so the
+      # PersistentVolume is group-writable by it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: medpharm
+            - name: POSTGRES_DB
+              value: medpharm
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: medpharm-secrets
+                  key: MEDPHARM_DB_PASSWORD
+            # Keep PGDATA in a sub-directory so a volume's lost+found (created
+            # by some CSI/ext4 PVs) does not make initdb refuse an empty dir.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U medpharm -d medpharm"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U medpharm -d medpharm"]
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+        labels:
+          app.kubernetes.io/name: medpharm
+          app.kubernetes.io/component: database
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi

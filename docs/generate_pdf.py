@@ -336,7 +336,7 @@ def cover_page(canvas_obj, doc):
         "with integrated pharmaceutical database and insurance claims management.",
         "",
         "Platforms: Android | iOS | macOS | Windows | Qt6 Desktop | Flask Web Portal",
-        "Stack: Python 3.10+ | SQLAlchemy 2.0 | Flask REST API | Kotlin | SwiftUI | .NET 8",
+        "Stack: Python 3.10+ | SQLAlchemy 2.0 (PostgreSQL or SQLite) | Flask REST API | Kotlin | SwiftUI | .NET 8",
         "",
         f"Document Generated: {datetime.now().strftime('%B %d, %Y at %H:%M')}",
     ]
@@ -462,7 +462,7 @@ def build_document():
         ["Cloud API", "Flask + JWT + CORS", "REST API for mobile/desktop clients\nwith token-based authentication", "Android, iOS, macOS,\nWindows clients"],
         ["Mobile\nClients", "Kotlin (Android)\nSwiftUI (iOS/macOS)", "Native patient portals with\nbilling, insurance claims, Rx refills", "Patients"],
         ["Windows\nDesktop", ".NET 8 / WPF", "WPF patient portal with DPAPI\nencrypted token storage", "Patients"],
-        ["Data", "SQLAlchemy 2.0\n+ SQLite", "23 relational models, ORM layer,\n75+ medications, 30+ symptoms, 25+ conditions", "All (via managers)"],
+        ["Data", "SQLAlchemy 2.0\n+ PostgreSQL / SQLite", "23 relational models, ORM layer,\n75+ medications, 30+ symptoms, 25+ conditions.\nShared PostgreSQL via MEDPHARM_DATABASE_URL;\nprivate SQLite when unset", "All (via managers)"],
     ]
     t = Table(arch_data, colWidths=[1.1*inch, 1.4*inch, 2.3*inch, 1.7*inch])
     t.setStyle(TableStyle([
@@ -488,7 +488,11 @@ def build_document():
         "SQLAlchemy's session-per-request pattern via a context manager, ensuring automatic "
         "commit on success and rollback on failure. All data is returned as Python dictionaries, "
         "creating a natural serialization boundary. Mobile and desktop clients (Android, iOS, "
-        "macOS, Windows) consume data via the REST API's JSON endpoints.", styles["BodyText2"]))
+        "macOS, Windows) consume data via the REST API's JSON endpoints. "
+        f'When {code("MEDPHARM_DATABASE_URL")} is set, every component binds to one shared '
+        "PostgreSQL database, so the desktop, web portal, and REST API all read and write the "
+        "same records; when it is unset each process falls back to its own private SQLite file.",
+        styles["BodyText2"]))
 
     story.append(Paragraph(
         f'{bold("Key Design Decision:")} Returning dicts instead of ORM objects from '
@@ -513,6 +517,8 @@ def build_document():
         ["matplotlib", "3.8+", link("https://matplotlib.org/stable/", "matplotlib.org/stable")],
         ["gunicorn", "21.2+", link("https://docs.gunicorn.org/en/stable/", "docs.gunicorn.org")],
         ["Werkzeug", "3.0+", link("https://werkzeug.palletsprojects.com/", "werkzeug.palletsprojects.com")],
+        ["PostgreSQL", "16", link("https://www.postgresql.org/docs/16/", "postgresql.org/docs/16")],
+        ["psycopg", "3.1+", link("https://www.psycopg.org/psycopg3/docs/", "psycopg.org/psycopg3")],
         ["SQLite", "3.x", link("https://www.sqlite.org/docs.html", "sqlite.org/docs.html")],
         ["ReportLab", "4.0+", link("https://docs.reportlab.com/", "docs.reportlab.com")],
     ]
@@ -556,7 +562,7 @@ def build_document():
     ├── requirements.txt                # Desktop + web dependencies
     ├── requirements-cloud.txt          # Cloud API dependencies
     ├── Dockerfile                      # Docker image (API, Ubuntu 24.04)
-    ├── docker-compose.yml              # Docker Compose — API (build from source)
+    ├── docker-compose.yml              # Docker Compose — API + PostgreSQL db (build from source)
     ├── docker-compose.hub.yml          # Docker Compose — API (pull from Docker Hub)
     ├── start_docker_hub.sh             # Interactive launcher for Docker Hub images
     ├── .dockerignore                   # Docker build exclusions
@@ -576,7 +582,7 @@ def build_document():
     │
     ├── database/                       # ── Data Layer ──────────────────
     │   ├── models.py                   # 23 SQLAlchemy ORM models + enums
-    │   ├── db_manager.py               # All CRUD operations (~1100 lines)
+    │   ├── db_manager.py               # All CRUD operations (~1100 lines); PostgreSQL or SQLite engine
     │   ├── seed_data.py                # 55 medications, sample data
     │   └── seed_expanded.py            # 30+ symptoms, 25+ conditions
     │
@@ -677,8 +683,9 @@ def build_document():
 
     story.append(Paragraph("3.2 Enum Types for Type Safety", styles["H2"]))
     story.append(Paragraph(
-        "The schema uses 16 Python enums stored as string values in SQLite. This approach provides "
-        "compile-time safety in Python while maintaining human-readable database values. Key enums:",
+        "The schema uses 16 Python enums stored as string values in the database (PostgreSQL or "
+        "SQLite). This approach provides compile-time safety in Python while maintaining "
+        "human-readable database values. Key enums:",
         styles["BodyText2"]))
 
     enum_data = [
@@ -749,15 +756,24 @@ def build_document():
     story.append(Paragraph("4.1 Session Management Pattern", styles["H2"]))
     story.append(code_block(textwrap.dedent("""\
     class DatabaseManager:
-        def __init__(self, db_path: str):
+        def __init__(self, db_path: str = None, database_url: str = None):
+            self.db_path = db_path
+            self._database_url = database_url
             self.engine = None
             self._session_factory = None
 
+        def _resolve_database_url(self):
+            # Precedence: explicit database_url arg -> MEDPHARM_DATABASE_URL env
+            #             -> sqlite:///<db_path> (legacy single-file default)
+            url = self._database_url or os.environ.get("MEDPHARM_DATABASE_URL")
+            return url or f"sqlite:///{self.db_path}"
+
         def init_db(self):
-            self.engine = create_engine(
-                f"sqlite:///{self.db_path}",
-                connect_args={"check_same_thread": False}  # Required for SQLite + threads
-            )
+            url = self._resolve_database_url()
+            # check_same_thread only applies to SQLite; a shared
+            # postgresql+psycopg:// URL lets every component use one database.
+            connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+            self.engine = create_engine(url, connect_args=connect_args)
             Base.metadata.create_all(self.engine)           # Auto-create all tables
             self._session_factory = sessionmaker(bind=self.engine)
 
@@ -1002,7 +1018,7 @@ def build_document():
     story.append(code_block(textwrap.dedent("""\
     # run_qt.py — Entry point
     def main():
-        db_manager = DatabaseManager("data/medpharm.db")
+        db_manager = DatabaseManager("data/medpharm.db")  # MEDPHARM_DATABASE_URL overrides -> shared PostgreSQL
         db_manager.init_db()
         seed_database(db_manager)                    # Idempotent seeding
 
@@ -1792,7 +1808,8 @@ def build_document():
     #   2. Checks Python 3.10+ availability
     #   3. Creates virtual environment
     #   4. Installs all dependencies (Flask, SQLAlchemy, PyQt6, matplotlib, reportlab)
-    #   5. Initializes SQLite database with seed data
+    #   5. Initializes the database with seed data (SQLite by default, or the
+    #      shared PostgreSQL pointed to by MEDPHARM_DATABASE_URL)
     #   6. Creates launcher scripts (start_web.sh, start_desktop.sh, generate_docs.sh)
     #   7. Runs integration tests to validate installation"""), styles))
 
@@ -1817,7 +1834,8 @@ def build_document():
 
     config_data = [
         ["Setting", "Location", "Default", "Description"],
-        ["Database path", "run_qt.py / run_web.py", "data/medpharm.db", "SQLite database file path"],
+        ["Shared DB URL", "MEDPHARM_DATABASE_URL env", "(unset)", "Full SQLAlchemy URL (e.g. postgresql+psycopg://medpharm:PASS@host:5432/medpharm); when set every component shares one database; unset → SQLite"],
+        ["Database path", "run_qt.py / run_web.py", "data/medpharm.db", "SQLite database file path (fallback when MEDPHARM_DATABASE_URL is unset)"],
         ["Web port", "run_web.py CLI arg", "5000", "Flask development server port"],
         ["Debug mode", "run_web.py", "True", "Flask debug mode (disable in production)"],
         ["Session secret", "web/app.py", "Random 256-bit", "Generated per-instance; set fixed for production"],
@@ -1828,7 +1846,7 @@ def build_document():
     story.append(Paragraph("19.4 Production Deployment Recommendations", styles["H2"]))
 
     prod_items = ListFlowable([
-        ListItem(Paragraph("Replace SQLite with PostgreSQL for concurrent multi-user access", styles["BodyText2"])),
+        ListItem(Paragraph("Point MEDPHARM_DATABASE_URL at the shared PostgreSQL backend (delivered in 1.7.6) for concurrent multi-user access; leave it unset to keep the legacy single-file SQLite database", styles["BodyText2"])),
         ListItem(Paragraph("Deploy Flask behind Gunicorn + Nginx with TLS certificates", styles["BodyText2"])),
         ListItem(Paragraph("Set a fixed SECRET_KEY via environment variable (not random per-restart)", styles["BodyText2"])),
         ListItem(Paragraph("Enable CSRF token validation on all POST forms", styles["BodyText2"])),
@@ -1891,10 +1909,13 @@ def build_document():
     story.append(Paragraph("19.6 Auto-Update with Database Backup (update.sh)", styles["H2"]))
     story.append(Paragraph(
         f"{code('./update.sh')} polls GitHub for new commits on the tracked "
-        "branch, snapshots the SQLite database to "
+        "branch, snapshots the local SQLite database to "
         f"{code('data/backups/medpharm-YYYYMMDD-HHMMSS.db')} via the SQLite "
         f"online {code('.backup')} command, and fast-forwards the working "
-        f"tree. The {code('--auto')} flag is the unattended entry point — "
+        "tree. When a shared PostgreSQL backend is configured via "
+        f"{code('MEDPHARM_DATABASE_URL')}, that database is backed up out of "
+        f"band (e.g. {code('pg_dump')}) rather than by this script. The "
+        f"{code('--auto')} flag is the unattended entry point — "
         "silent on stdout when up-to-date, one summary line when an update "
         "was applied, stderr on real failures (so cron / journalctl surface "
         f"the problem). {code('--install-schedule[=PERIOD]')} installs a "
@@ -1923,7 +1944,9 @@ def build_document():
     #     between manual and scheduled runs (stale locks are stolen)
     #   - --auto refuses to update a dirty working tree (no auto-stash)
     #   - DB backup runs FIRST; pull only proceeds if backup succeeded
-    #   - DB path autodetected: $MEDPHARM_DB_PATH → medpharm_erp.db →
+    #   - If MEDPHARM_DATABASE_URL is set, the shared (PostgreSQL) backend is
+    #     used and the local-file snapshot step is skipped
+    #   - Local SQLite path autodetected: $MEDPHARM_DB_PATH → medpharm_erp.db →
     #     data/medpharm_erp.db → data/medpharm.db"""), styles))
 
     story.append(Paragraph("19.7 Cross-Platform Apple Builds from Linux/Windows", styles["H2"]))
@@ -1960,7 +1983,10 @@ def build_document():
         "Ubuntu Server 24.04 LTS. Two deployment options are provided: a lightweight "
         "API-only container and a full-stack server with Nginx reverse proxy. Both "
         "images are published to Docker Hub under the enlightec namespace and can be "
-        "pulled directly without a local build.",
+        "pulled directly without a local build. The Compose files also bring up a "
+        "shared PostgreSQL service (postgres:16-alpine) and point every MedPharm "
+        f"process at it through {code('MEDPHARM_DATABASE_URL')}, so the API and web "
+        "portal containers share one database instead of separate SQLite files.",
         styles["BodyText2"]))
 
     story.append(Paragraph("20.1 Deployment Modes", styles["H2"]))
@@ -2049,6 +2075,7 @@ def build_document():
         ["Component", "Base Image", "Port", "Process Manager"],
         ["Full Stack", "Ubuntu 24.04 LTS", "80, 8080, 5000", "Supervisor + Nginx"],
         ["API Only", "Ubuntu 24.04 LTS", "8080", "Gunicorn"],
+        ["Shared DB", "postgres:16-alpine", "5432", "postgres (container)"],
     ]
     story.append(make_table(docker_data[0], docker_data[1:], [1.2*inch, 1.5*inch, 1.3*inch, 2.0*inch]))
 
@@ -2058,7 +2085,9 @@ def build_document():
         ["Variable", "Default", "Description"],
         ["MEDPHARM_JWT_SECRET", "dev default", "JWT signing secret (change in production)"],
         ["MEDPHARM_SECRET_KEY", "auto-generated", "Flask secret key"],
-        ["MEDPHARM_DB_PATH", "/data/medpharm_erp.db", "SQLite database path"],
+        ["MEDPHARM_DATABASE_URL", "postgresql+psycopg://medpharm:…@db:5432/medpharm", "Full SQLAlchemy URL for the shared backend; when set every component shares one database. Unset → per-process SQLite at MEDPHARM_DB_PATH"],
+        ["MEDPHARM_DB_PASSWORD", "change-this-in-production", "Password for the bundled PostgreSQL db service (postgres superuser); also embedded in MEDPHARM_DATABASE_URL"],
+        ["MEDPHARM_DB_PATH", "/data/medpharm_erp.db", "SQLite database path (fallback used only when MEDPHARM_DATABASE_URL is unset)"],
         ["MEDPHARM_WORKERS", "4", "Gunicorn worker processes"],
         ["MEDPHARM_THREADS", "2", "Gunicorn threads per worker"],
         ["MEDPHARM_HTTP_PORT", "80", "Nginx listen port (full stack)"],
@@ -2089,16 +2118,21 @@ def build_document():
 
     story.append(Paragraph("20.8 Persistent Storage", styles["H2"]))
     story.append(Paragraph(
-        "The Docker deployment uses named volumes for persistent data. The SQLite "
-        "database is stored at /data/medpharm_erp.db inside the container, mapped to "
-        "the medpharm-data volume. Server logs are stored in /var/log/medpharm/, "
-        "mapped to the medpharm-logs volume.",
+        "The Docker deployment uses named volumes for persistent data. The shared "
+        "PostgreSQL service stores its data in the medpharm-pgdata volume "
+        "(/var/lib/postgresql/data). When MEDPHARM_DATABASE_URL is unset and the "
+        "container falls back to SQLite, that file lives at /data/medpharm_erp.db "
+        "inside the container, mapped to the medpharm-data volume. Server logs are "
+        "stored in /var/log/medpharm/, mapped to the medpharm-logs volume.",
         styles["BodyText2"]))
 
     story.append(Paragraph(
-        f'{bold("Security note:")} Always set {code("MEDPHARM_JWT_SECRET")} and '
-        f'{code("MEDPHARM_SECRET_KEY")} to unique, random values in production. '
-        "The .env.example file provides a template for all configurable settings.",
+        f'{bold("Security note:")} Always set {code("MEDPHARM_JWT_SECRET")}, '
+        f'{code("MEDPHARM_SECRET_KEY")}, and {code("MEDPHARM_DB_PASSWORD")} '
+        '(the shared PostgreSQL password, which defaults to the placeholder '
+        f'{code("change-this-in-production")}) to unique, random values in '
+        "production. The .env.example file provides a template for all "
+        "configurable settings.",
         styles["Warning"]))
 
     story.append(Paragraph("20.9 CI/CD Pipeline (GitHub Actions)", styles["H2"]))

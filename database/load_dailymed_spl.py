@@ -578,6 +578,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--db-path", default=None,
                    help="SQLite DB path (default: $MEDPHARM_DB_PATH or "
                         "medpharm_erp.db)")
+    p.add_argument("--database-url", default=None,
+                   help="Full SQLAlchemy URL (e.g. postgresql+psycopg://...); "
+                        "overrides --db-path / MEDPHARM_DB_PATH. "
+                        "Defaults to $MEDPHARM_DATABASE_URL.")
     p.add_argument("--cache-dir", default=str(CACHE_DIR_DEFAULT),
                    help=f"SPL download cache (default: {CACHE_DIR_DEFAULT})")
     p.add_argument("--max-files", type=int, default=None,
@@ -593,11 +597,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = _build_parser().parse_args(argv)
     db_path = (args.db_path or os.environ.get("MEDPHARM_DB_PATH")
                or str(_ROOT / "medpharm_erp.db"))
+    database_url = args.database_url or os.environ.get("MEDPHARM_DATABASE_URL")
     cache_dir = Path(args.cache_dir)
-    db = DatabaseManager(db_path)
+    db = DatabaseManager(db_path=db_path, database_url=database_url)
     db.init_db()
 
-    print(f"DB:     {db_path}")
+    print(f"DB:     {db.safe_target}")
     print(f"Cache:  {cache_dir}")
     print(f"Mode:   {args.mode}{' (DRY RUN)' if args.dry_run else ''}")
 

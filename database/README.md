@@ -53,15 +53,15 @@ seed_expanded_data(db)       # Expansion pack
 
 ## Backends
 
-`DatabaseManager` accepts any SQLAlchemy URL. Default: SQLite at `medpharm_erp.db`.
+`DatabaseManager(db_path=None, database_url=None)` resolves its SQLAlchemy URL by precedence: an explicit `database_url` argument, then the `MEDPHARM_DATABASE_URL` environment variable, then `sqlite:///<db_path>`. Set `MEDPHARM_DATABASE_URL` and every component (Qt desktop, Web Portal, REST API, Docker, k8s) shares one database; leave it unset and each falls back to its own private SQLite file at `db_path`.
 
 | Backend | URL example |
 |---------|------------|
-| SQLite (default) | `sqlite:///medpharm_erp.db` |
-| PostgreSQL | `postgresql+psycopg://user:pass@host/medpharm` |
+| SQLite (default, URL unset) | `sqlite:///medpharm_erp.db` |
+| PostgreSQL (shared default) | `postgresql+psycopg://medpharm:PASS@host:5432/medpharm` |
 | MySQL | `mysql+pymysql://user:pass@host/medpharm` |
 
-For multi-writer deployments migrate off SQLite. Schema is portable; only the initial `init_db()` differs.
+For multi-writer deployments point `MEDPHARM_DATABASE_URL` at a shared PostgreSQL (no code change). The `psycopg[binary]>=3.1` driver ships in every requirements file. Schema is portable; only the initial `init_db()` differs.
 
 ---
 

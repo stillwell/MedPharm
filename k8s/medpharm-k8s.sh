@@ -148,20 +148,42 @@ ensure_secret() {
         ok "Secret ${BOLD}${SECRET_NAME}${NC} exists (not regenerating — use 'rotate-secrets' to replace)"
         return
     fi
-    log "Generating ${BOLD}${SECRET_NAME}${NC} (JWT + session keys via openssl rand -base64 48)"
+    log "Generating ${BOLD}${SECRET_NAME}${NC} (JWT + session keys + DB password via openssl rand)"
+    # DB password is hex (URL-safe): base64 can contain '/' or '+', which would
+    # corrupt the MEDPHARM_DATABASE_URL it gets embedded into.
+    local db_pass
+    db_pass="$(openssl rand -hex 32)"
     kn create secret generic "$SECRET_NAME" \
         --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
-        --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
+        --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)" \
+        --from-literal=MEDPHARM_DB_PASSWORD="$db_pass" \
+        --from-literal=MEDPHARM_DATABASE_URL="postgresql+psycopg://medpharm:${db_pass}@medpharm-postgres:5432/medpharm"
     ok "Secret created"
 }
 
 rotate_secrets() {
     preflight
     ensure_namespace
-    warn "This will REPLACE ${SECRET_NAME} in namespace ${NAMESPACE}."
+    warn "This will REPLACE the JWT + session keys in ${SECRET_NAME} (namespace ${NAMESPACE})."
     confirm "Existing sessions and issued JWTs will be invalidated on next pod restart. Proceed?"
+    # Preserve the existing database password/URL. PostgreSQL only sets its
+    # password at initdb (first boot); regenerating it here would lock the app
+    # out of the already-initialised data volume, so we rotate app keys only.
+    local db_pass db_url
+    db_pass="$(kn get secret "$SECRET_NAME" -o jsonpath='{.data.MEDPHARM_DB_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || true)"
+    db_url="$(kn get secret "$SECRET_NAME" -o jsonpath='{.data.MEDPHARM_DATABASE_URL}' 2>/dev/null | base64 -d 2>/dev/null || true)"
     kn delete secret "$SECRET_NAME" --ignore-not-found
-    ensure_secret
+    if [[ -n "$db_pass" && -n "$db_url" ]]; then
+        log "Generating new JWT + session keys (preserving existing DB credentials)"
+        kn create secret generic "$SECRET_NAME" \
+            --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
+            --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)" \
+            --from-literal=MEDPHARM_DB_PASSWORD="$db_pass" \
+            --from-literal=MEDPHARM_DATABASE_URL="$db_url"
+        ok "Secret created"
+    else
+        ensure_secret
+    fi
     log "Restarting deployment to pick up new secrets"
     kn rollout restart "deploy/$DEPLOYMENT"
     kn rollout status "deploy/$DEPLOYMENT"

@@ -1288,10 +1288,15 @@ def chapter_01_vision(styles):
         "The four user-facing surfaces on the patient side share one "
         "backend. The clinical desktop application is unique in "
         "that it may bypass the HTTP API and speak directly to the "
-        "SQLite database file — a deliberate choice to keep clinical "
-        "latency low when the backend runs on the same machine. "
-        "Chapter 3 expands on this topology, and Chapter 17 discusses "
-        "its implications for feature development.",
+        "database through the in-process DatabaseManager — a "
+        "deliberate choice to keep clinical latency low when the "
+        "backend runs on the same machine. In the zero-configuration "
+        "default that database is a local SQLite file; where "
+        + c("MEDPHARM_DATABASE_URL") + " points every surface at a "
+        "shared PostgreSQL server, the desktop speaks to that same "
+        "database directly instead. Chapter 3 expands on this "
+        "topology, and Chapter 17 discusses its implications for "
+        "feature development.",
         styles))
 
     s.append(h2("What MedPharm is not", styles))
@@ -1387,11 +1392,13 @@ def chapter_02_stack(styles):
              "Minimal; readable routing table; no baked-in assumptions "
              "that conflict with clinical workflows."],
             ["ORM", "SQLAlchemy", "2.0+",
-             "Mapped-dataclass style, clear session lifecycle, supports "
-             "the eventual Postgres migration should scaling demand it."],
-            ["Database", "SQLite", "3.40+",
-             "One file; no separate daemon; no attack surface at the "
-             "storage layer; WAL mode gives acceptable concurrency."],
+             "Mapped-dataclass style, clear session lifecycle; the same "
+             "mappings drive both the SQLite default and the shared "
+             "PostgreSQL backend selected by MEDPHARM_DATABASE_URL."],
+            ["Database", "SQLite (default) / PostgreSQL", "3.40+ / 14+",
+             "SQLite is the zero-config default — one file, no daemon, "
+             "WAL concurrency; PostgreSQL (via MEDPHARM_DATABASE_URL) is "
+             "the shared multi-client backend when scaling demands it."],
             ["Password hashing", "Werkzeug / PBKDF2-SHA256", "3.0+",
              "Deterministic, FIPS-track, ships with Flask ecosystem."],
             ["Symmetric encryption", "cryptography / Fernet", "46+",
@@ -1438,12 +1445,17 @@ def chapter_02_stack(styles):
         "Django was considered in place of Flask but rejected for its "
         "size — most of Django is unused here, and its ORM would have "
         "duplicated SQLAlchemy rather than cooperated with it. "
-        "PostgreSQL was considered in place of SQLite and remains "
-        "the likely migration target if throughput ever demands it, "
-        "but at current load SQLite's single-writer limitation is "
-        "not the bottleneck — a small clinic sees perhaps two writes "
-        "per second at peak — and the operational simplicity of one "
-        "file is worth a great deal. Redis for session storage was "
+        "PostgreSQL is now a first-class backend rather than a "
+        "hypothetical one: setting "
+        + c("MEDPHARM_DATABASE_URL") + " to a "
+        + c("postgresql+psycopg://…") + " DSN points every surface at "
+        "one shared server, which is the configuration to reach for "
+        "the moment a deployment outgrows a single writer. SQLite "
+        "nonetheless remains the default precisely because at a small "
+        "clinic's load — perhaps two writes per second at peak — its "
+        "single-writer limitation is not the bottleneck, and the "
+        "operational simplicity of one file an operator can copy is "
+        "worth a great deal. Redis for session storage was "
         "considered and rejected because Flask's default signed-"
         "cookie session is sufficient and Redis would be another "
         "daemon to monitor.",
@@ -1481,11 +1493,13 @@ def chapter_03_architecture(styles):
         "privileged local spoke. The hub is a Flask REST API "
         "("
         + c("/api/v1/*") + ") backed by the SQLAlchemy-managed "
-        "SQLite database. Five of the six user-facing surfaces reach "
-        "the hub over TLS. The sixth — the PyQt desktop — bypasses "
-        "the HTTP layer entirely and speaks to the same database "
-        "file through the in-process DatabaseManager. This diagram "
-        "is worth memorising.",
+        "database — a local SQLite file by default, or a shared "
+        "PostgreSQL server when "
+        + c("MEDPHARM_DATABASE_URL") + " is set. Five of the six "
+        "user-facing surfaces reach the hub over TLS. The sixth — "
+        "the PyQt desktop — bypasses the HTTP layer entirely and "
+        "speaks to the same database through the in-process "
+        "DatabaseManager. This diagram is worth memorising.",
         styles))
 
     # Architecture flowchart
@@ -1493,7 +1507,7 @@ def chapter_03_architecture(styles):
         {"id": "api", "label": "Flask REST API", "x": 3.2, "y": 2.4,
          "w": 2.2, "h": 0.7, "fill": INDIGO, "text_color": colors.white,
          "stroke": NAVY},
-        {"id": "db", "label": "SQLite DB (WAL)", "x": 3.2, "y": 0.8,
+        {"id": "db", "label": "DB: SQLite / Postgres", "x": 3.2, "y": 0.8,
          "w": 2.2, "h": 0.7, "fill": NAVY, "text_color": colors.white,
          "stroke": NAVY_LIGHT},
         {"id": "dbm", "label": "DatabaseManager", "x": 0.9, "y": 1.6,
@@ -2651,23 +2665,56 @@ def chapter_11_db_manager(styles):
     s.append(h2("Instantiation and lifecycle", styles))
     s.append(p(
         "A DatabaseManager instance is created once per process and "
-        "initialised with a path to the SQLite file. Its "
-        + c("init_db()") + " method creates the engine, runs "
+        "given either an explicit "
+        + c("database_url") + ", a SQLite "
+        + c("db_path") + ", or neither. Its "
+        + c("init_db()") + " method resolves the SQLAlchemy URL, "
+        "creates a dialect-appropriate engine, runs "
         + c("Base.metadata.create_all") + ", and stores a session "
-        "factory for later use.",
+        "factory for later use. The URL is resolved by a fixed "
+        "precedence: the explicit "
+        + c("database_url") + " argument, then the "
+        + c("MEDPHARM_DATABASE_URL") + " environment variable, then "
+        + c("sqlite:///&lt;db_path&gt;") + " as the zero-config default. A "
+        "shared deployment sets "
+        + c("MEDPHARM_DATABASE_URL") + " so the desktop, portal, API, "
+        "Docker, and Kubernetes all attach to one database; with "
+        "nothing set, behaviour is unchanged and each component owns "
+        "a private SQLite file.",
         styles))
     s.extend(code_block("""class DatabaseManager:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None, database_url: str = None):
         self.db_path = db_path
+        self._database_url = database_url
         self.engine = None
         self._session_factory = None
 
+    def _resolve_database_url(self):
+        # Precedence: explicit arg -> MEDPHARM_DATABASE_URL -> sqlite:///db_path
+        url = self._database_url or os.environ.get("MEDPHARM_DATABASE_URL")
+        if url:
+            return make_url(url)
+        if not self.db_path:
+            raise ValueError("need a database_url / MEDPHARM_DATABASE_URL "
+                             "or a SQLite db_path")
+        return make_url(f"sqlite:///{self.db_path}")
+
     def init_db(self):
-        self.engine = create_engine(
-            f"sqlite:///{self.db_path}",
-            echo=False,
-            connect_args={"check_same_thread": False}
-        )
+        url = self._resolve_database_url()
+        if url.get_backend_name() == "sqlite":
+            # Short-lived sessions handed across threads; the GIL
+            # serialises the actual writes, so this stays safe.
+            self.engine = create_engine(
+                url, echo=False,
+                connect_args={"check_same_thread": False},
+            )
+        else:
+            # Networked backend (PostgreSQL): pool_pre_ping discards
+            # connections the server dropped; pool_recycle caps age.
+            self.engine = create_engine(
+                url, echo=False,
+                pool_pre_ping=True, pool_recycle=1800,
+            )
         Base.metadata.create_all(self.engine)
         self._session_factory = sessionmaker(bind=self.engine)
 
@@ -2683,7 +2730,7 @@ def chapter_11_db_manager(styles):
         finally:
             session.close()""",
         language="python",
-        caption="Listing 11-1. DatabaseManager core — instantiation and session contextmanager."))
+        caption="Listing 11-1. DatabaseManager core — URL resolution, dialect-aware engine, and session contextmanager."))
 
     s.append(p(
         "The " + c("get_session()") + " contextmanager is the "
@@ -2698,8 +2745,9 @@ def chapter_11_db_manager(styles):
         "Never create a session manually with "
         + c("self._session_factory()") + " outside of "
         + c("get_session()") + ". A forgotten close leaks a SQLite "
-        "file handle; a forgotten rollback leaves the connection "
-        "in an in-progress transaction.",
+        "file handle — or, on PostgreSQL, holds a pooled connection "
+        "open; a forgotten rollback leaves the connection in an "
+        "in-progress transaction.",
         styles))
 
     s.append(h2("Method grouping conventions", styles))
@@ -3642,10 +3690,14 @@ def chapter_17_qt_desktop(styles):
         + c("QApplication") + ", constructs a "
         + c("DatabaseManager") + ", calls "
         + c("init_db()") + ", and passes both to the "
-        + c("MainWindow") + " constructor. The main window first "
-        "shows a " + c("LoginDialog") + "; on success it sets up "
-        "the sidebar, the " + c("QStackedWidget") + ", and the "
-        "status bar.",
+        + c("MainWindow") + " constructor. By default that manager "
+        "opens a local SQLite file; if "
+        + c("MEDPHARM_DATABASE_URL") + " is set in the desktop's "
+        "environment, the very same construction attaches it to the "
+        "shared PostgreSQL backend instead, with no other code "
+        "change. The main window first shows a "
+        + c("LoginDialog") + "; on success it sets up the sidebar, "
+        "the " + c("QStackedWidget") + ", and the status bar.",
         styles))
     s.extend(code_block("""class MainWindow(QMainWindow):
     NAV_ITEMS = [
@@ -3719,10 +3771,13 @@ def chapter_17_qt_desktop(styles):
     s.append(p(
         "Long-running database work is rare in clinical widgets — "
         "SQLite on the same machine answers most queries in a "
-        "millisecond. The analytics widget, which computes "
-        "aggregates for matplotlib charts, is the exception; it "
-        "runs its queries synchronously on the main thread today, "
-        "and if that becomes painful it will move to a "
+        "millisecond. A desktop pointed at a shared PostgreSQL "
+        "backend over the network pays a round-trip per query "
+        "instead, so this assumption weakens; the analytics widget, "
+        "which computes aggregates for matplotlib charts, is the "
+        "first place that shows. It runs its queries synchronously "
+        "on the main thread today, and if that becomes painful — "
+        "especially against a remote database — it will move to a "
         + c("QThread") + ". In general, prefer to keep the event "
         "loop responsive and only introduce threads when profiling "
         "demands it.",
@@ -4340,7 +4395,9 @@ def chapter_24_docker(styles):
         "Copy the source tree.",
         "Install Python requirements into a virtualenv under "
         + c("/opt/medpharm/venv") + ".",
-        "Set sane ENV defaults (ports, TLS mode, worker counts).",
+        "Set sane ENV defaults (ports, TLS mode, worker counts); "
+        "the database is selected at run time by MEDPHARM_DATABASE_URL "
+        "and defaults to a SQLite file under /data when it is unset.",
         "Declare exposed ports, volumes, health check, and "
         "entrypoint.",
     ], styles))
@@ -4353,6 +4410,29 @@ def chapter_24_docker(styles):
         "supervisord stops all three gracefully. Log rotation is "
         "delegated to the host or orchestrator; within the "
         "container, logs stream to mounted volumes.",
+        styles))
+
+    s.append(h2("Compose and the shared database", styles))
+    s.append(p(
+        c("docker-compose.yml") + " brings up two services: a "
+        + c("db") + " service running "
+        + c("postgres:16-alpine") + " with a "
+        + c("medpharm-pgdata") + " volume and a "
+        + c("pg_isready") + " health check, and the "
+        + c("api") + " service, which declares "
+        + c("depends_on: db (condition: service_healthy)") + " and "
+        "reaches it through "
+        + c("MEDPHARM_DATABASE_URL=postgresql+psycopg://medpharm:"
+            "${MEDPHARM_DB_PASSWORD}@db:5432/medpharm") + ". This is "
+        "the shared-backend default: every client that points at "
+        "this URL reads and writes one database. Commenting the URL "
+        "out (and uncommenting "
+        + c("MEDPHARM_DB_PATH") + ") falls the API back to a private "
+        "SQLite file under the "
+        + c("medpharm-data") + " volume. Supply "
+        + c("MEDPHARM_DB_PASSWORD") + " in the environment or an "
+        + c(".env") + " file rather than accepting the "
+        + c("change-this-in-production") + " placeholder.",
         styles))
 
     s.append(h2("Building locally", styles))
@@ -4436,16 +4516,39 @@ def chapter_25_kubernetes(styles):
 
     s.append(h2("Base manifests", styles))
     s.append(bullets([
-        c("deployment.yaml") + " — single-pod deployment of the "
-        + c("enlightec/medpharm-server") + " image.",
+        c("postgres-statefulset.yaml") + " — the "
+        + c("medpharm-postgres") + " StatefulSet (postgres:16-alpine, "
+        "uid/gid 70, a 5 Gi "
+        + c("volumeClaimTemplate") + ", and "
+        + c("pg_isready") + " probes). The shared database every "
+        "component attaches to.",
+        c("postgres-service.yaml") + " — the headless "
+        + c("medpharm-postgres") + " Service on 5432 that the app "
+        "and the init-container resolve.",
+        c("deployment.yaml") + " — deployment of the "
+        + c("enlightec/medpharm-server") + " image. Because every "
+        "replica shares the one networked database it is no longer "
+        "single-writer-bound: the strategy is "
+        + c("RollingUpdate") + " and "
+        + c("replicas") + " may be raised past 1. An "
+        + c("initContainer") + " blocks on "
+        + c("pg_isready") + " so the app does not crash-loop racing "
+        "Postgres on a cold start.",
         c("service.yaml") + " — ClusterIP service exposing 80 and "
         "443.",
         c("ingress.yaml") + " — ingress rules; overlays supply the "
         "cloud-specific ingress class (GCE, ALB, nginx).",
-        c("secret.yaml") + " — placeholder Secret for "
-        "MEDPHARM_JWT_SECRET, MEDPHARM_SECRET_KEY, and "
-        "MEDPHARM_FIELD_KEY. Operators fill in real values via "
-        + c("kubectl create secret generic") + ".",
+        c("secret.example.yaml") + " — template Secret "
+        + c("medpharm-secrets") + " carrying MEDPHARM_JWT_SECRET, "
+        "MEDPHARM_SECRET_KEY, MEDPHARM_DB_PASSWORD, and the "
+        "credential-bearing MEDPHARM_DATABASE_URL. Operators fill in "
+        "real values via "
+        + c("kubectl create secret generic") + "; the URL lives only "
+        "in the Secret, never the ConfigMap.",
+        c("configmap.yaml") + " — non-secret env "
+        + c("medpharm-config") + " (ports, workers, CORS, and the "
+        "SQLite "
+        + c("MEDPHARM_DB_PATH") + " fallback).",
         c("pvc.yaml") + " — PersistentVolumeClaim for "
         + c("/data") + " and "
         + c("/etc/ssl/medpharm") + ".",
@@ -4455,14 +4558,21 @@ def chapter_25_kubernetes(styles):
 
     s.append(h2("Scaling story", styles))
     s.append(p(
-        "The single-pod deployment is intentional: SQLite's "
-        "single-writer constraint means multiple pods would "
-        "contend on the same database file. If write throughput "
-        "demands it, the migration path is to PostgreSQL plus a "
-        "horizontal pod autoscaler — not multiple SQLite pods. "
-        "For read-heavy scaling, an additional API-only "
-        "deployment can front read-only endpoints, but that is a "
-        "deployment choice, not a code change.",
+        "The Kubernetes base now ships PostgreSQL as the shared "
+        "backend, so the historical single-writer ceiling is gone. "
+        "The app Deployment defaults to one replica purely for "
+        "economy; because every pod reads and writes the one "
+        "networked database through "
+        + c("MEDPHARM_DATABASE_URL") + ", write throughput scales by "
+        "raising "
+        + c("replicas") + " — or by attaching a HorizontalPodAutoscaler "
+        "to the Deployment — with no code change. The earlier advice "
+        "to never run multiple SQLite pods still holds for the "
+        "SQLite default; it simply no longer applies once the "
+        "Postgres StatefulSet is the backend. The database itself "
+        "remains a single StatefulSet replica, which is the next "
+        "axis to scale (read replicas, a managed Postgres service) "
+        "should it become the bottleneck.",
         styles))
 
     s.append(h2("Hot backup", styles))
@@ -4540,8 +4650,10 @@ chmod +x install.sh
         "The install script detects the OS, installs system "
         "dependencies, creates a virtualenv under "
         + c("venv/") + ", installs Python requirements, "
-        "initialises the SQLite database, and runs the seed "
-        "scripts. On completion, three launchers are ready: "
+        "initialises the database (a local SQLite file unless "
+        + c("MEDPHARM_DATABASE_URL") + " points at a shared "
+        "PostgreSQL server), and runs the seed scripts. On "
+        "completion, three launchers are ready: "
         + c("./start_cloud.sh") + ", "
         + c("./start_web.sh") + ", and "
         + c("./start_desktop.sh") + ".",
@@ -4579,7 +4691,15 @@ print('DB ready')
             ["MEDPHARM_FIELD_KEY", "(auto-generated)",
              "For testing encryption rotation"],
             ["MEDPHARM_DB_PATH", "medpharm_erp.db",
-             "Point at a throwaway DB during tests"],
+             "SQLite file used when MEDPHARM_DATABASE_URL is unset; "
+             "point at a throwaway DB during tests"],
+            ["MEDPHARM_DATABASE_URL", "(unset)",
+             "Full SQLAlchemy URL of a shared backend, e.g. "
+             "postgresql+psycopg://medpharm:PASS@host:5432/medpharm; "
+             "overrides MEDPHARM_DB_PATH when set"],
+            ["MEDPHARM_DB_PASSWORD", "(unset)",
+             "Postgres password the Docker/k8s URLs interpolate; set "
+             "alongside a containerised db service"],
         ],
         col_widths=[1.7 * inch, 1.3 * inch, 3.3 * inch]))
 
@@ -4777,8 +4897,15 @@ print('DB ready')
         + c("data/medpharm_erp.db") + " → "
         + c("data/medpharm.db") + ", which catches the run_cloud.py "
         "default, the docker-compose volume mount default, and the "
-        "legacy path. Operators who relied on the previous behaviour "
-        "for any reason should consult the script before upgrading.",
+        "legacy path. This online "
+        + c(".backup") + " is the SQLite path only; a deployment that "
+        "has moved its data to the shared PostgreSQL backend "
+        "(" + c("MEDPHARM_DATABASE_URL") + ") backs up at the "
+        "database server instead — with "
+        + c("pg_dump") + " or a managed-service snapshot — and the "
+        "autodetect simply finds no file to copy. Operators who "
+        "relied on the previous behaviour for any reason should "
+        "consult the script before upgrading.",
         styles))
 
     s.append(PageBreak())

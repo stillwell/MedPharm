@@ -7,20 +7,22 @@ Manifests are organized as **kustomize** bases and overlays and ship in the
 
 ```
 k8s/
-├── medpharm-k8s.sh          # installer / deployer / manager CLI
-├── base/                    # cloud-agnostic manifests
+├── medpharm-k8s.sh                # installer / deployer / manager CLI
+├── base/                          # cloud-agnostic manifests
 │   ├── namespace.yaml
 │   ├── configmap.yaml
-│   ├── secret.example.yaml  # template — replace before production
+│   ├── secret.example.yaml        # template — replace before production
 │   ├── pvc.yaml
+│   ├── postgres-statefulset.yaml  # shared PostgreSQL StatefulSet
+│   ├── postgres-service.yaml      # ClusterIP for medpharm-postgres:5432
 │   ├── deployment.yaml
 │   ├── service.yaml
 │   ├── ingress.yaml
 │   └── kustomization.yaml
 └── overlays/
-    ├── gcp/                 # GKE: GCE ingress + ManagedCertificate
-    ├── aws/                 # EKS: ALB ingress + gp3 EBS volume
-    └── generic/             # Linode, DigitalOcean, bare-metal (ingress-nginx)
+    ├── gcp/                       # GKE: GCE ingress + ManagedCertificate
+    ├── aws/                       # EKS: ALB ingress + gp3 EBS volume
+    └── generic/                   # Linode, DigitalOcean, bare-metal (ingress-nginx)
 ```
 
 ---
@@ -46,14 +48,21 @@ REST API (Gunicorn on `:8080`), and the Patient Web Portal (Gunicorn on
 `:5000`) inside one container, supervised by `supervisord`. Nginx on `:80` is
 the only port exposed by the Service and Ingress.
 
-**State** lives in `/data/medpharm_erp.db` (SQLite) on a `ReadWriteOnce` PVC
-(10 Gi by default). The Deployment is pinned to `replicas: 1` with
-`strategy: Recreate` — multiple replicas would race on the SQLite file.
-See [Scaling Considerations](#scaling-considerations) for horizontal scale-out.
+**State** lives in a shared **PostgreSQL** `medpharm-postgres` StatefulSet
+(ClusterIP `medpharm-postgres:5432`, backed by its own PVC), which the app
+reaches through `MEDPHARM_DATABASE_URL`. Because every replica reads and
+writes that one networked database, the Deployment uses
+`strategy: RollingUpdate` and is no longer pinned to a single writer — it
+ships at `replicas: 1` but may be scaled up freely. An initContainer waits
+for Postgres to accept connections before the app starts. The legacy
+`/data` SQLite PVC (10 Gi `ReadWriteOnce`) remains mounted for the
+SQLite-only fallback. See [Scaling Considerations](#scaling-considerations).
 
-**Secrets** (`MEDPHARM_JWT_SECRET`, `MEDPHARM_SECRET_KEY`) must be created
-out-of-band before the first apply. The file `secret.example.yaml` exists as
-a template only; never apply it with the placeholder values.
+**Secrets** (`MEDPHARM_JWT_SECRET`, `MEDPHARM_SECRET_KEY`,
+`MEDPHARM_DB_PASSWORD`, and `MEDPHARM_DATABASE_URL` — the last two carry the
+Postgres credential) must be created out-of-band before the first apply. The
+file `secret.example.yaml` exists as a template only; never apply it with the
+placeholder values.
 
 **Probes** hit `/api/v1/health` through Nginx on port 80:
 
@@ -118,10 +127,13 @@ picks the wrong one.
    ```bash
    kubectl create namespace medpharm
 
-   # App secrets
+   # App secrets (includes the shared-Postgres credential)
+   DBPASS="$(openssl rand -hex 32)"   # hex: URL-safe (no '/' or '+')
    kubectl -n medpharm create secret generic medpharm-secrets \
      --from-literal=MEDPHARM_JWT_SECRET="$(openssl rand -base64 48)" \
-     --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)"
+     --from-literal=MEDPHARM_SECRET_KEY="$(openssl rand -base64 48)" \
+     --from-literal=MEDPHARM_DB_PASSWORD="$DBPASS" \
+     --from-literal=MEDPHARM_DATABASE_URL="postgresql+psycopg://medpharm:${DBPASS}@medpharm-postgres:5432/medpharm"
 
    # TLS cert (self-signed for dev — use a CA-issued cert or cert-manager in prod)
    openssl req -x509 -nodes -newkey rsa:4096 -days 825 -sha256 \
@@ -340,20 +352,23 @@ kubectl -n medpharm set image deploy/medpharm-server \
 
 ## Scaling Considerations
 
-The shipping image embeds **SQLite**, which serialises all writes through a
-single filesystem. The Deployment is therefore capped at `replicas: 1`.
+The base manifests ship a shared **PostgreSQL** `medpharm-postgres`
+StatefulSet, and the app reaches it through `MEDPHARM_DATABASE_URL` (set in
+the `medpharm-secrets` Secret). Because writes no longer funnel through a
+single SQLite file, the Deployment already runs with
+`strategy: RollingUpdate` and can scale horizontally.
 
-To run more than one replica you must:
+To run more than one replica:
 
-1. Migrate `MEDPHARM_DB_PATH` to a networked RDBMS (Postgres / MySQL). The
-   code path uses `database.db_manager.DatabaseManager`; swap its backend.
-2. Delete the `medpharm-data` PVC (data will live in the database cluster).
-3. Raise `spec.replicas` in the Deployment and switch
-   `spec.strategy.type` to `RollingUpdate`.
-4. (Optional) Add a `HorizontalPodAutoscaler` keyed on CPU or request rate.
+1. Raise `spec.replicas` in the Deployment (or `kubectl -n medpharm scale
+   deploy/medpharm-server --replicas=3`). Every replica shares the one
+   networked database.
+2. (Optional) Add a `HorizontalPodAutoscaler` keyed on CPU or request rate.
+3. Size the `medpharm-postgres` StatefulSet (CPU/memory, PVC, connection
+   limits) for the aggregate load; consider a managed Postgres for HA.
 
-Until the database migration is done, vertical scaling (CPU/memory limits,
-bigger node type) is the supported path.
+The app pods are otherwise stateless. The legacy `medpharm-data` PVC is only
+used when `MEDPHARM_DATABASE_URL` is unset (single-replica SQLite fallback).
 
 ---
 
@@ -382,7 +397,11 @@ kubectl -n medpharm exec deploy/medpharm-server -- supervisorctl status
 kubectl -n medpharm port-forward svc/medpharm-server 8080:80
 curl http://localhost:8080/api/v1/health
 
-# Backup the SQLite DB off-cluster
+# Backup the shared PostgreSQL off-cluster (default backend)
+kubectl -n medpharm exec statefulset/medpharm-postgres -- \
+  pg_dump -U medpharm -Fc medpharm > ./backup-$(date +%F).dump
+
+# Backup the SQLite DB off-cluster (only when MEDPHARM_DATABASE_URL is unset)
 kubectl -n medpharm exec deploy/medpharm-server -- \
   sqlite3 /data/medpharm_erp.db ".backup /tmp/backup.db"
 kubectl -n medpharm cp medpharm-server:/tmp/backup.db ./backup-$(date +%F).db

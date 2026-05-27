@@ -47,7 +47,7 @@ tolerable).
 
 | Artifact | Where | How |
 |----------|-------|-----|
-| Database (`medpharm_erp.db` or Postgres dump) | `/data/medpharm_erp.db` (Docker volume `medpharm-data`) | `update.sh` writes a dated copy before each pull; cron job ships off-site |
+| Database (`medpharm_erp.db` or Postgres dump) | `/data/medpharm_erp.db` (Docker volume `medpharm-data`), or the shared PostgreSQL pointed at by `MEDPHARM_DATABASE_URL` | SQLite: `update.sh` writes a dated copy before each pull; cron ships off-site. PostgreSQL: `pg_dump` on the cadence in §2 (the file-copy auto-backup does not cover it) |
 | Field-encryption keys | Secret manager (Vault, AWS Secrets Manager, GCP Secret Manager) | Replicated by the secret manager — never bundled with the database backup |
 | TLS material | `/etc/ssl/medpharm/` | Synchronised separately; rotation cadence per certificate authority |
 | Audit-log archive | Database + cold storage | The hash chain is part of the database backup; cold-storage immutable retention is in addition |

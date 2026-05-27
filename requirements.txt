@@ -4,3 +4,7 @@ SQLAlchemy>=2.0.0
 Werkzeug>=3.0.0
 matplotlib>=3.8.0
 numpy>=1.26.0
+
+# PostgreSQL driver (psycopg 3). Only used when MEDPHARM_DATABASE_URL points
+# the app at a shared PostgreSQL server; pure-SQLite installs never import it.
+psycopg[binary]>=3.1

@@ -13,7 +13,8 @@ For operator docs see [`docs/SERVER.md`](../docs/SERVER.md). For installation se
 | Nginx reverse proxy | 80 | supervisord |
 | Gunicorn — Cloud API (`api.app:create_app`) | 8080 | supervisord |
 | Gunicorn — Web Portal (`web.app:create_app`) | 5000 | supervisord |
-| SQLite database | — | volume `/data` |
+| PostgreSQL database (`db` service) | 5432 | volume `medpharm-pgdata` |
+| SQLite database (fallback) | — | volume `/data` (used only when `MEDPHARM_DATABASE_URL` is unset) |
 
 ---
 
@@ -85,6 +86,10 @@ All variables are read from `.env` (Compose loads it automatically). See [`docs/
 MEDPHARM_JWT_SECRET=change-me-to-64-random-bytes
 MEDPHARM_SECRET_KEY=change-me-to-64-random-bytes
 MEDPHARM_CORS_ORIGINS=https://app.example.com
+# Shared PostgreSQL backend (default). Comment out MEDPHARM_DATABASE_URL to
+# fall back to a private SQLite file.
+MEDPHARM_DB_PASSWORD=change-me-to-a-strong-db-password
+MEDPHARM_DATABASE_URL=postgresql+psycopg://medpharm:change-me-to-a-strong-db-password@db:5432/medpharm
 ```
 
 ---
@@ -94,7 +99,8 @@ MEDPHARM_CORS_ORIGINS=https://app.example.com
 ```bash
 docker exec medpharm-server supervisorctl status
 docker exec medpharm-server supervisorctl restart medpharm-api
-docker exec -it medpharm-server sqlite3 /data/medpharm_erp.db
+docker exec -it medpharm-db psql -U medpharm -d medpharm          # shared Postgres (default)
+docker exec -it medpharm-server sqlite3 /data/medpharm_erp.db     # SQLite fallback (MEDPHARM_DATABASE_URL unset)
 docker logs -f medpharm-server
 ```
 

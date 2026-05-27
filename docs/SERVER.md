@@ -1,6 +1,6 @@
 # MedPharm ERP — Server Guide
 
-Operator documentation for the MedPharm server stack: Cloud REST API, Flask Web Portal, Nginx reverse proxy, Supervisor process manager, and the SQLite datastore.
+Operator documentation for the MedPharm server stack: Cloud REST API, Flask Web Portal, Nginx reverse proxy, Supervisor process manager, and the datastore (shared PostgreSQL by default, single-file SQLite when `MEDPHARM_DATABASE_URL` is unset).
 
 ---
 
@@ -29,9 +29,9 @@ Internet ──►    │  :80 / :443                                   │
                 │  └── /portal/*  ──► Gunicorn : 5000 (Web)    │
                 └───────────────────────────────────────────────┘
                                    │
-                              ┌────┴────┐
-                              │ SQLite  │ /data/medpharm_erp.db
-                              └─────────┘
+                              ┌────┴─────┐
+                              │ Database │  PostgreSQL  (MEDPHARM_DATABASE_URL, default)
+                              └──────────┘  or SQLite   /data/medpharm_erp.db (URL unset)
 ```
 
 All three processes (Nginx, Gunicorn API, Gunicorn Web) are supervised by **supervisord** inside the `enlightec/medpharm-server` container. Logs stream to stdout and to `/var/log/medpharm/`.
@@ -48,7 +48,7 @@ cp .env.example .env          # edit secrets
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-One host, one container, one SQLite volume. Suitable for small practices (< 50 concurrent users).
+One host, one container. Compose brings up a bundled PostgreSQL `db` service by default (the `medpharm-pgdata` volume); comment out `MEDPHARM_DATABASE_URL` to fall back to a single SQLite volume. Suitable for small practices (< 50 concurrent users).
 
 ### 2. API + Portal behind an external reverse proxy
 
@@ -61,9 +61,9 @@ python3 run_web.py                 # on the same host, different port
 
 Point your existing Nginx / Caddy / Traefik at `http://127.0.0.1:8080` and `http://127.0.0.1:5000`.
 
-### 3. Horizontal scale (read-replicas)
+### 3. Horizontal scale (shared database)
 
-SQLite is single-writer. For larger installations migrate the DB to PostgreSQL by changing the `DATABASE_URL` in `DatabaseManager.__init__` (SQLAlchemy handles the driver swap) and run the API behind a load balancer with `N` workers.
+SQLite is single-writer. For larger installations point every component at a shared PostgreSQL by setting the `MEDPHARM_DATABASE_URL` env var (e.g. `postgresql+psycopg://medpharm:PASS@host:5432/medpharm`) — no code change; `DatabaseManager` reads it at startup and SQLAlchemy handles the driver. With the database shared, run the API behind a load balancer with `N` workers (or, on k8s, multiple replicas).
 
 ### 4. Kubernetes (GKE, EKS, Linode, bare-metal)
 
@@ -149,7 +149,9 @@ Customisations:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEDPHARM_DB_PATH` | `medpharm_erp.db` | SQLite path |
+| `MEDPHARM_DATABASE_URL` | _(unset)_ | Full SQLAlchemy URL for the shared database (e.g. `postgresql+psycopg://medpharm:PASS@host:5432/medpharm`). Set = every component shares one DB; unset = private SQLite at `MEDPHARM_DB_PATH`. |
+| `MEDPHARM_DB_PASSWORD` | `change-this-in-production` | Postgres superuser password for the Compose `db` service (embedded in `MEDPHARM_DATABASE_URL`). |
+| `MEDPHARM_DB_PATH` | `medpharm_erp.db` | SQLite path (used only when `MEDPHARM_DATABASE_URL` is unset) |
 | `MEDPHARM_SECRET_KEY` | auto-generated | Flask session secret |
 | `MEDPHARM_JWT_SECRET` | dev default | **Override in production** |
 | `MEDPHARM_TOKEN_EXPIRY` | `86400` | Access token seconds |
@@ -245,7 +247,27 @@ Health endpoint returns `{"status":"ok"}` with HTTP 200. Docker's `HEALTHCHECK` 
 
 ## Backup & Restore
 
-### SQLite hot backup
+Back up whichever backend is live. With the default Compose stack the authoritative store is the PostgreSQL `db` service; only use the SQLite commands when `MEDPHARM_DATABASE_URL` is unset.
+
+### PostgreSQL backup (default stack)
+
+```bash
+docker exec medpharm-db pg_dump -U medpharm -Fc medpharm > "./backups/medpharm-$(date +%F).dump"
+```
+
+Schedule via cron:
+
+```cron
+15 2 * * * docker exec medpharm-db pg_dump -U medpharm -Fc medpharm > "/srv/medpharm/backups/medpharm-$(date +\%F).dump"
+```
+
+Restore into a running `db` service:
+
+```bash
+docker exec -i medpharm-db pg_restore -U medpharm -d medpharm --clean --if-exists < ./backups/medpharm-2026-04-10.dump
+```
+
+### SQLite hot backup (when `MEDPHARM_DATABASE_URL` is unset)
 
 ```bash
 docker exec medpharm-server sqlite3 /data/medpharm_erp.db ".backup '/data/backup-$(date +%F).db'"
@@ -258,7 +280,7 @@ Schedule via cron:
 15 2 * * * docker exec medpharm-server sqlite3 /data/medpharm_erp.db ".backup '/data/backup-$(date +\%F).db'"
 ```
 
-### Restore
+SQLite restore:
 
 ```bash
 docker compose down
@@ -279,7 +301,7 @@ docker compose -f docker-compose.hub.yml up -d
 docker image prune -f
 ```
 
-Schema changes are applied automatically by `DatabaseManager.init_db()` on container start via `CREATE TABLE IF NOT EXISTS`. Destructive migrations (column drops) will require manual SQL — check the `CHANGELOG` before upgrading between major versions.
+Schema changes are applied automatically by `DatabaseManager.init_db()` on container start via `CREATE TABLE IF NOT EXISTS` (against whichever backend `MEDPHARM_DATABASE_URL` selects — PostgreSQL or SQLite). Destructive migrations (column drops) will require manual SQL — check the `CHANGELOG` before upgrading between major versions.
 
 **Rollback:**
 
@@ -312,7 +334,8 @@ MEDPHARM_TAG=1.5.1 docker compose up -d
 | Check services | `docker exec medpharm-server supervisorctl status` |
 | Tail API logs | `docker logs -f medpharm-server` |
 | Restart API only | `docker exec medpharm-server supervisorctl restart medpharm-api` |
-| Open SQL shell | `docker exec -it medpharm-server sqlite3 /data/medpharm_erp.db` |
+| Open SQL shell (Postgres) | `docker exec -it medpharm-db psql -U medpharm -d medpharm` |
+| Open SQL shell (SQLite) | `docker exec -it medpharm-server sqlite3 /data/medpharm_erp.db` (only when `MEDPHARM_DATABASE_URL` is unset) |
 | Reset admin password | `UPDATE users SET password_hash = '<werkzeug_hash>' WHERE username='admin';` |
 | Force token rotation | Change `MEDPHARM_JWT_SECRET`, restart API — all existing tokens invalidate. |
 | Enable debug temporarily | `MEDPHARM_DEBUG=true docker compose up -d`, then revert. |

@@ -212,6 +212,8 @@ spec:
 
 ## Database Initialization & Seeding
 
+By default each component initialises its own private single-file SQLite database. To share **one** database across the Qt desktop, web portal, REST API, Docker, and Kubernetes, export a SQLAlchemy URL in `MEDPHARM_DATABASE_URL` (e.g. `postgresql+psycopg://medpharm:PASS@host:5432/medpharm`) before seeding — `DatabaseManager` then builds its engine from that URL instead of the SQLite file, and the seed steps below populate the shared database. Leave `MEDPHARM_DATABASE_URL` unset to keep the legacy private SQLite file.
+
 `install.sh` does this automatically. To re-seed or seed manually:
 
 ```bash
@@ -235,7 +237,7 @@ PY
 | `seed_database` | 55 medications, 24 interactions, 5 staff, 5 patients, sample prescriptions / invoices |
 | `seed_expanded_data` | 30+ symptoms, 25+ conditions, 20+ additional medications |
 
-To reset the database, stop all services and delete `medpharm_erp.db` (or the Docker `medpharm-data` volume) before re-seeding.
+To reset the database, stop all services and delete `medpharm_erp.db` (or the Docker `medpharm-data` volume) before re-seeding. This applies to the default SQLite deployment; with a shared `MEDPHARM_DATABASE_URL` PostgreSQL backend, reset the database server-side instead (e.g. `dropdb`/`createdb` or `DROP SCHEMA public CASCADE`) before re-running the seed.
 
 ---
 
@@ -299,10 +301,13 @@ Expected responses:
 | Staff login | JSON with `access_token`, `refresh_token` |
 | Web portal | `HTTP/1.1 200 OK` or `302` (login page redirect) |
 
-### TLS configuration knobs
+### Database & TLS configuration knobs
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
+| `MEDPHARM_DATABASE_URL` | _(unset)_ | Full SQLAlchemy URL of a shared database, e.g. `postgresql+psycopg://user:pass@host:5432/medpharm`. When set, every server-side component shares this one database and `MEDPHARM_DB_PATH` is ignored. Unset → private SQLite. |
+| `MEDPHARM_DB_PATH` | `medpharm_erp.db` | Path to the SQLite database (used only when `MEDPHARM_DATABASE_URL` is unset) |
+| `MEDPHARM_DB_PASSWORD` | `change-this-in-production` | Password for the Docker Compose `db` (PostgreSQL 16) service / `medpharm-postgres` StatefulSet and the `MEDPHARM_DATABASE_URL` it builds |
 | `MEDPHARM_TLS_MODE` | `auto` | `auto` (generate self-signed if none present), `require` (fail if no cert mounted), `disable` (plaintext — dev only) |
 | `MEDPHARM_TLS_DIR` | `/etc/ssl/medpharm` | Directory containing `fullchain.pem` + `privkey.pem` |
 | `MEDPHARM_TLS_HOSTNAME` | `localhost` | CN / SAN for self-signed generation |
@@ -388,7 +393,7 @@ docker image rm enlightec/medpharm-api enlightec/medpharm-server 2>/dev/null || 
 | `qt.qpa.plugin: Could not load the Qt platform plugin "xcb"` | Install `libxcb-cursor0 libxkbcommon-x11-0` on Debian/Ubuntu. |
 | `ImportError: libGL.so.1` | Install `libgl1` / `mesa-libGL`. |
 | `Address already in use` on 8080 | `sudo lsof -i :8080` then stop the conflicting process or set `MEDPHARM_PORT`. |
-| `sqlite3.OperationalError: database is locked` | Stop competing processes or move DB off NFS. |
+| `sqlite3.OperationalError: database is locked` | A SQLite-only condition (concurrent writers / DB on NFS). Stop competing processes or move the DB off NFS — or point every component at a networked PostgreSQL via `MEDPHARM_DATABASE_URL`, which handles concurrent writers and so avoids this lock entirely. |
 | 401 on every API call | Clear and refresh tokens — expired access tokens must be renewed via `POST /auth/refresh`. |
 | CORS error from mobile client | Set `MEDPHARM_CORS_ORIGINS` to include the client origin, restart API. |
 | Docker port clash | Use `./install.sh --docker --docker-server` (auto-remaps) or override `MEDPHARM_PORT`. |

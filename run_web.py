@@ -46,9 +46,10 @@ DB_PATH = os.environ.get(
     "MEDPHARM_DB_PATH",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "medpharm_erp.db"),
 )
+DATABASE_URL = os.environ.get("MEDPHARM_DATABASE_URL")
 
 # Database setup (module-level so gunicorn can import run_web:app)
-db_manager = DatabaseManager(DB_PATH)
+db_manager = DatabaseManager(db_path=DB_PATH, database_url=DATABASE_URL)
 db_manager.init_db()
 seed_database(db_manager)
 
@@ -61,7 +62,7 @@ def main():
     print("  MedPharm ERP - Patient Web Portal")
     print("=" * 60)
     print(f"  Server running at: http://localhost:5000")
-    print(f"  Database: {DB_PATH}")
+    print(f"  Database: {db_manager.safe_target}")
     print()
     print("  Sample patient portal accounts:")
     print("    Username: jsmith_portal  Password: patient123")

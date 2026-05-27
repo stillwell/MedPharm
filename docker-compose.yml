@@ -32,6 +32,27 @@
 # ==============================================================================
 
 services:
+  # Shared PostgreSQL database — the single backend every MedPharm client
+  # (Qt desktop, web portal, REST API, and mobile clients via the API) reads
+  # and writes, so they all see the same data. Unset MEDPHARM_DATABASE_URL on a
+  # service to make it fall back to a private SQLite file instead.
+  db:
+    image: postgres:16-alpine
+    container_name: medpharm-db
+    environment:
+      - POSTGRES_USER=medpharm
+      - POSTGRES_PASSWORD=${MEDPHARM_DB_PASSWORD:-change-this-in-production}
+      - POSTGRES_DB=medpharm
+    volumes:
+      - medpharm-pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medpharm -d medpharm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -39,10 +60,17 @@ services:
     container_name: medpharm-api
     ports:
       - "${MEDPHARM_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       - MEDPHARM_JWT_SECRET=${MEDPHARM_JWT_SECRET:-change-this-in-production}
       - MEDPHARM_SECRET_KEY=${MEDPHARM_SECRET_KEY:-change-this-in-production}
-      - MEDPHARM_DB_PATH=/data/medpharm_erp.db
+      # Shared PostgreSQL backend (default): every service pointed at this URL
+      # reads/writes one database, so the API and all clients see the same data.
+      # Comment it out to fall back to the private SQLite file at MEDPHARM_DB_PATH.
+      - MEDPHARM_DATABASE_URL=postgresql+psycopg://medpharm:${MEDPHARM_DB_PASSWORD:-change-this-in-production}@db:5432/medpharm
+      # - MEDPHARM_DB_PATH=/data/medpharm_erp.db
       - MEDPHARM_CORS_ORIGINS=${MEDPHARM_CORS_ORIGINS:-*}
       - MEDPHARM_TOKEN_EXPIRY=${MEDPHARM_TOKEN_EXPIRY:-86400}
       - MEDPHARM_REFRESH_EXPIRY=${MEDPHARM_REFRESH_EXPIRY:-604800}
@@ -61,6 +89,8 @@ services:
       start_period: 10s
 
 volumes:
+  medpharm-pgdata:
+    driver: local
   medpharm-data:
     driver: local
   medpharm-tls:

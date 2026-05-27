@@ -9,3 +9,7 @@ SQLAlchemy>=2.0.0
 Werkzeug>=3.0.0
 flask-cors>=4.0.0
 gunicorn>=21.2.0
+
+# PostgreSQL driver (psycopg 3). Used when MEDPHARM_DATABASE_URL points the
+# server at a shared PostgreSQL database; unset reverts to single-file SQLite.
+psycopg[binary]>=3.1

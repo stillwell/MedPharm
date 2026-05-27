@@ -25,6 +25,11 @@ SPL loader matches by NDC, so the row has to exist first.
 # All three FDA / NIH sources, full pull (~5 min, +400 MB to the SQLite DB)
 python3 database/load_fda_data.py all
 
+# Load into a shared PostgreSQL instead of SQLite (catalogue lands in the
+# same database every component reads). Honours $MEDPHARM_DATABASE_URL too.
+python3 database/load_fda_data.py all \
+  --database-url postgresql+psycopg://medpharm:PASS@host:5432/medpharm
+
 # Just the FDA NDC Directory (~360k drug products)
 python3 database/load_fda_data.py ndc
 
@@ -38,7 +43,8 @@ python3 database/load_fda_data.py ndc --dry-run
 **Common flags:**
 | Flag | Effect |
 |---|---|
-| `--db-path PATH` | Override the SQLite path (default: `$MEDPHARM_DB_PATH` or `medpharm_erp.db`) |
+| `--database-url URL` | Load into a shared database via a full SQLAlchemy URL, e.g. `postgresql+psycopg://medpharm:PASS@host:5432/medpharm` (default: `$MEDPHARM_DATABASE_URL` if set). Takes precedence over `--db-path`. |
+| `--db-path PATH` | Override the SQLite path (default: `$MEDPHARM_DB_PATH` or `medpharm_erp.db`); used only when no `--database-url` / `$MEDPHARM_DATABASE_URL` is given |
 | `--cache-dir PATH` | Where to cache the downloaded ZIP files (default: `data/fda-cache/`) |
 | `--refresh` | Re-download even if a cached copy exists |
 | `--max-rows N` | Stop after N input rows — useful for testing |
@@ -50,10 +56,20 @@ never duplicates. The loader **never overwrites** rows whose
 `data_source` is not in `{'fda_ndc','orange_book','dsld'}`, so the
 original hand-curated seed data is preserved indefinitely.
 
-**Verifying the load.**
+**Verifying the load.** Use whichever client matches your backend — `sqlite3`
+for the default single-file database, or `psql` when the catalogue was loaded
+into a shared PostgreSQL via `MEDPHARM_DATABASE_URL` / `--database-url`:
 
 ```bash
+# SQLite (default)
 sqlite3 medpharm_erp.db <<'SQL'
+SELECT data_source, COUNT(*) FROM medications GROUP BY data_source;
+SELECT product_type, COUNT(*) FROM medications GROUP BY product_type
+       ORDER BY 2 DESC LIMIT 5;
+SQL
+
+# Shared PostgreSQL (same queries, psql client)
+psql "$MEDPHARM_DATABASE_URL" <<'SQL'
 SELECT data_source, COUNT(*) FROM medications GROUP BY data_source;
 SELECT product_type, COUNT(*) FROM medications GROUP BY product_type
        ORDER BY 2 DESC LIMIT 5;

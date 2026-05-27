@@ -22,6 +22,7 @@ Provides all CRUD operations and business logic for the database layer.
 """
 
 import json
+import os
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, date, timedelta
@@ -29,6 +30,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import create_engine, func, or_, and_, desc
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker, Session
 
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -52,20 +54,77 @@ from database.models import (
 
 
 class DatabaseManager:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None, database_url: str = None):
         self.db_path = db_path
+        self._database_url = database_url
         self.engine = None
         self._session_factory = None
 
+    def _resolve_database_url(self):
+        """Resolve the SQLAlchemy URL this manager connects with.
+
+        Precedence:
+          1. an explicit ``database_url`` passed to the constructor
+          2. the ``MEDPHARM_DATABASE_URL`` environment variable
+          3. ``sqlite:///<db_path>`` — the legacy single-file default
+
+        A shared deployment points MEDPHARM_DATABASE_URL at a networked
+        database (e.g. ``postgresql+psycopg://user:pw@host:5432/medpharm``)
+        so the Qt desktop, web portal, REST API, Docker, and k8s all read
+        and write one database. With nothing set, behaviour is unchanged:
+        a private SQLite file at ``db_path``.
+        """
+        url = self._database_url or os.environ.get("MEDPHARM_DATABASE_URL")
+        if url:
+            return make_url(url)
+        if not self.db_path:
+            raise ValueError(
+                "DatabaseManager needs a database_url / MEDPHARM_DATABASE_URL "
+                "or a SQLite db_path")
+        return make_url(f"sqlite:///{self.db_path}")
+
     def init_db(self):
-        self.engine = create_engine(
-            f"sqlite:///{self.db_path}",
-            echo=False,
-            connect_args={"check_same_thread": False}
-        )
+        url = self._resolve_database_url()
+        if url.get_backend_name() == "sqlite":
+            # check_same_thread=False: both the Qt app and Flask hand a
+            # session to a worker thread; our sessions are short-lived and
+            # the GIL serialises the actual writes, so this stays safe.
+            self.engine = create_engine(
+                url, echo=False,
+                connect_args={"check_same_thread": False},
+            )
+        else:
+            # Networked backend (PostgreSQL). pool_pre_ping transparently
+            # discards connections the server has dropped (idle timeout,
+            # restart, failover); pool_recycle caps connection age so a
+            # long-running desktop client never sits on a stale socket.
+            self.engine = create_engine(
+                url, echo=False,
+                pool_pre_ping=True, pool_recycle=1800,
+            )
         Base.metadata.create_all(self.engine)
         self._session_factory = sessionmaker(bind=self.engine)
         self._upgrade_schema_in_place()
+
+    @property
+    def backend(self) -> str:
+        """Dialect name of the live engine ('sqlite', 'postgresql', ...)."""
+        return self.engine.dialect.name if self.engine is not None else "uninitialized"
+
+    @property
+    def safe_target(self) -> str:
+        """Human-readable connection target with the password masked, for
+        logging on startup so operators can see which database a client
+        actually attached to."""
+        try:
+            url = self._resolve_database_url()
+        except ValueError:
+            return "unconfigured"
+        if url.get_backend_name() == "sqlite":
+            return f"SQLite {url.database}"
+        host = url.host or "?"
+        port = f":{url.port}" if url.port else ""
+        return f"{url.get_backend_name()} @ {host}{port}/{url.database}"
 
     def _upgrade_schema_in_place(self):
         """Add columns + indexes that newer code expects without dropping data.

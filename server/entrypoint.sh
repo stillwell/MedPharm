@@ -79,7 +79,12 @@ fi
 echo "    Cloud REST API ............. port ${MEDPHARM_API_PORT:-8080}"
 echo "    Patient Web Portal ......... port ${MEDPHARM_WEB_PORT:-5000}"
 echo ""
-echo "  Database: ${MEDPHARM_DB_PATH:-/data/medpharm_erp.db}"
+if [ -n "${MEDPHARM_DATABASE_URL:-}" ]; then
+    # Strip credentials before printing: scheme + everything after the '@'.
+    echo "  Database: ${MEDPHARM_DATABASE_URL%%://*}://${MEDPHARM_DATABASE_URL##*@} (shared PostgreSQL)"
+else
+    echo "  Database: ${MEDPHARM_DB_PATH:-/data/medpharm_erp.db} (SQLite)"
+fi
 echo "  Workers:  ${MEDPHARM_WORKERS:-4} (${MEDPHARM_THREADS:-2} threads each)"
 echo ""
 echo "  API Endpoints:"
@@ -110,9 +115,10 @@ from database.seed_data import seed_database
 from database.seed_expanded import seed_expanded_data
 
 db_path = os.environ.get('MEDPHARM_DB_PATH', '/data/medpharm_erp.db')
-print(f'  Initializing database: {db_path}')
-db_manager = DatabaseManager(db_path)
+database_url = os.environ.get('MEDPHARM_DATABASE_URL')
+db_manager = DatabaseManager(db_path=db_path, database_url=database_url)
 db_manager.init_db()
+print(f'  Initializing database: {db_manager.safe_target}')
 seed_database(db_manager)
 seed_expanded_data(db_manager)
 print('  Database ready.')

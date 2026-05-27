@@ -26,11 +26,13 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/version: "1.7.6"
 spec:
-  # SQLite-backed: must stay at 1 replica. To scale horizontally,
-  # migrate MEDPHARM_DB_PATH to a networked database first.
+  # Backed by the shared PostgreSQL StatefulSet (medpharm-postgres:5432) via
+  # MEDPHARM_DATABASE_URL, so the app is no longer single-writer-bound and may
+  # be scaled horizontally by raising replicas. Left at 1 by default;
+  # RollingUpdate is safe because every replica shares the one networked DB.
   replicas: 1
   strategy:
-    type: Recreate
+    type: RollingUpdate
   selector:
     matchLabels:
       app.kubernetes.io/name: medpharm
@@ -53,6 +55,31 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # Hold the app back until PostgreSQL is accepting connections so it does
+      # not crash-loop racing the database on a cold cluster start.
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h medpharm-postgres -p 5432 -U medpharm; do
+                echo "waiting for medpharm-postgres:5432 ..."; sleep 2;
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
       containers:
         - name: medpharm
           image: enlightec/medpharm-server:1.7.6

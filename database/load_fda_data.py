@@ -649,6 +649,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--db-path", default=None,
                         help="SQLite DB path (default: $MEDPHARM_DB_PATH or "
                              "medpharm_erp.db in the repo root)")
+    parser.add_argument("--database-url", default=None,
+                        help="Full SQLAlchemy URL (e.g. postgresql+psycopg://...); "
+                             "overrides --db-path / MEDPHARM_DB_PATH. "
+                             "Defaults to $MEDPHARM_DATABASE_URL.")
     parser.add_argument("--cache-dir", default=str(CACHE_DIR_DEFAULT),
                         help=f"Directory to cache downloads (default: {CACHE_DIR_DEFAULT})")
     parser.add_argument("--refresh", action="store_true",
@@ -662,13 +666,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     db_path = (args.db_path
                or os.environ.get("MEDPHARM_DB_PATH")
                or str(_ROOT / "medpharm_erp.db"))
+    database_url = args.database_url or os.environ.get("MEDPHARM_DATABASE_URL")
     cache_dir = Path(args.cache_dir)
 
-    print(f"DB:     {db_path}")
+    db = DatabaseManager(db_path=db_path, database_url=database_url)
+    db.init_db()
+
+    print(f"DB:     {db.safe_target}")
     print(f"Cache:  {cache_dir}")
     print(f"Source: {args.source}{' (DRY RUN)' if args.dry_run else ''}")
-    db = DatabaseManager(db_path)
-    db.init_db()
 
     started = datetime.now()
 

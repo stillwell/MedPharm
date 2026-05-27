@@ -12,3 +12,8 @@ gunicorn>=21.2.0
 # faster and more correctly than the stdlib ElementTree (recovery mode +
 # huge_tree=True, both used by the loader).
 lxml>=5.0.0
+
+# PostgreSQL driver (psycopg 3). Used when MEDPHARM_DATABASE_URL points the API
+# at a shared PostgreSQL server so every client reads/writes one database.
+# Falls back to the bundled SQLite driver when the variable is unset.
+psycopg[binary]>=3.1
