@@ -35,6 +35,7 @@ from PyQt6.QtGui import QFont
 
 from database.db_manager import DatabaseManager
 from database.seed_data import seed_database
+from database.seed_demo import seed_demo_data
 from qt_app.main_window import MainWindow
 
 
@@ -69,6 +70,10 @@ def main():
     # pointed at an already-seeded shared server leaves it untouched; a fresh
     # standalone SQLite file still gets the demo data on first launch.
     seed_database(db_manager)
+    # Layer the complete demo on top (symptoms/conditions catalogue, provider
+    # NPIs, today's appointment board, full-lifecycle insurance claims).
+    # Idempotent + additive, and a no-op on an empty/patient-free database.
+    seed_demo_data(db_manager)
 
     window = MainWindow(db_manager)
     window.show()

@@ -47,6 +47,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from database.db_manager import DatabaseManager
 from database.seed_data import seed_database
 from database.seed_expanded import seed_expanded_data
+from database.seed_demo import seed_demo_data
 from api.app import create_cloud_app
 
 # Database setup
@@ -55,9 +56,12 @@ database_url = os.environ.get("MEDPHARM_DATABASE_URL")
 db_manager = DatabaseManager(db_path=db_path, database_url=database_url)
 db_manager.init_db()
 
-# Seed with sample data if empty, then expanded reference data
+# Seed with sample data if empty, then expanded reference data, then layer the
+# complete demo (provider NPIs, today's appointment board, full-lifecycle
+# insurance claims). All idempotent + additive.
 seed_database(db_manager)
 seed_expanded_data(db_manager)
+seed_demo_data(db_manager)
 
 # Create the Flask app (usable by gunicorn as run_cloud:app)
 app = create_cloud_app(db_manager)

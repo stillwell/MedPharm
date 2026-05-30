@@ -727,6 +727,20 @@ def seed_expanded_data(db_manager: DatabaseManager):
                        side_effects="Palpitations, Weight loss, Tremor, Insomnia (if overdosed)",
                        avg_wholesale_price=4.00, retail_price=14.99),
         ]
-        session.add_all(extra_meds)
+        # Skip any curated medication whose NDC already exists. On medpharm_erp.db
+        # the FDA bulk catalogue (~120k rows) already contains some of these NDCs;
+        # without this filter the INSERT raises IntegrityError and rolls back the
+        # WHOLE transaction — symptoms and conditions included — leaving the
+        # clinical reference screens empty. Filtering keeps the seed idempotent
+        # and lets symptoms/conditions commit regardless of the catalogue state.
+        wanted_ndcs = [m.ndc_code for m in extra_meds]
+        existing_ndcs = {
+            row[0] for row in session.query(Medication.ndc_code)
+            .filter(Medication.ndc_code.in_(wanted_ndcs)).all()
+        }
+        new_meds = [m for m in extra_meds if m.ndc_code not in existing_ndcs]
+        session.add_all(new_meds)
         session.flush()
-        print(f"  Seeded {len(symptoms)} symptoms, {len(conditions)} conditions, {len(extra_meds)} additional medications")
+        print(f"  Seeded {len(symptoms)} symptoms, {len(conditions)} conditions, "
+              f"{len(new_meds)} additional medications "
+              f"({len(extra_meds) - len(new_meds)} skipped — NDC already present)")

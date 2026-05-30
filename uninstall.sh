@@ -30,6 +30,12 @@
 # ║                                                                            ║
 # ║  Leaves tracked source files, launcher scripts, and .env files alone.      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
+#
+# Special mode (runs and exits — does not uninstall anything else):
+#   ./uninstall.sh --demo-data-delete   Clear only the example/demo PHI from the
+#                                       database (sample patients + all of their
+#                                       records), keeping the medication / symptom
+#                                       / condition catalogue and staff logins.
 
 set -euo pipefail
 
@@ -59,6 +65,8 @@ REMOVE_DOCKER_VOLUMES=false
 REMOVE_DOCKER_IMAGES=false
 REMOVE_ALL=false
 REMOVE_ENV_FILE=false
+DEMO_DATA_DELETE=false
+DRY_RUN=false
 
 # ── Parse Arguments ──────────────────────────────────────────────────────────
 
@@ -71,6 +79,8 @@ for arg in "$@"; do
         --docker-volumes) REMOVE_DOCKER_VOLUMES=true ;;
         --docker-images) REMOVE_DOCKER_IMAGES=true ;;
         --remove-env) REMOVE_ENV_FILE=true ;;
+        --demo-data-delete|--demo-delete) DEMO_DATA_DELETE=true ;;
+        --dry-run) DRY_RUN=true ;;
         --all)
             REMOVE_ALL=true
             REMOVE_DOCKER_API=true
@@ -91,6 +101,18 @@ Options:
   -f, --force, --yes   Skip all confirmation prompts (for CI / scripting)
       --keep-data      Preserve data/medpharm.db (and data/ directory)
       --remove-env     Also remove server/.env (kept by default — contains secrets)
+
+Demo data (runs and exits — does NOT touch venv, Docker, or anything else):
+      --demo-data-delete
+                       Delete only the example/demo PHI — every sample patient
+                       and all of their records (prescriptions, appointments,
+                       invoices, payments, insurance claims, vitals, diagnoses,
+                       medical records, portal accounts, audit log). KEEPS the
+                       medication / symptom / condition catalogue and the staff
+                       login accounts, so the install stays usable. Honors
+                       --force (skip prompt) and --dry-run.
+      --dry-run        With --demo-data-delete, report what WOULD be removed
+                       without deleting anything.
 
 Docker Hub cleanup (opt-in — nothing Docker-related runs without these flags):
       --docker, --docker-api
@@ -115,6 +137,8 @@ Examples:
   ./uninstall.sh --keep-data                 # Remove venv, keep DB
   ./uninstall.sh --docker --docker-volumes   # Tear down API-only container + volume
   ./uninstall.sh --all --force               # Scorched earth — no prompts
+  ./uninstall.sh --demo-data-delete          # Clear sample patients, keep catalogue
+  ./uninstall.sh --demo-data-delete --dry-run  # Preview what would be cleared
 
 Notes:
   - Tracked source files (launcher scripts, .env.example, docs, etc.) are
@@ -273,6 +297,62 @@ remove_env_file() {
         fi
     else
         skip "Preserving ${env_file} (pass --remove-env to delete)"
+    fi
+}
+
+# ── Demo / Example Data ───────────────────────────────────────────────────────
+
+find_python() {
+    if [[ -x "${VENV_DIR}/bin/python" ]]; then
+        echo "${VENV_DIR}/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+    else
+        echo ""
+    fi
+}
+
+demo_data_delete() {
+    header "Delete Demo / Example Data"
+
+    local py
+    py="$(find_python)"
+    [[ -n "$py" ]] || fail "No Python interpreter found (looked for ${VENV_DIR}/bin/python and python3). Run ./install.sh first."
+
+    echo -e "${BOLD}Removes every example patient and all of their records${NC} —"
+    echo -e "  prescriptions, appointments, invoices, payments, insurance claims,"
+    echo -e "  vitals, diagnoses, medical records, portal accounts, and the audit log."
+    echo -e "${GREEN}Preserves${NC} the medication / symptom / condition catalogue and the"
+    echo -e "  staff login accounts, so the install stays usable."
+    echo
+
+    if [[ -n "${MEDPHARM_DATABASE_URL:-}" ]]; then
+        info "Target: shared database (\$MEDPHARM_DATABASE_URL)"
+    else
+        info "Target: medpharm_erp.db and data/medpharm.db (whichever exist)"
+    fi
+    echo
+
+    local args=(-m database.seed_demo --delete --all-dbs --yes)
+    if [[ "$DRY_RUN" == "true" ]]; then
+        args+=(--dry-run)
+        info "Dry run — no rows will be deleted."
+    else
+        if ! confirm "Delete the demo/example data now? This erases all sample PHI."; then
+            info "Aborted — nothing was changed."
+            exit 0
+        fi
+    fi
+
+    info "Running: ${py} ${args[*]}"
+    if "$py" "${args[@]}"; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log "Demo data dry run complete (nothing was deleted)."
+        else
+            log "Demo data deletion complete."
+        fi
+    else
+        fail "Demo data deletion failed (see output above)."
     fi
 }
 
@@ -478,6 +558,15 @@ main() {
     echo "" > "$UNINSTALL_LOG"
 
     banner
+
+    # Special mode: clear only the example/demo data, then exit. Does not remove
+    # the venv, database file, logs, Docker resources, or anything else.
+    if [[ "$DEMO_DATA_DELETE" == "true" ]]; then
+        demo_data_delete
+        echo -e "\n${DIM}Log: ${UNINSTALL_LOG}${NC}\n"
+        exit 0
+    fi
+
     show_plan
 
     remove_venv

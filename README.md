@@ -231,7 +231,8 @@ MedPharm/
 │   ├── models.py              # 23 SQLAlchemy ORM models & 18 enums
 │   ├── db_manager.py          # DatabaseManager — all CRUD & business logic
 │   ├── seed_data.py           # 55 medications, 24 interactions, sample data
-│   └── seed_expanded.py       # 30+ symptoms, 25+ conditions, 20+ additional meds
+│   ├── seed_expanded.py       # 30+ symptoms, 25+ conditions, 20+ additional meds
+│   ├── seed_demo.py           # demo completion + ./uninstall.sh --demo-data-delete
 │
 ├── api/
 │   ├── app.py                 # Cloud API Flask application factory
@@ -1227,6 +1228,13 @@ The implementation lives under [`security/`](security/). Each module names the r
 | Linda Martinez     | lmartinez_portal  | patient123  |
 
 > **Note:** These are demo credentials for development and testing. Change all passwords before any production deployment.
+
+> **Demo / sample data:** Every install ships a complete, internally-consistent demonstration dataset so every screen a doctor or patient sees is populated — 15 patients with diagnoses, prescriptions, vitals, and medical records; a full *today* appointment board for the staff dashboard; invoices, payments, and insurance claims spanning the entire adjudication lifecycle (submitted → in-review → approved → partially-approved → denied → paid); plus the 65-symptom / 60-condition clinical reference catalogue. It is layered by [`database/seed_demo.py`](database/seed_demo.py) on top of the base seed and is idempotent (safe to re-run). To wipe it — every sample patient and all of their records, while **keeping** the medication / symptom / condition catalogue and the staff login accounts so the install stays usable — run:
+>
+> ```bash
+> ./uninstall.sh --demo-data-delete            # clear sample patients & their records
+> ./uninstall.sh --demo-data-delete --dry-run  # preview what would be cleared
+> ```
 
 ---
 

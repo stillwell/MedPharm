@@ -39,6 +39,7 @@ os.environ.setdefault("MEDPHARM_REQUIRE_TLS", "false")
 
 from database.db_manager import DatabaseManager
 from database.seed_data import seed_database
+from database.seed_demo import seed_demo_data
 from web.app import create_app
 
 
@@ -52,6 +53,9 @@ DATABASE_URL = os.environ.get("MEDPHARM_DATABASE_URL")
 db_manager = DatabaseManager(db_path=DB_PATH, database_url=DATABASE_URL)
 db_manager.init_db()
 seed_database(db_manager)
+# Complete the demo (symptoms/conditions, provider NPIs, today's appointments,
+# insurance claims). Idempotent; no-ops on an empty/patient-free database.
+seed_demo_data(db_manager)
 
 # Create the Flask app (usable by gunicorn as run_web:app)
 app = create_app(db_manager)
